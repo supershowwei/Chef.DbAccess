@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30413.136
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess", "Chef.DbAccess\Chef.DbAccess.csproj", "{74FA7A68-EB64-45F4-AC69-859BED452312}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess", "Chef.DbAccess\Chef.DbAccess.csproj", "{74FA7A68-EB64-45F4-AC69-859BED452312}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.SqlServer", "Chef.DbAccess.SqlServer\Chef.DbAccess.SqlServer.csproj", "{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{74FA7A68-EB64-45F4-AC69-859BED452312}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{74FA7A68-EB64-45F4-AC69-859BED452312}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{74FA7A68-EB64-45F4-AC69-859BED452312}.Release|Any CPU.Build.0 = Release|Any CPU
+		{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
