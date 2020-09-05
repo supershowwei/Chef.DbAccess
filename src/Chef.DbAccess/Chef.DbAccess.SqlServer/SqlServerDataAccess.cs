@@ -8,11 +8,14 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Transactions;
 using Chef.DbAccess.SqlServer.Extensions;
 using Dapper;
+
+[assembly: InternalsVisibleTo("Chef.DbAccess.SqlServer.Tests")]
 
 namespace Chef.DbAccess.SqlServer
 {
