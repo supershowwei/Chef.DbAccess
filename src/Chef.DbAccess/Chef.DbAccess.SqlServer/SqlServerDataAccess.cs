@@ -53,6 +53,16 @@ namespace Chef.DbAccess.SqlServer
 
         public Action<string, IDictionary<string, object>> OutputSql { get; set; }
 
+        public virtual T QueryOne(string sql, object param)
+        {
+            return this.ExecuteQueryOneAsync<T>(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        public virtual Task<T> QueryOneAsync(string sql, object param)
+        {
+            return this.ExecuteQueryOneAsync<T>(sql, param);
+        }
+
         public virtual T QueryOne(
             Expression<Func<T, bool>> predicate,
             IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
@@ -532,6 +542,16 @@ namespace Chef.DbAccess.SqlServer
                     return result.SingleOrDefault();
                 }
             }
+        }
+
+        public virtual List<T> Query(string sql, object param)
+        {
+            return this.ExecuteQueryAsync<T>(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        public virtual Task<List<T>> QueryAsync(string sql, object param)
+        {
+            return this.ExecuteQueryAsync<T>(sql, param);
         }
 
         public virtual List<T> Query(
@@ -1329,6 +1349,16 @@ WHERE ";
             return this.ExistsAsync(predicate).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
+        public virtual int Execute(string sql, object param)
+        {
+            return this.ExecuteCommandAsync(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        public virtual Task<int> ExecuteAsync(string sql, object param)
+        {
+            return this.ExecuteCommandAsync(sql, param);
+        }
+
         public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
             SqlBuilder sql = $@"
@@ -1678,21 +1708,21 @@ WHERE ";
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, IDictionary<string, object> parameters)
+        protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
         {
             using (var db = new SqlConnection(this.connectionString))
             {
-                var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, parameters);
+                var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
 
                 return result;
             }
         }
 
-        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, IDictionary<string, object> parameters)
+        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
             using (var db = new SqlConnection(this.connectionString))
             {
-                var result = await db.QueryAsync<TResult>(sql, parameters);
+                var result = await db.QueryAsync<TResult>(sql, param);
 
                 return result.ToList();
             }

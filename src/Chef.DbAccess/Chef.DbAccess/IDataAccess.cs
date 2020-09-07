@@ -23,6 +23,10 @@ namespace Chef.DbAccess
 
         Action<string, IDictionary<string, object>> OutputSql { get; set; }
 
+        T QueryOne(string sql, object param);
+
+        Task<T> QueryOneAsync(string sql, object param);
+
         T QueryOne(
             Expression<Func<T, bool>> predicate,
             IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
@@ -190,6 +194,10 @@ namespace Chef.DbAccess
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
             int? skipped = null,
             int? taken = null);
+
+        List<T> Query(string sql, object param);
+
+        Task<List<T>> QueryAsync(string sql, object param);
 
         List<T> Query(
             Expression<Func<T, bool>> predicate,
@@ -444,6 +452,10 @@ namespace Chef.DbAccess
         bool Exists(Expression<Func<T, bool>> predicate);
 
         Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate);
+
+        int Execute(string sql, object param);
+
+        Task<int> ExecuteAsync(string sql, object param);
 
         int Insert(T value);
 
