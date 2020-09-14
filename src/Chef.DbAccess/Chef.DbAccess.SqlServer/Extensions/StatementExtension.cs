@@ -1034,6 +1034,25 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     sb.Remove(sb.Length - 4, 4);
                 }
             }
+            else if (expr is MemberExpression memberExpr && memberExpr.Expression is ParameterExpression parameterExpr)
+            {
+                var alias = aliasMap[parameterExpr.Name];
+                var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
+                var parameterName = memberExpr.Member.Name;
+                var columnName = columnAttribute?.Name ?? parameterName;
+                var parameterType = (memberExpr.Member as PropertyInfo)?.PropertyType ?? memberExpr.Member.DeclaringType;
+
+                if (parameters != null)
+                {
+                    object value = null;
+
+                    if (parameterType == typeof(bool)) value = true;
+
+                    if (value != null) SetParameter(memberExpr.Member, value, columnAttribute, parameters, out parameterName);
+                }
+
+                sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+            }
         }
 
         private static void ParseJoinCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters)

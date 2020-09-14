@@ -89,6 +89,28 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_Single_Boolean_will_be_a_Clause()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.IsActive;
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("[IsActive] = {=IsActive_0}");
+            parameters["IsActive_0"].Should().Be(true);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_Single_Boolean_will_be_a_Clause_with_Alias()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.Enabled;
+
+            var searchCondition = predicate.ToSearchCondition("m", out var parameters);
+
+            searchCondition.Should().Be("[m].[IsActive] = {=Enabled_0}");
+            parameters["Enabled_0"].Should().Be(true);
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_Square_Brackets_around_Alias()
         {
             Expression<Func<AbcStu, bool>> predicate = x => x.Id == "abc";
@@ -917,6 +939,11 @@ namespace Chef.DbAccess.SqlServer.Tests
         public double Seniority { get; set; }
 
         public int Age { get; set; }
+
+        public bool IsActive { get; set; }
+
+        [Column("IsActive")]
+        public bool Enabled { get; set; }
 
         public int SubordinateCount { get; set; }
 
