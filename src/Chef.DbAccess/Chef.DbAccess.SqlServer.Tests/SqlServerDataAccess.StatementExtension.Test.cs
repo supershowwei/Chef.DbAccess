@@ -726,6 +726,41 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSetStatements_with_Variable()
+        {
+            var obj = new { FirstName1 = "abab", LastName1 = "baba" };
+
+            Expression<Func<Member>> setters = () => new Member { FirstName = obj.FirstName1, LastName = obj.LastName1 };
+
+            var setStatements = setters.ToSetStatements("kkk", out var parameters);
+
+            setStatements.Should().Be("[kkk].[first_name] = @FirstName_0, [kkk].[last_name] = @LastName_0");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("abab");
+            parameters["LastName_0"].Should().Be("baba");
+        }
+
+        [TestMethod]
+        public void Test_ToSetStatements_with_Alias_and_FieldSets()
+        {
+            var memberFieldSets = new MemberFieldSets
+                                  {
+                                      Id = 123,
+                                      Age = FieldSet.Create(20),
+                                      FirstName = FieldSet.Create("abab"),
+                                      LastName = FieldSet.Create("baba")
+                                  };
+
+            var setters = memberFieldSets.ToSetters<Member>();
+
+            var setStatements = setters.ToSetStatements("kkk", out var parameters);
+
+            setStatements.Should().Be("[kkk].[Age] = {=Age_0}, [kkk].[first_name] = @FirstName_0, [kkk].[last_name] = @LastName_0");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("abab");
+            parameters["LastName_0"].Should().Be("baba");
+            parameters["Age_0"].Should().Be(20);
+        }
+
+        [TestMethod]
         public void Test_ToSetStatements_for_Multiply()
         {
             Expression<Func<Member>> setters = () =>
@@ -998,5 +1033,69 @@ namespace Chef.DbAccess.SqlServer.Tests
     internal class AbcStu
     {
         public string Id { get; set; }
+    }
+
+    internal abstract class FieldSet
+    {
+        public static FieldSet<T> Create<T>(T value)
+        {
+            return new FieldSet<T> { Value = value };
+        }
+
+        public abstract object GetValue();
+    }
+
+    internal class FieldSet<T> : FieldSet
+    {
+        public T Value { get; set; }
+
+        public override object GetValue()
+        {
+            return this.Value;
+        }
+    }
+
+    internal abstract class FieldSets
+    {
+        public Expression<Func<T>> ToSetters<T>()
+        {
+            var sourceType = this.GetType();
+            var targetType = typeof(T);
+
+            var sourceProps = sourceType.GetProperties().ToDictionary(p => p.Name, p => p);
+            var targetProps = targetType.GetProperties().ToDictionary(p => p.Name, p => p);
+
+            var memberBindings = sourceProps.Aggregate(
+                new List<MemberAssignment>(),
+                (accu, next) =>
+                    {
+                        if (!next.Value.PropertyType.IsSubclassOf(typeof(FieldSet))) return accu;
+                        if (!targetProps.ContainsKey(next.Key)) return accu;
+
+                        if (next.Value.GetValue(this) is FieldSet fieldSet)
+                        {
+                            accu.Add(Expression.Bind(targetProps[next.Key], Expression.Constant(fieldSet.GetValue())));
+                        }
+
+                        return accu;
+                    });
+
+            var memberInit = Expression.MemberInit(Expression.New(targetType), memberBindings);
+
+            return (Expression<Func<T>>)Expression.Lambda(memberInit);
+        }
+    }
+
+    internal class MemberFieldSets : FieldSets
+    {
+        public int Id { get; set; }
+
+        public FieldSet<int> Age { get; set; }
+
+        public FieldSet<string> FirstName { get; set; }
+
+        public FieldSet<string> LastName { get; set; }
+
+        public FieldSet<bool> IsActive { get; set; }
     }
 }
