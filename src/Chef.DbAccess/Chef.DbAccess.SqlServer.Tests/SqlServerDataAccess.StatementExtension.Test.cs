@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -750,7 +751,7 @@ namespace Chef.DbAccess.SqlServer.Tests
                                       LastName = FieldSet.Create("baba")
                                   };
 
-            var setters = memberFieldSets.ToSetters<Member>();
+            var setters = memberFieldSets.ToSetters();
 
             var setStatements = setters.ToSetStatements("kkk", out var parameters);
 
@@ -955,6 +956,25 @@ namespace Chef.DbAccess.SqlServer.Tests
                 .Throw<ArgumentException>()
                 .WithMessage("Member can not applied [NotMapped].");
         }
+
+        [TestMethod]
+        public void Test_FieldSets_ToObject()
+        {
+            var memberFieldSets = new MemberFieldSets
+                                  {
+                                      Id = 123,
+                                      Age = FieldSet.Create(20),
+                                      FirstName = FieldSet.Create("abab"),
+                                      LastName = FieldSet.Create("baba")
+                                  };
+
+            var member = memberFieldSets.ToObject();
+
+            member.Id.Should().Be(123);
+            member.Age.Should().Be(20);
+            member.FirstName.Should().Be("abab");
+            member.LastName.Should().Be("baba");
+        }
     }
 
     internal class Member
@@ -1055,21 +1075,22 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
     }
 
-    internal abstract class FieldSets
+    internal abstract class FieldSets<TTarget>
     {
-        public Expression<Func<T>> ToSetters<T>()
-        {
-            var sourceType = this.GetType();
-            var targetType = typeof(T);
+        private static readonly ConcurrentDictionary<string, Delegate> Converters = new ConcurrentDictionary<string, Delegate>();
 
-            var sourceProps = sourceType.GetProperties().ToDictionary(p => p.Name, p => p);
+        public Expression<Func<TTarget>> ToSetters()
+        {
+            var fieldSetsType = this.GetType();
+            var targetType = typeof(TTarget);
+
+            var fieldSetsProps = fieldSetsType.GetProperties().ToDictionary(p => p.Name, p => p);
             var targetProps = targetType.GetProperties().ToDictionary(p => p.Name, p => p);
 
-            var memberBindings = sourceProps.Aggregate(
+            var memberBindings = fieldSetsProps.Aggregate(
                 new List<MemberAssignment>(),
                 (accu, next) =>
                     {
-                        if (!next.Value.PropertyType.IsSubclassOf(typeof(FieldSet))) return accu;
                         if (!targetProps.ContainsKey(next.Key)) return accu;
 
                         if (next.Value.GetValue(this) is FieldSet fieldSet)
@@ -1082,11 +1103,73 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var memberInit = Expression.MemberInit(Expression.New(targetType), memberBindings);
 
-            return (Expression<Func<T>>)Expression.Lambda(memberInit);
+            return (Expression<Func<TTarget>>)Expression.Lambda(memberInit);
+        }
+
+        public TTarget ToObject()
+        {
+            var fieldSetsType = this.GetType();
+            var targetType = typeof(TTarget);
+
+            var converterKey = $"{fieldSetsType.FullName} -> {targetType.FullName}";
+
+            var converter = (Func<object, TTarget>)Converters.GetOrAdd(converterKey, key => CreateConverter(fieldSetsType, targetType));
+
+            return converter(this);
+        }
+
+        private static Delegate CreateConverter(Type fieldSetsType, Type targetType)
+        {
+            var fieldSetsProps = fieldSetsType.GetProperties().ToDictionary(p => p.Name, p => p);
+            var targetProps = targetType.GetProperties().ToDictionary(p => p.Name, p => p);
+
+            var fieldSetsParameter = Expression.Parameter(typeof(object), "obj");
+
+            var fieldSetsVariable = Expression.Variable(fieldSetsType, "fieldSets");
+
+            var fieldSetsAssign = Expression.Assign(fieldSetsVariable, Expression.Convert(fieldSetsParameter, fieldSetsType));
+
+            var targetVariable = Expression.Variable(targetType, "target");
+
+            var targetAssign = Expression.Assign(targetVariable, Expression.New(targetType));
+
+            var expressions = fieldSetsProps.Aggregate(
+                new List<Expression> { fieldSetsAssign, targetAssign },
+                (accu, next) =>
+                    {
+                        if (!targetProps.TryGetValue(next.Key, out var targetProp)) return accu;
+
+                        var fieldSetProp = Expression.Property(fieldSetsVariable, next.Key);
+
+                        if (next.Value.PropertyType.IsSubclassOf(typeof(FieldSet)))
+                        {
+                            accu.Add(
+                                Expression.IfThen(
+                                    Expression.NotEqual(fieldSetProp, Expression.Constant(null, typeof(FieldSet))),
+                                    Expression.Assign(
+                                        Expression.Property(targetVariable, next.Key),
+                                        Expression.Convert(Expression.Call(fieldSetProp, "GetValue", null), targetProp.PropertyType))));
+                        }
+                        else
+                        {
+                            accu.Add(Expression.Assign(Expression.Property(targetVariable, next.Key), fieldSetProp));
+                        }
+
+                        return accu;
+                    });
+
+            var returnLabel = Expression.Label(targetType);
+
+            expressions.Add(Expression.Return(returnLabel, targetVariable));
+            expressions.Add(Expression.Label(returnLabel, Expression.Default(targetType)));
+
+            var block = Expression.Block(new[] { fieldSetsVariable, targetVariable }, expressions);
+
+            return Expression.Lambda(block, fieldSetsParameter).Compile();
         }
     }
 
-    internal class MemberFieldSets : FieldSets
+    internal class MemberFieldSets : FieldSets<Member>
     {
         public int Id { get; set; }
 
