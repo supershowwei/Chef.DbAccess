@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.SqlServer.Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.NET451", "Chef.DbAccess.NET451\Chef.DbAccess.NET451.csproj", "{DC24F70C-B8D9-41B2-83B8-6159BA3E75F2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.SqlServer.NET451", "Chef.DbAccess.SqlServer.NET451\Chef.DbAccess.SqlServer.NET451.csproj", "{ABCF5BAF-7058-4119-94F1-5597BB164928}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{DC24F70C-B8D9-41B2-83B8-6159BA3E75F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DC24F70C-B8D9-41B2-83B8-6159BA3E75F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DC24F70C-B8D9-41B2-83B8-6159BA3E75F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ABCF5BAF-7058-4119-94F1-5597BB164928}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ABCF5BAF-7058-4119-94F1-5597BB164928}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ABCF5BAF-7058-4119-94F1-5597BB164928}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ABCF5BAF-7058-4119-94F1-5597BB164928}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
