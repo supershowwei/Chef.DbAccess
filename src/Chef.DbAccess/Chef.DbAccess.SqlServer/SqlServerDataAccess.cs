@@ -55,7 +55,7 @@ namespace Chef.DbAccess.SqlServer
 
         public virtual T QueryOne(string sql, object param)
         {
-            return this.ExecuteQueryOneAsync<T>(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
+            return this.ExecuteQueryOne<T>(sql, param);
         }
 
         public virtual Task<T> QueryOneAsync(string sql, object param)
@@ -72,7 +72,9 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
+
+            return this.ExecuteQueryOne<T>(sql, parameters);
         }
 
         public virtual Task<T> QueryOneAsync(
@@ -84,11 +86,7 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            var (sql, parameters) = GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
 
             return this.ExecuteQueryOneAsync<T>(sql, parameters);
         }
@@ -103,7 +101,35 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, T>(
+                    sql,
+                    (first, second) =>
+                        {
+                            secondSetter(first, second);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond>(
@@ -127,10 +153,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -169,7 +191,37 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, thirdJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, TThird, T>(
+                    sql,
+                    (first, second, third) =>
+                        {
+                            secondSetter(first, second);
+                            thirdSetter(first, second, third);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond, TThird>(
@@ -195,10 +247,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -239,7 +287,39 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, thirdJoin, fourthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, TThird, TFourth, T>(
+                    sql,
+                    (first, second, third, fourth) =>
+                        {
+                            secondSetter(first, second);
+                            thirdSetter(first, second, third);
+                            fourthSetter(first, second, third, fourth);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth>(
@@ -267,10 +347,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -313,7 +389,41 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                fifthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, T>(
+                    sql,
+                    (first, second, third, fourth, fifth) =>
+                        {
+                            secondSetter(first, second);
+                            thirdSetter(first, second, third);
+                            fourthSetter(first, second, third, fourth);
+                            fifthSetter(first, second, third, fourth, fifth);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth>(
@@ -343,10 +453,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -391,7 +497,43 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                fifthJoin,
+                sixthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
+                    sql,
+                    (first, second, third, fourth, fifth, sixth) =>
+                        {
+                            secondSetter(first, second);
+                            thirdSetter(first, second, third);
+                            fourthSetter(first, second, third, fourth);
+                            fifthSetter(first, second, third, fourth, fifth);
+                            sixthSetter(first, second, third, fourth, fifth, sixth);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -423,10 +565,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -473,7 +611,46 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryOneAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) =
+                this.GenerateQueryStatement(
+                    this.tableName,
+                    this.alias,
+                    secondJoin,
+                    thirdJoin,
+                    fourthJoin,
+                    fifthJoin,
+                    sixthJoin,
+                    seventhJoin,
+                    predicate,
+                    orderings,
+                    selector,
+                    groupingColumns,
+                    groupingSelector,
+                    skipped,
+                    taken);
+
+            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
+                    sql,
+                    (first, second, third, fourth, fifth, sixth, seventh) =>
+                        {
+                            secondSetter(first, second);
+                            thirdSetter(first, second, third);
+                            fourthSetter(first, second, third, fourth);
+                            fifthSetter(first, second, third, fourth, fifth);
+                            sixthSetter(first, second, third, fourth, fifth, sixth);
+                            seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
+
+                            return first;
+                        },
+                    parameters,
+                    splitOn: splitOn);
+
+                return result.SingleOrDefault();
+            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -508,10 +685,6 @@ namespace Chef.DbAccess.SqlServer
                     groupingSelector,
                     skipped,
                     taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -563,7 +736,9 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
+
+            return this.ExecuteQuery<T>(sql, parameters);
         }
 
         public virtual Task<List<T>> QueryAsync(
@@ -575,11 +750,7 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            var (sql, parameters) = GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
 
             return this.ExecuteQueryAsync<T>(sql, parameters);
         }
@@ -594,7 +765,34 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, T>(
+                        sql,
+                        (first, second) =>
+                            {
+                                secondSetter(first, second);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond>(
@@ -618,10 +816,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -660,7 +854,36 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, thirdJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, TThird, T>(
+                        sql,
+                        (first, second, third) =>
+                            {
+                                secondSetter(first, second);
+                                thirdSetter(first, second, third);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird>(
@@ -686,10 +909,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -730,7 +949,38 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, thirdJoin, fourthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, TThird, TFourth, T>(
+                        sql,
+                        (first, second, third, fourth) =>
+                            {
+                                secondSetter(first, second);
+                                thirdSetter(first, second, third);
+                                fourthSetter(first, second, third, fourth);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth>(
@@ -758,10 +1008,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -804,7 +1050,40 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                fifthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, TThird, TFourth, TFifth, T>(
+                        sql,
+                        (first, second, third, fourth, fifth) =>
+                            {
+                                secondSetter(first, second);
+                                thirdSetter(first, second, third);
+                                fourthSetter(first, second, third, fourth);
+                                fifthSetter(first, second, third, fourth, fifth);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth>(
@@ -834,10 +1113,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -882,7 +1157,42 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                fifthJoin,
+                sixthJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
+                        sql,
+                        (first, second, third, fourth, fifth, sixth) =>
+                            {
+                                secondSetter(first, second);
+                                thirdSetter(first, second, third);
+                                fourthSetter(first, second, third, fourth);
+                                fifthSetter(first, second, third, fourth, fifth);
+                                sixthSetter(first, second, third, fourth, fifth, sixth);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -914,10 +1224,6 @@ namespace Chef.DbAccess.SqlServer
                 groupingSelector,
                 skipped,
                 taken);
-
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
 
             if (groupingSelector != null)
             {
@@ -964,7 +1270,44 @@ namespace Chef.DbAccess.SqlServer
             int? skipped = null,
             int? taken = null)
         {
-            return this.QueryAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) = this.GenerateQueryStatement(
+                this.tableName,
+                this.alias,
+                secondJoin,
+                thirdJoin,
+                fourthJoin,
+                fifthJoin,
+                sixthJoin,
+                seventhJoin,
+                predicate,
+                orderings,
+                selector,
+                groupingColumns,
+                groupingSelector,
+                skipped,
+                taken);
+
+            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
+
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
+                        sql,
+                        (first, second, third, fourth, fifth, sixth, seventh) =>
+                            {
+                                secondSetter(first, second);
+                                thirdSetter(first, second, third);
+                                fourthSetter(first, second, third, fourth);
+                                fifthSetter(first, second, third, fourth, fifth);
+                                sixthSetter(first, second, third, fourth, fifth, sixth);
+                                seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
+
+                                return first;
+                            },
+                        parameters,
+                        splitOn: splitOn)
+                    .ToList();
+            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -999,10 +1342,6 @@ namespace Chef.DbAccess.SqlServer
                 skipped,
                 taken);
 
-            if (!this.IsDirtyRead) sql = sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
-
             if (groupingSelector != null)
             {
                 var result = await this.ExecuteQueryAsync<T>(sql, parameters);
@@ -1036,31 +1375,14 @@ namespace Chef.DbAccess.SqlServer
 
         public virtual int Count(Expression<Func<T, bool>> predicate)
         {
-            return this.CountAsync(predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync(Expression<Func<T, bool>> predicate)
         {
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1069,37 +1391,16 @@ WHERE ";
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1109,7 +1410,9 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, thirdJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird>(
@@ -1117,31 +1420,7 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1152,7 +1431,9 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, thirdJoin, fourthJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth>(
@@ -1161,32 +1442,7 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1198,7 +1454,9 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth>(
@@ -1208,33 +1466,7 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1247,7 +1479,9 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -1258,34 +1492,7 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5), GenerateAlias(typeof(TSixth), 6) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
@@ -1299,7 +1506,9 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
         {
-            return this.CountAsync(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate);
+
+            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -1311,47 +1520,28 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
         {
-            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5), GenerateAlias(typeof(TSixth), 6), GenerateAlias(typeof(TSeventh), 7) };
-
-            SqlBuilder sql = $@"
-SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item2, seventhJoin.Item3, aliases, parameters);
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += ";";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
+            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
 
         public virtual bool Exists(Expression<Func<T, bool>> predicate)
         {
-            return this.ExistsAsync(predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateExistsStatement(predicate);
+
+            return this.ExecuteQueryOne<bool>(sql, parameters);
+        }
+
+        public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
+        {
+            var (sql, parameters) = this.GenerateExistsStatement(predicate);
+
+            return this.ExecuteQueryOneAsync<bool>(sql, parameters);
         }
 
         public virtual int Execute(string sql, object param)
         {
-            return this.ExecuteCommandAsync(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
+            return this.ExecuteCommand(sql, param);
         }
 
         public virtual Task<int> ExecuteAsync(string sql, object param)
@@ -1359,332 +1549,172 @@ WHERE ";
             return this.ExecuteCommandAsync(sql, param);
         }
 
-        public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
-        {
-            SqlBuilder sql = $@"
-SELECT
-    CAST(CASE
-        WHEN
-            EXISTS (SELECT
-                    1
-                FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            sql += @") THEN 1
-        ELSE 0
-    END AS BIT);";
-
-            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
-
-            this.OutputSql?.Invoke(sql, parameters);
-
-            return this.ExecuteQueryOneAsync<bool>(sql, parameters);
-        }
-
         public virtual int Insert(T value)
         {
-            return this.InsertAsync(value).ConfigureAwait(false).GetAwaiter().GetResult();
+            var sql = this.GenerateInsertStatement();
+
+            return this.ExecuteCommand(sql, value);
         }
 
         public virtual Task<int> InsertAsync(T value)
         {
-            var requiredColumns = RequiredColumns.GetOrAdd(
-                typeof(T),
-                type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
-
-            if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
-
-            var columnList = requiredColumns.ToColumnList(out var valueList);
-
-            var sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    VALUES ({valueList});";
-
-            this.OutputSql?.Invoke(sql, null);
+            var sql = this.GenerateInsertStatement();
 
             return this.ExecuteCommandAsync(sql, value);
         }
 
         public virtual int Insert(Expression<Func<T>> setter)
         {
-            return this.InsertAsync(setter).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateInsertStatement(setter, true);
+
+            return this.ExecuteCommand(sql, parameters);
         }
 
         public virtual Task<int> InsertAsync(Expression<Func<T>> setter)
         {
-            var columnList = setter.ToColumnList(out var valueList, out var parameters);
-
-            var sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    VALUES ({valueList});";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, parameters) = this.GenerateInsertStatement(setter, true);
 
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual int Insert(IEnumerable<T> values)
         {
-            return this.InsertAsync(values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var sql = this.GenerateInsertStatement();
+
+            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
         }
 
         public virtual Task<int> InsertAsync(IEnumerable<T> values)
         {
-            var requiredColumns = RequiredColumns.GetOrAdd(
-                typeof(T),
-                type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
-
-            if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
-
-            var columnList = requiredColumns.ToColumnList(out var valueList);
-
-            var sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    VALUES ({valueList});";
-
-            this.OutputSql?.Invoke(sql, null);
+            var sql = this.GenerateInsertStatement();
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual int Insert(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.InsertAsync(setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
         }
 
         public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var columnList = setterTemplate.ToColumnList(out var valueList);
-
-            var sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    VALUES ({valueList});";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual int BulkInsert(IEnumerable<T> values)
         {
-            return this.BulkInsertAsync(values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
+
+            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkInsertAsync(IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
-
-            var requiredColumns = RequiredColumns.GetOrAdd(
-                typeof(T),
-                type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
-
-            if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
-
-            var columnList = requiredColumns.ToColumnList(out _);
-
-            SqlBuilder sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-    FROM @TableVariable tvp;";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
 
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual int BulkInsert(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.BulkInsertAsync(setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
+
+            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
-
-            var columnList = setterTemplate.ToColumnList(out _);
-
-            SqlBuilder sql = $@"
-INSERT INTO {this.tableName}({columnList})
-    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-    FROM @TableVariable tvp;";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
 
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual int Update(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
         {
-            return this.UpdateAsync(predicate, setter).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateUpdateStatement(predicate, setter, true);
+
+            return this.ExecuteCommand(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
         {
-            SqlBuilder sql = $@"
-UPDATE {this.tableName}
-SET ";
-            sql += setter.ToSetStatements(out var parameters);
-            sql += @"
-WHERE ";
-            sql += predicate.ToSearchCondition(parameters);
-            sql += ";";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, parameters) = this.GenerateUpdateStatement(predicate, setter, true);
 
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual int Update(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.UpdateAsync(predicateTemplate, setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var sql = new SqlBuilder();
-
-            sql += $@"
-UPDATE {this.tableName}
-SET ";
-            sql += setterTemplate.ToSetStatements();
-            sql += @"
-WHERE ";
-            sql += predicateTemplate.ToSearchCondition();
-            sql += ";";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual int BulkUpdate(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.BulkUpdateAsync(predicateTemplate, setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, tableType, tableVariable) = this.GenerateBulkUpdateStatement(predicateTemplate, setterTemplate, values);
+
+            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkUpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
-
-            var columnList = setterTemplate.ToColumnList(out _);
-            var searchCondition = predicateTemplate.ToSearchCondition();
-
-            var sql = $@"
-UPDATE {this.tableName}
-SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-FROM {this.tableName} t
-INNER JOIN @TableVariable tvp
-    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, tableType, tableVariable) = this.GenerateBulkUpdateStatement(predicateTemplate, setterTemplate, values);
 
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual int Upsert(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
         {
-            return this.UpsertAsync(predicate, setter).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true);
+
+            return Transaction.Current != null ? this.ExecuteCommand(sql, parameters) : this.ExecuteTransactionalCommand(sql, parameters);
         }
 
         public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
         {
-            SqlBuilder sql = $@"
-UPDATE {this.tableName}
-SET ";
-            sql += setter.ToSetStatements(out var parameters);
-            sql += @"
-WHERE ";
-            sql += predicate.ToSearchCondition(parameters);
-            sql += ";";
-
-            var (columnList, valueList) = ResolveColumnList(sql);
-
-            sql.Append("\r\n");
-            sql += $@"
-IF @@rowcount = 0
-    BEGIN
-        INSERT INTO {this.tableName}({columnList})
-            VALUES ({valueList});
-    END";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, parameters) : this.ExecuteTransactionalCommandAsync(sql, parameters);
         }
 
         public virtual int Upsert(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.UpsertAsync(predicateTemplate, setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
         }
 
         public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            SqlBuilder sql = $@"
-UPDATE {this.tableName}
-SET ";
-            sql += setterTemplate.ToSetStatements();
-            sql += @"
-WHERE ";
-            sql += predicateTemplate.ToSearchCondition();
-            sql += ";";
-
-            var (columnList, valueList) = ResolveColumnList(sql);
-
-            sql.Append("\r\n");
-            sql += $@"
-IF @@rowcount = 0
-    BEGIN
-        INSERT INTO {this.tableName}({columnList})
-            VALUES ({valueList});
-    END";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual int BulkUpsert(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            return this.BulkUpsertAsync(predicateTemplate, setterTemplate, values).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
+
+            return Transaction.Current != null
+                       ? this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
+                       : this.ExecuteTransactionalCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
-
-            var columnList = setterTemplate.ToColumnList(out _);
-            var searchCondition = predicateTemplate.ToSearchCondition();
-
-            SqlBuilder sql = $@"
-UPDATE {this.tableName}
-SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-FROM {this.tableName} t
-INNER JOIN @TableVariable tvp
-    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
-
-            (columnList, _) = ResolveColumnList(sql);
-
-            sql.Append("\r\n");
-            sql += $@"
-INSERT INTO {this.tableName}({columnList})
-    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
-    FROM @TableVariable tvp
-    WHERE NOT EXISTS (SELECT
-                1
-            FROM {this.tableName} t WITH (NOLOCK)
-            WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
 
             return Transaction.Current != null
                        ? this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
@@ -1693,19 +1723,24 @@ INSERT INTO {this.tableName}({columnList})
 
         public virtual int Delete(Expression<Func<T, bool>> predicate)
         {
-            return this.DeleteAsync(predicate).ConfigureAwait(false).GetAwaiter().GetResult();
+            var (sql, parameters) = this.GenerateDeleteStatement(predicate);
+
+            return this.ExecuteCommand(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync(Expression<Func<T, bool>> predicate)
         {
-            SqlBuilder sql = $@"
-DELETE FROM {this.tableName}
-WHERE ";
-            sql += predicate.ToSearchCondition(out var parameters);
-
-            this.OutputSql?.Invoke(sql, null);
+            var (sql, parameters) = this.GenerateDeleteStatement(predicate);
 
             return this.ExecuteCommandAsync(sql, parameters);
+        }
+
+        protected virtual TResult ExecuteQueryOne<TResult>(string sql, object param)
+        {
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.QuerySingleOrDefault<TResult>(sql, param);
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
@@ -1715,6 +1750,14 @@ WHERE ";
                 var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
 
                 return result;
+            }
+        }
+
+        protected virtual List<TResult> ExecuteQuery<TResult>(string sql, object param)
+        {
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Query<TResult>(sql, param).ToList();
             }
         }
 
@@ -1728,6 +1771,14 @@ WHERE ";
             }
         }
 
+        protected virtual int ExecuteCommand(string sql, object param)
+        {
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                return db.Execute(sql, param);
+            }
+        }
+
         protected virtual async Task<int> ExecuteCommandAsync(string sql, object param)
         {
             using (var db = new SqlConnection(this.connectionString))
@@ -1736,6 +1787,32 @@ WHERE ";
 
                 return result;
             }
+        }
+
+        protected virtual int ExecuteTransactionalCommand(string sql, object param)
+        {
+            int result;
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                db.Open();
+
+                using (var tx = db.BeginTransaction())
+                {
+                    try
+                    {
+                        result = db.Execute(sql, param, transaction: tx);
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+
+            return result;
         }
 
         protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)
@@ -1773,98 +1850,6 @@ WHERE ";
             alias = string.Concat(alias, "_", suffixNo.ToString());
 
             return alias;
-        }
-
-        private static (string, IDictionary<string, object>) GenerateQueryStatement(
-            string tableName,
-            string alias,
-            Expression<Func<T, bool>> predicate,
-            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
-            Expression<Func<T, object>> selector = null,
-            Expression<Func<T, object>> groupingColumns = null,
-            Expression<Func<Grouping<T>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            if (groupingColumns != null && groupingSelector == null) throw new ArgumentException("Must has grouping selection.");
-
-            SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
-
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
-            if (groupingSelector != null)
-            {
-                sql += groupingSelector.ToGroupingSelectList(new[] { alias });
-            }
-            else if (selector != null)
-            {
-                sql += selector.ToSelectList(alias);
-            }
-            else
-            {
-                throw new ArgumentException("Must be at least one column selected.");
-            }
-
-            sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
-
-            var parameters = new Dictionary<string, object>();
-
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters);
-
-            if (!string.IsNullOrEmpty(searchCondition))
-            {
-                sql += @"
-WHERE ";
-                sql += searchCondition;
-            }
-
-            var groupingExpression = groupingColumns == null ? string.Empty : groupingColumns.ToGroupingColumns(new[] { alias });
-
-            if (!string.IsNullOrEmpty(groupingExpression))
-            {
-                sql += @"
-GROUP BY ";
-                sql += groupingExpression;
-            }
-
-            if (groupingSelector != null)
-            {
-                sql += @"
-) [__T__]";
-            }
-
-            var orderExpressions = orderings.ToOrderExpressions(groupingSelector != null ? string.Empty : alias);
-
-            if (!string.IsNullOrEmpty(orderExpressions))
-            {
-                sql += @"
-ORDER BY ";
-                sql += orderExpressions;
-            }
-
-            if (skipped.HasValue)
-            {
-                sql += $@"
-OFFSET {skipped.Value} ROWS";
-
-                if (taken.HasValue)
-                {
-                    sql += $@"
-FETCH NEXT {taken.Value} ROWS ONLY";
-                }
-            }
-
-            sql += ";";
-
-            return (sql, parameters);
         }
 
         private static Action<T, TSecond> GetOrCreateSetter<TSecond>(Expression<Func<T, TSecond>> lambdaExpr)
@@ -2140,6 +2125,103 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             return (string.Join(", ", columnList.Keys), string.Join(", ", columnList.Values));
         }
 
+        private (string, IDictionary<string, object>) GenerateQueryStatement(
+            string tableName,
+            string alias,
+            Expression<Func<T, bool>> predicate,
+            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
+            Expression<Func<T, object>> selector = null,
+            Expression<Func<T, object>> groupingColumns = null,
+            Expression<Func<Grouping<T>, T>> groupingSelector = null,
+            int? skipped = null,
+            int? taken = null)
+        {
+            if (groupingColumns != null && groupingSelector == null) throw new ArgumentException("Must has grouping selection.");
+
+            SqlBuilder sql = $@"
+SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+
+            if (groupingSelector != null)
+            {
+                sql += "* FROM";
+                sql += @"
+(
+SELECT ";
+            }
+
+            if (groupingSelector != null)
+            {
+                sql += groupingSelector.ToGroupingSelectList(new[] { alias });
+            }
+            else if (selector != null)
+            {
+                sql += selector.ToSelectList(alias);
+            }
+            else
+            {
+                throw new ArgumentException("Must be at least one column selected.");
+            }
+
+            sql += $@"
+FROM {tableName} [{alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            var groupingExpression = groupingColumns == null ? string.Empty : groupingColumns.ToGroupingColumns(new[] { alias });
+
+            if (!string.IsNullOrEmpty(groupingExpression))
+            {
+                sql += @"
+GROUP BY ";
+                sql += groupingExpression;
+            }
+
+            if (groupingSelector != null)
+            {
+                sql += @"
+) [__T__]";
+            }
+
+            var orderExpressions = orderings.ToOrderExpressions(groupingSelector != null ? string.Empty : alias);
+
+            if (!string.IsNullOrEmpty(orderExpressions))
+            {
+                sql += @"
+ORDER BY ";
+                sql += orderExpressions;
+            }
+
+            if (skipped.HasValue)
+            {
+                sql += $@"
+OFFSET {skipped.Value} ROWS";
+
+                if (taken.HasValue)
+                {
+                    sql += $@"
+FETCH NEXT {taken.Value} ROWS ONLY";
+                }
+            }
+
+            sql += ";";
+
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
         private (string, IDictionary<string, object>, string, Action<T, TSecond>) GenerateQueryStatement<TSecond>(
             string tableName,
             string alias,
@@ -2239,6 +2321,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             sql += ";";
 
             var secondSetter = GetOrCreateSetter(secondJoin.Item1);
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters, splitOn, secondSetter);
         }
@@ -2345,6 +2431,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             var secondSetter = GetOrCreateSetter(secondJoin.Item1);
             var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters, splitOn, secondSetter, thirdSetter);
         }
@@ -2454,6 +2544,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var secondSetter = GetOrCreateSetter(secondJoin.Item1);
             var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
             var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter);
         }
@@ -2566,6 +2660,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
             var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
             var fifthSetter = GetOrCreateSetter(fifthJoin.Item1);
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter);
         }
@@ -2681,6 +2779,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
             var fifthSetter = GetOrCreateSetter(fifthJoin.Item1);
             var sixthSetter = GetOrCreateSetter(sixthJoin.Item1);
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter);
         }
@@ -2800,7 +2902,505 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var sixthSetter = GetOrCreateSetter(sixthJoin.Item1);
             var seventhSetter = GetOrCreateSetter(seventhJoin.Item1);
 
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
             return (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement(Expression<Func<T, bool>> predicate)
+        {
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            Expression<Func<T, TSecond, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            Expression<Func<T, TSecond, TThird, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6),
+                              GenerateAlias(typeof(TSeventh), 7)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT COUNT(*)
+FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item2, seventhJoin.Item3, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += ";";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement(Expression<Func<T, bool>> predicate)
+        {
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private string GenerateInsertStatement()
+        {
+            var requiredColumns = RequiredColumns.GetOrAdd(
+                typeof(T),
+                type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
+
+            if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
+
+            var columnList = requiredColumns.ToColumnList(out var valueList);
+
+            var sql = $@"
+INSERT INTO {this.tableName}({columnList})
+    VALUES ({valueList});";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return sql;
+        }
+
+        private (string, IDictionary<string, object>) GenerateInsertStatement(Expression<Func<T>> setter, bool outParameters)
+        {
+            string valueList;
+            IDictionary<string, object> parameters = null;
+
+            var columnList = outParameters ? setter.ToColumnList(out valueList, out parameters) : setter.ToColumnList(out valueList);
+
+            var sql = $@"
+INSERT INTO {this.tableName}({columnList})
+    VALUES ({valueList});";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values)
+        {
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+
+            var requiredColumns = RequiredColumns.GetOrAdd(
+                typeof(T),
+                type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
+
+            if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
+
+            var columnList = requiredColumns.ToColumnList(out _);
+
+            var sql = $@"
+INSERT INTO {this.tableName}({columnList})
+    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+    FROM @TableVariable tvp;";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, tableType, tableVariable);
+        }
+
+        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        {
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+
+            var columnList = setterTemplate.ToColumnList(out _);
+
+            var sql = $@"
+INSERT INTO {this.tableName}({columnList})
+    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+    FROM @TableVariable tvp;";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, tableType, tableVariable);
+        }
+
+        private (string, IDictionary<string, object>) GenerateUpdateStatement(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, bool outParameters)
+        {
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE {this.tableName}
+SET ";
+            sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(parameters) : predicate.ToSearchCondition();
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        {
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+
+            var columnList = setterTemplate.ToColumnList(out _);
+            var searchCondition = predicateTemplate.ToSearchCondition();
+
+            var sql = $@"
+UPDATE {this.tableName}
+SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+FROM {this.tableName} t
+INNER JOIN @TableVariable tvp
+    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, tableType, tableVariable);
+        }
+
+        private (string, IDictionary<string, object>) GenerateUpsertStatement(
+            Expression<Func<T, bool>> predicate,
+            Expression<Func<T>> setter,
+            bool outParameters)
+        {
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE {this.tableName}
+SET ";
+            sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(parameters) : predicate.ToSearchCondition();
+            sql += ";";
+
+            var (columnList, valueList) = ResolveColumnList(sql);
+
+            sql.Append("\r\n");
+            sql += $@"
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO {this.tableName}({columnList})
+            VALUES ({valueList});
+    END";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, string, DataTable) GenerateBulkUpsertStatement(
+            Expression<Func<T, bool>> predicateTemplate,
+            Expression<Func<T>> setterTemplate,
+            IEnumerable<T> values)
+        {
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+
+            var columnList = setterTemplate.ToColumnList(out _);
+            var searchCondition = predicateTemplate.ToSearchCondition();
+
+            SqlBuilder sql = $@"
+UPDATE {this.tableName}
+SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+FROM {this.tableName} t
+INNER JOIN @TableVariable tvp
+    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
+
+            (columnList, _) = ResolveColumnList(sql);
+
+            sql.Append("\r\n");
+            sql += $@"
+INSERT INTO {this.tableName}({columnList})
+    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM {this.tableName} t WITH (NOLOCK)
+            WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, tableType, tableVariable);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate)
+        {
+            SqlBuilder sql = $@"
+DELETE FROM {this.tableName}
+WHERE ";
+            sql += predicate.ToSearchCondition(out var parameters);
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
         }
 
         private string GenerateJoinStatement<TRight>(LambdaExpression condition, JoinType joinType, string[] aliases, IDictionary<string, object> parameters)
