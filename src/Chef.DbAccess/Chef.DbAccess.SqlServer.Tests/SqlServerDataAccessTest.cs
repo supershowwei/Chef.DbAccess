@@ -25,6 +25,8 @@ namespace Chef.DbAccess.SqlServer.Tests
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement2", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
+            SqlServerDataAccessFactory.Instance.AddConnectionString("WantGooConnection", @"Data Source=a.b.c.d;User ID=abc;Password=cba;Initial Catalog=AAA;Max Pool Size=50000");
+            SqlServerDataAccessFactory.Instance.AddConnectionString("MallConnection", @"Data Source=d.c.b.a;User ID=abc;Password=cba;Initial Catalog=BBB;Max Pool Size=50000");
 
             SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
                 "ClubType",
@@ -58,6 +60,24 @@ namespace Chef.DbAccess.SqlServer.Tests
             result.Name.Should().Be("Johnny");
             result.Department.DepId.Should().Be(3);
             result.Department.Name.Should().Be("董事長室");
+        }
+
+        [TestMethod]
+        public void Test_QueryOneAsync_with_InnerJoin_Two_Tables_will_Throw_Different_Database_Server_Exception()
+        {
+            var passDataAccess = DataAccessFactory.Create<Pass>();
+
+            passDataAccess.Invoking(
+                dataAccess =>
+                    {
+                        passDataAccess.InnerJoin(x => x.Product, (x, y) => x.ProductId == y.Id)
+                            .Where((x, y) => x.MemberNo == 0000)
+                            .Select((x, y) => new { x.MemberNo, y.Name })
+                            .Query();
+                    })
+                .Should()
+                .Throw<ArgumentException>()
+                .WithMessage("Table is not in the same database server.");
         }
 
         [TestMethod]
@@ -2039,5 +2059,42 @@ namespace Chef.DbAccess.SqlServer.Tests
     [Table("AdvertisementSetting")]
     internal class DerivedAdvertisementSetting : AdvertisementSetting
     {
+    }
+
+    [ConnectionString("WantGooConnection")]
+    internal class Pass
+    {
+        public long SeqNo { get; set; }
+
+        public string Name { get; set; }
+
+        public int MemberNo { get; set; }
+
+        public DateTime ValidFrom { get; set; }
+
+        public DateTime GoodThru { get; set; }
+
+        public bool IsSubscribed { get; set; }
+
+        public int ProductId { get; set; }
+
+        public int OrderInventoryId { get; set; }
+
+        public DateTime? ApplyForUnsubscription { get; set; }
+
+        public string Note { get; set; }
+
+        public DateTime? UnsubscribedTime { get; set; }
+
+        public Product Product { get; set; }
+    }
+
+    [ConnectionString("MallConnection")]
+    internal class Product
+    {
+        [Column("ProductId")]
+        public int Id { get; set; }
+
+        public string Name { get; set; }
     }
 }

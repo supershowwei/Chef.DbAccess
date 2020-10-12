@@ -3420,17 +3420,14 @@ WHERE ";
             {
                 var rightConnectionString = SqlServerDataAccessFactory.Instance.GetConnectionString(connectionStringAttr.ConnectionString);
 
-                if (rightConnectionString.IndexOf(server, StringComparison.CurrentCultureIgnoreCase) >= 0)
-                {
-                    rightServer = ServerRegex.Match(rightConnectionString).Groups[2].Value.Trim();
-                    rightDatabase = DatabaseRegex.Match(rightConnectionString).Groups[2].Value.Trim();
-                    rightSchema = connectionStringAttr.Schema;
+                rightServer = ServerRegex.Match(rightConnectionString).Groups[2].Value.Trim();
+                rightDatabase = DatabaseRegex.Match(rightConnectionString).Groups[2].Value.Trim();
+                rightSchema = connectionStringAttr.Schema;
 
-                    break;
-                }
+                if (string.Equals(server, rightServer, StringComparison.CurrentCultureIgnoreCase)) break;
             }
 
-            if (!string.Equals(rightServer, server, StringComparison.CurrentCultureIgnoreCase))
+            if (!string.Equals(server, rightServer, StringComparison.CurrentCultureIgnoreCase))
             {
                 throw new ArgumentException("Table is not in the same database server.");
             }
