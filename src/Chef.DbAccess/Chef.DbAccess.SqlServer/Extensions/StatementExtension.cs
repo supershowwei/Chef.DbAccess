@@ -195,7 +195,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     {
                         statementBuilder.Append("AVG(CAST(");
                         statementBuilder.Append(selectColumn);
-                        statementBuilder.Append(" AS DECIMAL))");
+                        statementBuilder.Append(" AS DECIMAL(38, 6)))");
                     }
                     else
                     {
