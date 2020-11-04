@@ -1260,8 +1260,6 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     foreach (var property in properties)
                     {
-                        if (Attribute.IsDefined(property, typeof(NotMappedAttribute))) continue;
-
                         yield return Expression.Property(parameterExpr, property.Name);
                     }
                 }
