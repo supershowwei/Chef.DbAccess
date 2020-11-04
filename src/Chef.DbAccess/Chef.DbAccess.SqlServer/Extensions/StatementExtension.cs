@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -28,6 +29,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
                                                                  typeof(double),
                                                                  typeof(decimal),
                                                              };
+
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> AllColumns = new ConcurrentDictionary<Type, PropertyInfo[]>();
 
         public static string ToSelectList(this PropertyInfo[] me)
         {
@@ -1251,11 +1254,15 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                 if (argumentExpr is ParameterExpression parameterExpr)
                 {
-                    foreach (var propertyInfo in parameterExpr.Type.GetProperties())
-                    {
-                        if (Attribute.IsDefined(propertyInfo, typeof(NotMappedAttribute))) continue;
+                    var properties = AllColumns.GetOrAdd(
+                        parameterExpr.Type,
+                        type => type.GetProperties().Where(p => !Attribute.IsDefined(p, typeof(NotMappedAttribute))).ToArray());
 
-                        yield return Expression.Property(parameterExpr, propertyInfo.Name);
+                    foreach (var property in properties)
+                    {
+                        if (Attribute.IsDefined(property, typeof(NotMappedAttribute))) continue;
+
+                        yield return Expression.Property(parameterExpr, property.Name);
                     }
                 }
             }
