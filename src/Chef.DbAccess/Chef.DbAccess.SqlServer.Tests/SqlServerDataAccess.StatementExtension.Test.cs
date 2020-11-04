@@ -652,6 +652,27 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSelectList_with_SelectAll()
+        {
+            Expression<Func<Member, object>> select = x => new { x, x.Age };
+
+            var selectList = select.ToSelectList();
+
+            selectList.Should().Be("[Id], [first_name] AS [FirstName], [last_name] AS [LastName], [Seniority], [Age], [IsActive], [IsActive] AS [Enabled], [SubordinateCount], [MaxSubordinateId], [SubordinateId], [Subordinate], [Age]");
+        }
+
+        [TestMethod]
+        public void Test_ToSelectList_in_Join_Two_Tables_with_SelectAll()
+        {
+            Expression<Func<Member, Video, object>> selector = (x, y) => new { x.Id, VideoId = y.Id, x.FirstName, y.PackageId, x, y };
+
+            var selectList = selector.ToJoinSelectList(new[] { "m", "v" }, out var splitOn);
+
+            selectList.Should().Be("[m].[Id], [m].[first_name] AS [FirstName], [m].[Id], [m].[first_name] AS [FirstName], [m].[last_name] AS [LastName], [m].[Seniority], [m].[Age], [m].[IsActive], [m].[IsActive] AS [Enabled], [m].[SubordinateCount], [m].[MaxSubordinateId], [m].[SubordinateId], [m].[Subordinate], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId]");
+            splitOn.Should().Be("Id");
+        }
+
+        [TestMethod]
         public void Test_ToSelectList_Has_NotMapped_Column_will_be_not_Selected()
         {
             Expression<Func<Member, object>> select = x => new { x.Id, x.FirstName, x.LastName, x.IgnoredColumn };

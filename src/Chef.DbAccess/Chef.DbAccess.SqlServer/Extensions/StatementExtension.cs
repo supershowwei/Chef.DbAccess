@@ -1233,7 +1233,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
         private static IEnumerable<MemberExpression> GetMemberExpressions(Expression expr)
         {
-            if (expr is NewExpression newExpr) return newExpr.Arguments.OfType<MemberExpression>();
+            if (expr is NewExpression newExpr) return GetMemberExpressions(newExpr);
 
             if (expr is MemberInitExpression memberInitExpr)
             {
@@ -1241,6 +1241,24 @@ namespace Chef.DbAccess.SqlServer.Extensions
             }
 
             throw new ArgumentException("Selector must be a NewExpression or MemberInitExpression.");
+        }
+
+        private static IEnumerable<MemberExpression> GetMemberExpressions(NewExpression newExpr)
+        {
+            foreach (var argumentExpr in newExpr.Arguments)
+            {
+                if (argumentExpr is MemberExpression memberExpr) yield return memberExpr;
+
+                if (argumentExpr is ParameterExpression parameterExpr)
+                {
+                    foreach (var propertyInfo in parameterExpr.Type.GetProperties())
+                    {
+                        if (Attribute.IsDefined(propertyInfo, typeof(NotMappedAttribute))) continue;
+
+                        yield return Expression.Property(parameterExpr, propertyInfo.Name);
+                    }
+                }
+            }
         }
 
         private static string GenerateParameterStatement(string parameterName, Type parameterType, IDictionary<string, object> parameters)
