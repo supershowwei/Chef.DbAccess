@@ -2163,7 +2163,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2267,7 +2267,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2375,7 +2375,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2486,7 +2486,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2600,7 +2600,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2717,7 +2717,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2837,7 +2837,7 @@ SELECT ";
             }
 
             sql += $@"
-FROM {tableName} [{alias}] WITH (NOLOCK)";
+FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2913,7 +2913,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         {
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2943,7 +2943,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -2976,7 +2976,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3014,7 +3014,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3058,7 +3058,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3105,7 +3105,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3155,7 +3155,7 @@ WHERE ";
 
             SqlBuilder sql = $@"
 SELECT COUNT(*)
-FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3192,7 +3192,7 @@ SELECT
         WHEN
             EXISTS (SELECT
                     1
-                FROM {this.tableName} [{this.alias}] WITH (NOLOCK)";
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
@@ -3227,7 +3227,7 @@ WHERE ";
             var columnList = requiredColumns.ToColumnList(out var valueList);
 
             var sql = $@"
-INSERT INTO {this.tableName}({columnList})
+INSERT INTO [{this.tableName}]({columnList})
     VALUES ({valueList});";
 
             this.OutputSql?.Invoke(sql, null);
@@ -3243,7 +3243,7 @@ INSERT INTO {this.tableName}({columnList})
             var columnList = outParameters ? setter.ToColumnList(out valueList, out parameters) : setter.ToColumnList(out valueList);
 
             var sql = $@"
-INSERT INTO {this.tableName}({columnList})
+INSERT INTO [{this.tableName}]({columnList})
     VALUES ({valueList});";
 
             this.OutputSql?.Invoke(sql, parameters);
@@ -3264,7 +3264,7 @@ INSERT INTO {this.tableName}({columnList})
             var columnList = requiredColumns.ToColumnList(out _);
 
             var sql = $@"
-INSERT INTO {this.tableName}({columnList})
+INSERT INTO [{this.tableName}]({columnList})
     SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
     FROM @TableVariable tvp;";
 
@@ -3280,7 +3280,7 @@ INSERT INTO {this.tableName}({columnList})
             var columnList = setterTemplate.ToColumnList(out _);
 
             var sql = $@"
-INSERT INTO {this.tableName}({columnList})
+INSERT INTO [{this.tableName}]({columnList})
     SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
     FROM @TableVariable tvp;";
 
@@ -3294,7 +3294,7 @@ INSERT INTO {this.tableName}({columnList})
             IDictionary<string, object> parameters = null;
 
             SqlBuilder sql = $@"
-UPDATE {this.tableName}
+UPDATE [{this.tableName}]
 SET ";
             sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
             sql += @"
@@ -3315,9 +3315,9 @@ WHERE ";
             var searchCondition = predicateTemplate.ToSearchCondition();
 
             var sql = $@"
-UPDATE {this.tableName}
+UPDATE [{this.tableName}]
 SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-FROM {this.tableName} t
+FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
     ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
 
@@ -3334,7 +3334,7 @@ INNER JOIN @TableVariable tvp
             IDictionary<string, object> parameters = null;
 
             SqlBuilder sql = $@"
-UPDATE {this.tableName}
+UPDATE [{this.tableName}]
 SET ";
             sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
             sql += @"
@@ -3348,7 +3348,7 @@ WHERE ";
             sql += $@"
 IF @@rowcount = 0
     BEGIN
-        INSERT INTO {this.tableName}({columnList})
+        INSERT INTO [{this.tableName}]({columnList})
             VALUES ({valueList});
     END";
 
@@ -3368,9 +3368,9 @@ IF @@rowcount = 0
             var searchCondition = predicateTemplate.ToSearchCondition();
 
             SqlBuilder sql = $@"
-UPDATE {this.tableName}
+UPDATE [{this.tableName}]
 SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
-FROM {this.tableName} t
+FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
     ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
 
@@ -3378,12 +3378,12 @@ INNER JOIN @TableVariable tvp
 
             sql.Append("\r\n");
             sql += $@"
-INSERT INTO {this.tableName}({columnList})
+INSERT INTO [{this.tableName}]({columnList})
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp
     WHERE NOT EXISTS (SELECT
                 1
-            FROM {this.tableName} t WITH (NOLOCK)
+            FROM [{this.tableName}] t WITH (NOLOCK)
             WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
 
             this.OutputSql?.Invoke(sql, null);
@@ -3394,7 +3394,7 @@ INSERT INTO {this.tableName}({columnList})
         private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate)
         {
             SqlBuilder sql = $@"
-DELETE FROM {this.tableName}
+DELETE FROM [{this.tableName}]
 WHERE ";
             sql += predicate.ToSearchCondition(out var parameters);
 
