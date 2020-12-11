@@ -147,22 +147,22 @@ namespace Chef.DbAccess.SqlServer.Tests
             var memberDataAccess = DataAccessFactory.Create<UserStatistics>();
 
             var result = await memberDataAccess.InnerJoin(x => x.Department, (a, b) => a.DepartmentId == b.DepId)
-                .LeftJoin((c, d) => c.Subordinate, (m, n, o) => o.ManagerId == m.Id)
-                .GroupBy(
-                    (c, d, e) => new { c.Id, c.Name, DepartmentName = d.Name },
-                    g => new UserStatistics
-                    {
-                             Id = g.Select((a, b, c) => a.Id),
-                             Name = g.Select((m, n, o) => m.Name),
-                             DepartmentName = g.Select((x, y, z) => y.Name),
-                             TotalCount = g.Count(),
-                             MaxSubordinateId = g.Max((o, p, q) => q.Id),
-                             MinSubordinateId = g.Min((us, dep, u) => u.Id),
-                             SumSubordinateAge = g.Sum((xx, yy, zz) => zz.Age),
-                             AvgSubordinateAge = g.Avg((aa, bb, cc) => cc.Age)
-                         })
-                .Where((u1, d1, u2) => u1.Id == 1)
-                .QueryOneAsync();
+                             .LeftJoin((c, d) => c.Subordinate, (m, n, o) => o.ManagerId == m.Id)
+                             .GroupBy(
+                                 (c, d, e) => new { c.Id, c.Name, DepartmentName = d.Name },
+                                 g => new UserStatistics
+                                      {
+                                          Id = g.Select((a, b, c) => a.Id),
+                                          Name = g.Select((m, n, o) => m.Name),
+                                          DepartmentName = g.Select((x, y, z) => y.Name),
+                                          TotalCount = g.Count(),
+                                          MaxSubordinateId = g.Max((o, p, q) => q.Id),
+                                          MinSubordinateId = g.Min((us, dep, u) => u.Id),
+                                          SumSubordinateAge = g.Sum((xx, yy, zz) => zz.Age),
+                                          AvgSubordinateAge = g.Avg((aa, bb, cc) => cc.Age)
+                                      })
+                             .Where((u1, d1, u2) => u1.Id == 1)
+                             .QueryOneAsync();
 
             result.Id.Should().Be(1);
             result.Name.Should().Be("Johnny");
