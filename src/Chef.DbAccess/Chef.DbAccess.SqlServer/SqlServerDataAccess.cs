@@ -2143,14 +2143,9 @@ SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") "
 
             if (groupingSelector != null)
             {
-                sql += "* FROM";
-                sql += @"
+                sql += @"* FROM
 (
 SELECT ";
-            }
-
-            if (groupingSelector != null)
-            {
                 sql += groupingSelector.ToGroupingSelectList(new[] { alias });
             }
             else if (selector != null)
@@ -2241,18 +2236,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
@@ -2349,18 +2339,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
@@ -2460,18 +2445,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
@@ -2574,18 +2554,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
@@ -2691,18 +2666,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
@@ -2811,18 +2781,13 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             SqlBuilder sql = $@"
 SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
-            if (groupingSelector != null)
-            {
-                sql += "* FROM";
-                sql += @"
-(
-SELECT ";
-            }
-
             string splitOn;
 
             if (groupingSelector != null)
             {
+                sql += @"* FROM
+(
+SELECT ";
                 sql += groupingSelector.ToGroupingSelectList(aliases);
 
                 splitOn = string.Empty;
