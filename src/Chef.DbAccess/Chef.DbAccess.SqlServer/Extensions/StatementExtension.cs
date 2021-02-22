@@ -1299,9 +1299,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var alias = aliasMap[parameterExpr.Name];
             var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
-            var columnName = columnAttribute?.Name ?? memberExpr.Member.Name;
+            var memberName = memberExpr.Member.Name;
+            var columnName = columnAttribute?.Name ?? memberName;
 
-            return string.IsNullOrEmpty(alias) ? $"[{columnName}] ASC" : $"{alias}.[{columnName}] ASC";
+            return string.IsNullOrEmpty(alias) ? $"[{memberName}] ASC" : $"{alias}.[{columnName}] ASC";
         }
 
         private static string ToOrderDescending(MemberExpression memberExpr, IDictionary<string, string> aliasMap)
@@ -1315,9 +1316,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var alias = aliasMap[parameterExpr.Name];
             var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
-            var columnName = columnAttribute?.Name ?? memberExpr.Member.Name;
+            var memberName = memberExpr.Member.Name;
+            var columnName = columnAttribute?.Name ?? memberName;
 
-            return string.IsNullOrEmpty(alias) ? $"[{columnName}] DESC" : $"{alias}.[{columnName}] DESC";
+            return string.IsNullOrEmpty(alias) ? $"[{memberName}] DESC" : $"{alias}.[{columnName}] DESC";
         }
     }
 }

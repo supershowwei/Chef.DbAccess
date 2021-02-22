@@ -657,6 +657,18 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_QueryAsync_with_GroupBY_and_OrderBy()
+        {
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubs = await clubDataAccess.GroupBy(x => new { x.Id }, g => new Club { Id = g.Select(x => x.Id) })
+                            .OrderBy(x => x.Id)
+                            .QueryAsync();
+
+            clubs.First().Id.Should().Be(9);
+        }
+
+        [TestMethod]
         public async Task Test_QueryAsync_with_InnerJoin_Two_Tables_use_QueryObjet()
         {
             var memberDataAccess = DataAccessFactory.Create<User>();

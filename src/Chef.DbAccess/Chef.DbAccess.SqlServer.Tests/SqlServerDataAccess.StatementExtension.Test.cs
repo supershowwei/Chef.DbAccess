@@ -921,6 +921,17 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToAscendingOrder_without_Alias()
+        {
+            Expression<Func<Member, object>> orderBy = x => x.Id;
+            Expression<Func<Member, object>> thenBy = x => x.FirstName;
+
+            var orderExpression = orderBy.ToOrderAscending(string.Empty) + ", " + thenBy.ToOrderAscending(string.Empty);
+
+            orderExpression.Should().Be("[Id] ASC, [FirstName] ASC");
+        }
+
+        [TestMethod]
         public void Test_ToAscendingOrder_Has_NotMapped_Column_will_Throw_ArgumentException()
         {
             Expression<Func<Member, object>> orderBy = x => x.IgnoredColumn;
@@ -965,6 +976,17 @@ namespace Chef.DbAccess.SqlServer.Tests
             var orderExpression = orderBy.ToOrderDescending("m") + ", " + thenBy.ToOrderDescending("m");
 
             orderExpression.Should().Be("[m].[Id] DESC, [m].[Seniority] DESC");
+        }
+
+        [TestMethod]
+        public void Test_ToDescendingOrder_without_Alias()
+        {
+            Expression<Func<Member, object>> orderBy = x => x.Id;
+            Expression<Func<Member, object>> thenBy = x => x.LastName;
+
+            var orderExpression = orderBy.ToOrderDescending(string.Empty) + ", " + thenBy.ToOrderDescending(string.Empty);
+
+            orderExpression.Should().Be("[Id] DESC, [LastName] DESC");
         }
 
         [TestMethod]
