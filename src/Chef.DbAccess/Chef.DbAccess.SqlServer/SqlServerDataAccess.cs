@@ -3299,7 +3299,7 @@ INNER JOIN @TableVariable tvp
             IDictionary<string, object> parameters = null;
 
             SqlBuilder sql = $@"
-UPDATE [{this.tableName}]
+UPDATE [{this.tableName}] WITH (UPDLOCK, SERIALIZABLE)
 SET ";
             sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
             sql += @"
