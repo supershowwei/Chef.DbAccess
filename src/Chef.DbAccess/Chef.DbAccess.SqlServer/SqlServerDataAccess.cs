@@ -53,28 +53,9 @@ namespace Chef.DbAccess.SqlServer
 
         public Action<string, IDictionary<string, object>> OutputSql { get; set; }
 
-        public virtual T QueryOne(string sql, object param)
-        {
-            return this.ExecuteQueryOne<T>(sql, param);
-        }
-
         public virtual Task<T> QueryOneAsync(string sql, object param)
         {
             return this.ExecuteQueryOneAsync<T>(sql, param);
-        }
-
-        public virtual T QueryOne(
-            Expression<Func<T, bool>> predicate,
-            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
-            Expression<Func<T, object>> selector = null,
-            Expression<Func<T, object>> groupingColumns = null,
-            Expression<Func<Grouping<T>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            return this.ExecuteQueryOne<T>(sql, parameters);
         }
 
         public virtual Task<T> QueryOneAsync(
@@ -89,47 +70,6 @@ namespace Chef.DbAccess.SqlServer
             var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
 
             return this.ExecuteQueryOneAsync<T>(sql, parameters);
-        }
-
-        public virtual T QueryOne<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, object>> selector = null,
-            Expression<Func<T, TSecond, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, T>(
-                    sql,
-                    (first, second) =>
-                        {
-                            secondSetter(first, second);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
-            }
         }
 
         public virtual async Task<T> QueryOneAsync<TSecond>(
@@ -177,50 +117,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.SingleOrDefault();
                 }
-            }
-        }
-
-        public virtual T QueryOne<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, TThird, T>(
-                    sql,
-                    (first, second, third) =>
-                        {
-                            secondSetter(first, second);
-                            thirdSetter(first, second, third);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
             }
         }
 
@@ -275,53 +171,6 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual T QueryOne<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, TThird, TFourth, T>(
-                    sql,
-                    (first, second, third, fourth) =>
-                        {
-                            secondSetter(first, second);
-                            thirdSetter(first, second, third);
-                            fourthSetter(first, second, third, fourth);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
-            }
-        }
-
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -373,56 +222,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.SingleOrDefault();
                 }
-            }
-        }
-
-        public virtual T QueryOne<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, T>(
-                    sql,
-                    (first, second, third, fourth, fifth) =>
-                        {
-                            secondSetter(first, second);
-                            thirdSetter(first, second, third);
-                            fourthSetter(first, second, third, fourth);
-                            fifthSetter(first, second, third, fourth, fifth);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
             }
         }
 
@@ -483,59 +282,6 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual T QueryOne<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
-                    sql,
-                    (first, second, third, fourth, fifth, sixth) =>
-                        {
-                            secondSetter(first, second);
-                            thirdSetter(first, second, third);
-                            fourthSetter(first, second, third, fourth);
-                            fifthSetter(first, second, third, fourth, fifth);
-                            sixthSetter(first, second, third, fourth, fifth, sixth);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
-            }
-        }
-
         public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -593,63 +339,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.SingleOrDefault();
                 }
-            }
-        }
-
-        public virtual T QueryOne<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) =
-                this.GenerateQueryStatement(
-                    this.tableName,
-                    this.alias,
-                    secondJoin,
-                    thirdJoin,
-                    fourthJoin,
-                    fifthJoin,
-                    sixthJoin,
-                    seventhJoin,
-                    predicate,
-                    orderings,
-                    selector,
-                    groupingColumns,
-                    groupingSelector,
-                    skipped,
-                    taken);
-
-            if (groupingSelector != null) return this.ExecuteQueryOne<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                var result = db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
-                    sql,
-                    (first, second, third, fourth, fifth, sixth, seventh) =>
-                        {
-                            secondSetter(first, second);
-                            thirdSetter(first, second, third);
-                            fourthSetter(first, second, third, fourth);
-                            fifthSetter(first, second, third, fourth, fifth);
-                            sixthSetter(first, second, third, fourth, fifth, sixth);
-                            seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
-
-                            return first;
-                        },
-                    parameters,
-                    splitOn: splitOn);
-
-                return result.SingleOrDefault();
             }
         }
 
@@ -717,28 +406,9 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual List<T> Query(string sql, object param)
-        {
-            return this.ExecuteQueryAsync<T>(sql, param).ConfigureAwait(false).GetAwaiter().GetResult();
-        }
-
         public virtual Task<List<T>> QueryAsync(string sql, object param)
         {
             return this.ExecuteQueryAsync<T>(sql, param);
-        }
-
-        public virtual List<T> Query(
-            Expression<Func<T, bool>> predicate,
-            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
-            Expression<Func<T, object>> selector = null,
-            Expression<Func<T, object>> groupingColumns = null,
-            Expression<Func<Grouping<T>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            return this.ExecuteQuery<T>(sql, parameters);
         }
 
         public virtual Task<List<T>> QueryAsync(
@@ -753,46 +423,6 @@ namespace Chef.DbAccess.SqlServer
             var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
 
             return this.ExecuteQueryAsync<T>(sql, parameters);
-        }
-
-        public virtual List<T> Query<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, object>> selector = null,
-            Expression<Func<T, TSecond, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, T>(
-                        sql,
-                        (first, second) =>
-                            {
-                                secondSetter(first, second);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
-            }
         }
 
         public virtual async Task<List<T>> QueryAsync<TSecond>(
@@ -840,49 +470,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.ToList();
                 }
-            }
-        }
-
-        public virtual List<T> Query<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, TThird, T>(
-                        sql,
-                        (first, second, third) =>
-                            {
-                                secondSetter(first, second);
-                                thirdSetter(first, second, third);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
             }
         }
 
@@ -937,52 +524,6 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual List<T> Query<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, TThird, TFourth, T>(
-                        sql,
-                        (first, second, third, fourth) =>
-                            {
-                                secondSetter(first, second);
-                                thirdSetter(first, second, third);
-                                fourthSetter(first, second, third, fourth);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
-            }
-        }
-
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -1034,55 +575,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.ToList();
                 }
-            }
-        }
-
-        public virtual List<T> Query<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, TThird, TFourth, TFifth, T>(
-                        sql,
-                        (first, second, third, fourth, fifth) =>
-                            {
-                                secondSetter(first, second);
-                                thirdSetter(first, second, third);
-                                fourthSetter(first, second, third, fourth);
-                                fifthSetter(first, second, third, fourth, fifth);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
             }
         }
 
@@ -1143,58 +635,6 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual List<T> Query<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth) =>
-                            {
-                                secondSetter(first, second);
-                                thirdSetter(first, second, third);
-                                fourthSetter(first, second, third, fourth);
-                                fifthSetter(first, second, third, fourth, fifth);
-                                sixthSetter(first, second, third, fourth, fifth, sixth);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
-            }
-        }
-
         public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -1252,61 +692,6 @@ namespace Chef.DbAccess.SqlServer
 
                     return result.ToList();
                 }
-            }
-        }
-
-        public virtual List<T> Query<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                seventhJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null) return this.ExecuteQuery<T>(sql, parameters);
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth, seventh) =>
-                            {
-                                secondSetter(first, second);
-                                thirdSetter(first, second, third);
-                                fourthSetter(first, second, third, fourth);
-                                fifthSetter(first, second, third, fourth, fifth);
-                                sixthSetter(first, second, third, fourth, fifth, sixth);
-                                seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
-
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn)
-                    .ToList();
             }
         }
 
@@ -1373,27 +758,11 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        public virtual int Count(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
-        }
-
         public virtual Task<int> CountAsync(Expression<Func<T, bool>> predicate)
         {
             var (sql, parameters) = this.GenerateCountStatement(predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual int Count<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond>(
@@ -1403,16 +772,6 @@ namespace Chef.DbAccess.SqlServer
             var (sql, parameters) = this.GenerateCountStatement(secondJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual int Count<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird>(
@@ -1425,17 +784,6 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
 
-        public virtual int Count<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
-        }
-
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -1445,18 +793,6 @@ namespace Chef.DbAccess.SqlServer
             var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual int Count<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth>(
@@ -1471,19 +807,6 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
 
-        public virtual int Count<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
-        }
-
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
@@ -1495,20 +818,6 @@ namespace Chef.DbAccess.SqlServer
             var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate);
 
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual int Count<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate);
-
-            return this.ExecuteQueryOne<int>(sql, parameters);
         }
 
         public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -1525,13 +834,6 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteQueryOneAsync<int>(sql, parameters);
         }
 
-        public virtual bool Exists(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateExistsStatement(predicate);
-
-            return this.ExecuteQueryOne<bool>(sql, parameters);
-        }
-
         public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
             var (sql, parameters) = this.GenerateExistsStatement(predicate);
@@ -1539,21 +841,9 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteQueryOneAsync<bool>(sql, parameters);
         }
 
-        public virtual int Execute(string sql, object param)
-        {
-            return this.ExecuteCommand(sql, param);
-        }
-
         public virtual Task<int> ExecuteAsync(string sql, object param)
         {
             return this.ExecuteCommandAsync(sql, param);
-        }
-
-        public virtual int Insert(T value)
-        {
-            var sql = this.GenerateInsertStatement();
-
-            return this.ExecuteCommand(sql, value);
         }
 
         public virtual Task<int> InsertAsync(T value)
@@ -1563,25 +853,11 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, value);
         }
 
-        public virtual int Insert(Expression<Func<T>> setter)
-        {
-            var (sql, parameters) = this.GenerateInsertStatement(setter, true);
-
-            return this.ExecuteCommand(sql, parameters);
-        }
-
         public virtual Task<int> InsertAsync(Expression<Func<T>> setter)
         {
             var (sql, parameters) = this.GenerateInsertStatement(setter, true);
 
             return this.ExecuteCommandAsync(sql, parameters);
-        }
-
-        public virtual int Insert(IEnumerable<T> values)
-        {
-            var sql = this.GenerateInsertStatement();
-
-            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
         }
 
         public virtual Task<int> InsertAsync(IEnumerable<T> values)
@@ -1591,25 +867,11 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
-        public virtual int Insert(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
-        }
-
         public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual int BulkInsert(IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
-
-            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkInsertAsync(IEnumerable<T> values)
@@ -1619,25 +881,11 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
-        public virtual int BulkInsert(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
-
-            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-        }
-
         public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
 
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-        }
-
-        public virtual int Update(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
-        {
-            var (sql, parameters) = this.GenerateUpdateStatement(predicate, setter, true);
-
-            return this.ExecuteCommand(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
@@ -1647,25 +895,11 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual int Update(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
-        }
-
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual int BulkUpdate(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpdateStatement(predicateTemplate, setterTemplate, values);
-
-            return this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkUpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
@@ -1675,13 +909,6 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
-        public virtual int Upsert(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
-        {
-            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true);
-
-            return Transaction.Current != null ? this.ExecuteCommand(sql, parameters) : this.ExecuteTransactionalCommand(sql, parameters);
-        }
-
         public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
         {
             var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true);
@@ -1689,27 +916,11 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, parameters) : this.ExecuteTransactionalCommandAsync(sql, parameters);
         }
 
-        public virtual int Upsert(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommand(sql, values) : this.ExecuteTransactionalCommand(sql, values);
-        }
-
         public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual int BulkUpsert(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
-
-            return Transaction.Current != null
-                       ? this.ExecuteCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
-                       : this.ExecuteTransactionalCommand(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
@@ -1721,26 +932,11 @@ namespace Chef.DbAccess.SqlServer
                        : this.ExecuteTransactionalCommandAsync(sql,  new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
-        public virtual int Delete(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateDeleteStatement(predicate);
-
-            return this.ExecuteCommand(sql, parameters);
-        }
-
         public virtual Task<int> DeleteAsync(Expression<Func<T, bool>> predicate)
         {
             var (sql, parameters) = this.GenerateDeleteStatement(predicate);
 
             return this.ExecuteCommandAsync(sql, parameters);
-        }
-
-        protected virtual TResult ExecuteQueryOne<TResult>(string sql, object param)
-        {
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.QuerySingleOrDefault<TResult>(sql, param);
-            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
@@ -1750,14 +946,6 @@ namespace Chef.DbAccess.SqlServer
                 var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
 
                 return result;
-            }
-        }
-
-        protected virtual List<TResult> ExecuteQuery<TResult>(string sql, object param)
-        {
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Query<TResult>(sql, param).ToList();
             }
         }
 
@@ -1771,14 +959,6 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        protected virtual int ExecuteCommand(string sql, object param)
-        {
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                return db.Execute(sql, param);
-            }
-        }
-
         protected virtual async Task<int> ExecuteCommandAsync(string sql, object param)
         {
             using (var db = new SqlConnection(this.connectionString))
@@ -1787,32 +967,6 @@ namespace Chef.DbAccess.SqlServer
 
                 return result;
             }
-        }
-
-        protected virtual int ExecuteTransactionalCommand(string sql, object param)
-        {
-            int result;
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                db.Open();
-
-                using (var tx = db.BeginTransaction())
-                {
-                    try
-                    {
-                        result = db.Execute(sql, param, transaction: tx);
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                }
-            }
-
-            return result;
         }
 
         protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)

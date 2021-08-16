@@ -73,7 +73,7 @@ namespace Chef.DbAccess.SqlServer.Tests
                         passDataAccess.InnerJoin(x => x.Product, (x, y) => x.ProductId == y.Id)
                             .Where((x, y) => x.MemberNo == 0000)
                             .Select((x, y) => new { x.MemberNo, y.Name })
-                            .Query();
+                            .QueryOneAsync().Wait();
                     })
                 .Should()
                 .Throw<ArgumentException>()
@@ -521,16 +521,6 @@ namespace Chef.DbAccess.SqlServer.Tests
                 .Should()
                 .Throw<InvalidOperationException>()
                 .WithMessage("Selected columns must cover all joined tables.");
-        }
-
-        [TestMethod]
-        public void Test_QueryOne()
-        {
-            var clubDataAccess = DataAccessFactory.Create<Club>();
-
-            var club = clubDataAccess.QueryOne(x => x.Id == 25, null, x => new { x.Name });
-
-            club.Name.Should().Be("鄧偉成");
         }
 
         [TestMethod]
