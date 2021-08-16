@@ -175,18 +175,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.QueryOne(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TCast>(this QueryObject<T> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.QueryOneAsync(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -197,16 +185,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryOneAsync(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result == null ? default : cast(result);
-        }
-
-        public static List<T> Query<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Query(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TCast>(this QueryObject<T> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
         }
 
         public static Task<List<T>> QueryAsync<T>(this QueryObject<T> me)
@@ -221,19 +199,9 @@ namespace Chef.DbAccess.Fluent
             return result.Select(x => cast(x)).ToList();
         }
 
-        public static int Count<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Count(me.Predicate);
-        }
-
         public static Task<int> CountAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.CountAsync(me.Predicate);
-        }
-
-        public static bool Exists<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Exists(me.Predicate);
         }
 
         public static Task<bool> ExistsAsync<T>(this QueryObject<T> me)
@@ -241,19 +209,9 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.Predicate);
         }
 
-        public static int Insert<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Insert(me.Setter);
-        }
-
         public static Task<int> InsertAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.InsertAsync(me.Setter);
-        }
-
-        public static int Insert<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.Insert(me.Setter, values);
         }
 
         public static Task<int> InsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
@@ -261,19 +219,9 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.InsertAsync(me.Setter, values);
         }
 
-        public static int BulkInsert<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.BulkInsert(me.Setter, values);
-        }
-
         public static Task<int> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
             return me.DataAccess.BulkInsertAsync(me.Setter, values);
-        }
-
-        public static int Update<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Update(me.Predicate, me.Setter);
         }
 
         public static Task<int> UpdateAsync<T>(this QueryObject<T> me)
@@ -281,19 +229,9 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.Predicate, me.Setter);
         }
 
-        public static int Update<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.Update(me.Predicate, me.Setter, values);
-        }
-
         public static Task<int> UpdateAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
             return me.DataAccess.UpdateAsync(me.Predicate, me.Setter, values);
-        }
-
-        public static int BulkUpdate<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.Update(me.Predicate, me.Setter, values);
         }
 
         public static Task<int> BulkUpdateAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
@@ -301,19 +239,9 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.Predicate, me.Setter, values);
         }
 
-        public static int Upsert<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Upsert(me.Predicate, me.Setter);
-        }
-
         public static Task<int> UpsertAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter);
-        }
-
-        public static int Upsert<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.Upsert(me.Predicate, me.Setter, values);
         }
 
         public static Task<int> UpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
@@ -321,19 +249,9 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values);
         }
 
-        public static int BulkUpsert<T>(this QueryObject<T> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.Upsert(me.Predicate, me.Setter, values);
-        }
-
         public static Task<int> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values);
-        }
-
-        public static int Delete<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.Delete(me.Predicate);
         }
 
         public static Task<int> DeleteAsync<T>(this QueryObject<T> me)
@@ -453,18 +371,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond>(this QueryObject<T, TSecond> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TCast>(this QueryObject<T, TSecond> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond>(this QueryObject<T, TSecond> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -477,16 +383,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond>(this QueryObject<T, TSecond> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TCast>(this QueryObject<T, TSecond> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond>(this QueryObject<T, TSecond> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -497,11 +393,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond>(this QueryObject<T, TSecond> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond>(this QueryObject<T, TSecond> me)
@@ -621,18 +512,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TThird, TCast>(this QueryObject<T, TSecond, TThird> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -645,16 +524,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TThird, TCast>(this QueryObject<T, TSecond, TThird> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -665,11 +534,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.ThirdJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
@@ -789,18 +653,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TThird, TFourth, TCast>(this QueryObject<T, TSecond, TThird, TFourth> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -813,16 +665,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TThird, TFourth, TCast>(this QueryObject<T, TSecond, TThird, TFourth> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -833,11 +675,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
@@ -957,18 +794,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TThird, TFourth, TFifth, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -981,16 +806,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TThird, TFourth, TFifth, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -1001,11 +816,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
@@ -1125,18 +935,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TThird, TFourth, TFifth, TSixth, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -1149,16 +947,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -1169,11 +957,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
@@ -1277,18 +1060,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static T QueryOne<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
-        {
-            return me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static TCast QueryOne<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, Func<T, TCast> cast)
-        {
-            var result = me.DataAccess.QueryOne(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-
-            return result == null ? default : cast(result);
-        }
-
         public static Task<T> QueryOneAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.QueryOneAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -1301,16 +1072,6 @@ namespace Chef.DbAccess.Fluent
             return result == null ? default : cast(result);
         }
 
-        public static List<T> Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
-        }
-
-        public static List<TCast> Query<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TCast>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, Func<T, TCast> cast)
-        {
-            return me.DataAccess.Query(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken).Select(x => cast(x)).ToList();
-        }
-
         public static Task<List<T>> QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
@@ -1321,11 +1082,6 @@ namespace Chef.DbAccess.Fluent
             var result = await me.DataAccess.QueryAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.OrderExpressions, me.Selector, me.GroupingColumns, me.GroupingSelector, me.Skipped, me.Taken);
 
             return result.Select(x => cast(x)).ToList();
-        }
-
-        public static int Count<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
-        {
-            return me.DataAccess.Count(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
         }
 
         public static Task<int> CountAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
