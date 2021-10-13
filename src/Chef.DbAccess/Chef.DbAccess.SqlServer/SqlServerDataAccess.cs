@@ -2453,7 +2453,9 @@ INNER JOIN @TableVariable tvp
             IDictionary<string, object> parameters = null;
 
             SqlBuilder sql = $@"
-UPDATE [{this.tableName}] WITH (UPDLOCK, SERIALIZABLE)
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [{this.tableName}] WITH (ROWLOCK)
 SET ";
             sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
             sql += @"
