@@ -25,6 +25,18 @@ namespace Chef.DbAccess.Fluent
             return new QueryObject<T>(me) { Setter = setter };
         }
 
+        public static QueryObject<T> Set<T, TValue>(this IDataAccess<T> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            var memberInit = Expression.MemberInit(
+                Expression.New(typeof(T)),
+                Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)));
+
+            var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+            return new QueryObject<T>(me) { Setter = setterExpr };
+        }
+
+
         public static QueryObject<T> OrderBy<T>(this IDataAccess<T> me, Expression<Func<T, object>> ordering)
         {
             return new QueryObject<T>(me)
@@ -121,6 +133,19 @@ namespace Chef.DbAccess.Fluent
         public static QueryObject<T> Set<T>(this QueryObject<T> me, Expression<Func<T>> setter)
         {
             me.Setter = setter;
+
+            return me;
+        }
+        
+        public static QueryObject<T> Set<T, TValue>(this QueryObject<T> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            var memberInit = me.Setter.Body as MemberInitExpression;
+
+            memberInit = memberInit.Update(
+                memberInit.NewExpression,
+                memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)) }));
+
+            me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
 
             return me;
         }

@@ -1513,6 +1513,32 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpsertAsync_use_Dynamic_Setter()
+        {
+            var clubDataAccess = SqlServerDataAccessFactory.Instance.Create<Club>();
+
+            var club = await clubDataAccess.Where(x => x.Id == 37).Select(x => new { x.Id, x.Name, x.Intro }).QueryOneAsync();
+
+            var originalName = club.Name;
+            var originalIntro = club.Intro;
+
+            await clubDataAccess.Set(x => x.Name, "test37name")
+                .Set(x => x.Intro, "test37intro")
+                .Where(x => x.Id == 37)
+                .UpdateAsync();
+
+            club = await clubDataAccess.Where(x => x.Id == 37).Select(x => new { x.Id, x.Name, x.Intro }).QueryOneAsync();
+
+            club.Name.Should().Be("test37name");
+            club.Intro.Should().Be("test37intro");
+
+            await clubDataAccess.Set(x => x.Name, originalName)
+                .Set(x => x.Intro, originalIntro)
+                .Where(x => x.Id == 37)
+                .UpdateAsync();
+        }
+
+        [TestMethod]
         public async Task Test_UpsertAsync_use_QueryObject()
         {
             var clubId = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000);
