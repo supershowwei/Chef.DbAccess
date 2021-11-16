@@ -139,13 +139,26 @@ namespace Chef.DbAccess.Fluent
         
         public static QueryObject<T> Set<T, TValue>(this QueryObject<T> me, Expression<Func<T, TValue>> setter, TValue value)
         {
-            var memberInit = me.Setter.Body as MemberInitExpression;
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)));
 
-            memberInit = memberInit.Update(
-                memberInit.NewExpression,
-                memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)) }));
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
 
-            me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
 
             return me;
         }
