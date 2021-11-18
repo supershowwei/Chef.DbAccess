@@ -1234,6 +1234,23 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpdateAsync_use_Dynamic_Setter()
+        {
+            var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubName = "歐陽邦瑋" + suffix;
+
+            await clubDataAccess.Where(x => x.Id.Equals(15)).Set(x => x.Name, clubName).UpdateAsync();
+
+            var club = await clubDataAccess.QueryOneAsync(x => x.Id == 15, null, x => new { x.Id, x.Name });
+
+            club.Id.Should().Be(15);
+            club.Name.Should().Be("歐陽邦瑋" + suffix);
+        }
+
+        [TestMethod]
         public async Task Test_UpdateAsync_use_QueryObject_set_Null()
         {
             var clubDataAccess = DataAccessFactory.Create<Club>();
@@ -1543,10 +1560,7 @@ namespace Chef.DbAccess.SqlServer.Tests
             var originalName = club.Name;
             var originalIntro = club.Intro;
 
-            await clubDataAccess.Set(x => x.Name, "test37name")
-                .Set(x => x.Intro, "test37intro")
-                .Where(x => x.Id == 37)
-                .UpdateAsync();
+            await clubDataAccess.Where(x => x.Id == 37).Set(x => x.Name, "test37name").Set(x => x.Intro, "test37intro").UpsertAsync();
 
             club = await clubDataAccess.Where(x => x.Id == 37).Select(x => new { x.Id, x.Name, x.Intro }).QueryOneAsync();
 
