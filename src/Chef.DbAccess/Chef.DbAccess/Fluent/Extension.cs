@@ -29,7 +29,7 @@ namespace Chef.DbAccess.Fluent
         {
             var memberInit = Expression.MemberInit(
                 Expression.New(typeof(T)),
-                Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)));
+                Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
 
             var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
 
@@ -143,7 +143,7 @@ namespace Chef.DbAccess.Fluent
             {
                 var memberInit = Expression.MemberInit(
                     Expression.New(typeof(T)),
-                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)));
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
 
                 var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
 
@@ -155,7 +155,7 @@ namespace Chef.DbAccess.Fluent
 
                 memberInit = memberInit.Update(
                     memberInit.NewExpression,
-                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value)) }));
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
 
                 me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
             }

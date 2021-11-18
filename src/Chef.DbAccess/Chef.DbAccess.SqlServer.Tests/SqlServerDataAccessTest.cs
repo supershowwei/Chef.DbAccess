@@ -1342,6 +1342,27 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_InsertAsync_and_DeleteAsync_use_Dynamic_Setter()
+        {
+            var clubId = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000);
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            await clubDataAccess.Set(x => x.Id, clubId).Set(x => x.Name, "TestClub").InsertAsync();
+
+            var club = await clubDataAccess.Where(x => x.Id == clubId).Select(x => new { x.Id, x.Name }).QueryOneAsync();
+
+            await clubDataAccess.DeleteAsync(x => x.Id == clubId);
+
+            club.Id.Should().Be(clubId);
+            club.Name.Should().Be("TestClub");
+
+            club = await clubDataAccess.Where(x => x.Id == clubId).Select(x => new { x.Id, x.Name }).QueryOneAsync();
+
+            club.Should().BeNull();
+        }
+
+        [TestMethod]
         public void Test_InsertAsync_use_Setter_Has_NotMapped_Column_will_Throw_ArgumentException()
         {
             var clubId = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000);
@@ -1741,6 +1762,34 @@ namespace Chef.DbAccess.SqlServer.Tests
             var clubDataAccess = DataAccessFactory.Create<Club>();
 
             await clubDataAccess.Set(() => new Club { Id = default(int), Name = default(string) })
+                .BulkInsertAsync(
+                    new List<Club> { new Club { Id = clubIds[0], Name = "TestClub1" }, new Club { Id = clubIds[1], Name = "TestClub2" } });
+
+            var clubs = await clubDataAccess.Where(x => clubIds.Contains(x.Id))
+                            .OrderBy(x => x.Id)
+                            .Select(x => new { x.Id, x.Name })
+                            .QueryAsync();
+
+            await clubDataAccess.DeleteAsync(x => clubIds.Contains(x.Id));
+
+            clubs.Count.Should().Be(2);
+            clubs[0].Name.Should().Be("TestClub1");
+            clubs[1].Name.Should().Be("TestClub2");
+        }
+
+        [TestMethod]
+        public async Task Test_BulkInsert_use_Dynamic_Setter()
+        {
+            var clubIds = new[]
+                          {
+                              new Random(Guid.NewGuid().GetHashCode()).Next(100, 500),
+                              new Random(Guid.NewGuid().GetHashCode()).Next(500, 1000)
+                          };
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            await clubDataAccess.Set(x => x.Id, default(int))
+                .Set(x => x.Name, default(string))
                 .BulkInsertAsync(
                     new List<Club> { new Club { Id = clubIds[0], Name = "TestClub1" }, new Club { Id = clubIds[1], Name = "TestClub2" } });
 
