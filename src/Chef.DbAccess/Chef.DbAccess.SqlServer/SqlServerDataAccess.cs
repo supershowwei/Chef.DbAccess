@@ -21,7 +21,7 @@ namespace Chef.DbAccess.SqlServer
 {
     public abstract class SqlServerDataAccess
     {
-        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^,\s\}\)]+(_[\d]+)?\]?\}?)");
+        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^;,\s\}\)]+(_[\d]+)?\]?\}?)");
         protected static readonly Regex ColumnRegex = new Regex(@"\[[^\]]+\]");
 
         protected SqlServerDataAccess()

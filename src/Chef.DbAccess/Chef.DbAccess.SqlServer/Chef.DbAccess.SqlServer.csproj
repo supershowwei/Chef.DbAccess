@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chef.DbAccess" Version="1.6.2" />
-    <PackageReference Include="Dapper" Version="1.50.5" />
+    <PackageReference Include="Chef.DbAccess" Version="1.7.0" />
+    <PackageReference Include="Dapper" Version="2.0.4" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.1.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
   </ItemGroup>
