@@ -131,6 +131,12 @@ GO
 ALTER TABLE [dbo].[Club] ADD  CONSTRAINT [DF_Club_IsActive]  DEFAULT ((1)) FOR [IsActive]
 GO
 
+/****** Object:  UserDefinedTableType [dbo].[IdentityTableType]    Script Date: 2022/01/10 18:56:05 ******/
+CREATE TYPE [dbo].[IdentityTableType] AS TABLE(
+	[Name] [nvarchar](50) NOT NULL
+)
+GO
+
 USE [master]
 GO
 ALTER DATABASE [Club] SET  READ_WRITE 
