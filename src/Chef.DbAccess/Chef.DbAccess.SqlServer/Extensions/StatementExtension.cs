@@ -88,6 +88,37 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return sb.ToString();
         }
 
+        public static string ToOutputSelectList<T>(this Expression<Func<T, object>> me)
+        {
+            var memberExprs = GetMemberExpressions(me.Body);
+
+            var sb = new StringBuilder();
+
+            foreach (var memberExpr in memberExprs)
+            {
+                if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute))) continue;
+
+                sb.Append(GenerateOutputColumnStatement(memberExpr.Member));
+            }
+
+            sb.Remove(sb.Length - 2, 2);
+
+            return sb.ToString();
+
+            static string GenerateOutputColumnStatement(MemberInfo member)
+            {
+                // For IDENTITY Column
+                var memberType = (member as PropertyInfo)?.PropertyType;
+                if (memberType == typeof(int)) return $"CAST(0 AS INT) AS [{member.Name}], ";
+                if (memberType == typeof(long)) return $"CAST(0 AS BIGINT) AS [{member.Name}], ";
+
+                var columnAttribute = member.GetCustomAttribute<ColumnAttribute>();
+                var columnName = columnAttribute?.Name;
+
+                return string.IsNullOrEmpty(columnName) ? $"[{member.Name}], " : $"[{columnName}] AS [{member.Name}], ";
+            }
+        }
+
         public static string ToJoinSelectList(this LambdaExpression lambdaExpr, string[] aliases, out string splitOn)
         {
             var memberExprs = GetMemberExpressions(lambdaExpr.Body);
@@ -521,6 +552,27 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return sb.ToString();
         }
 
+        public static string ToColumnList<T>(this Expression<Func<T, object>> me)
+        {
+            var memberExprs = GetMemberExpressions(me.Body);
+
+            var sb = new StringBuilder();
+
+            foreach (var memberExpr in memberExprs)
+            {
+                if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute))) continue;
+
+                var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
+                var columnName = columnAttribute?.Name;
+
+                sb.Append(string.IsNullOrEmpty(columnName) ? $"[{memberExpr.Member.Name}], " : $"[{columnName}], ");
+            }
+
+            sb.Remove(sb.Length - 2, 2);
+
+            return sb.ToString();
+        }
+
         public static string ToColumnList(this PropertyInfo[] me, out string valueList)
         {
             if (me == null || me.Length == 0) throw new ArgumentException($"'{nameof(me)}' can not be null or empty.");
@@ -583,7 +635,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnAttribute = memberAssignment.Member.GetCustomAttribute<ColumnAttribute>();
                 var parameterName = memberAssignment.Member.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
-                var parameterType = (memberAssignment.Member as PropertyInfo)?.PropertyType ?? memberAssignment.Member.DeclaringType;
+                var parameterType = ((PropertyInfo)memberAssignment.Member).PropertyType;
 
                 if (parameters != null)
                 {
@@ -651,7 +703,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnAttribute = memberAssignment.Member.GetCustomAttribute<ColumnAttribute>();
                 var parameterName = memberAssignment.Member.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
-                var parameterType = (memberAssignment.Member as PropertyInfo)?.PropertyType ?? memberAssignment.Member.DeclaringType;
+                var parameterType = ((PropertyInfo)memberAssignment.Member).PropertyType;
 
                 if (parameters != null)
                 {
@@ -914,7 +966,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = left.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = left.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = (left.Member as PropertyInfo)?.PropertyType ?? left.Member.DeclaringType;
+                    var parameterType = ((PropertyInfo)left.Member).PropertyType;
 
                     if (parameters != null)
                     {
@@ -961,7 +1013,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = memberExpr.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = (memberExpr.Member as PropertyInfo)?.PropertyType ?? memberExpr.Member.DeclaringType;
+                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
 
                     if (parameters != null)
                     {
@@ -985,7 +1037,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = memberExpr.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = (memberExpr.Member as PropertyInfo)?.PropertyType ?? memberExpr.Member.DeclaringType;
+                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
 
                     if (parameters != null)
                     {
@@ -1021,7 +1073,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var alias = aliasMap[parameterExpr.Name];
                     var columnAttribute = argumentExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var columnName = columnAttribute?.Name ?? argumentExpr.Member.Name;
-                    var parameterType = (argumentExpr.Member as PropertyInfo)?.PropertyType ?? argumentExpr.Member.DeclaringType;
+                    var parameterType = ((PropertyInfo)argumentExpr.Member).PropertyType;
 
                     var array = ExtractArray(methodCallExpr.Object ?? methodCallExpr.Arguments[0]);
 
@@ -1043,7 +1095,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                 var parameterName = memberExpr.Member.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
-                var parameterType = (memberExpr.Member as PropertyInfo)?.PropertyType ?? memberExpr.Member.DeclaringType;
+                var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
 
                 if (parameters != null)
                 {

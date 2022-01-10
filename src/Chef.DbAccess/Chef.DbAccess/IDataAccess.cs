@@ -242,11 +242,19 @@ namespace Chef.DbAccess
 
         Task<int> InsertAsync(T value);
 
+        Task<T> InsertAsync(T value, Expression<Func<T, object>> output);
+
         Task<int> InsertAsync(Expression<Func<T>> setter);
+
+        Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output);
 
         Task<int> InsertAsync(IEnumerable<T> values);
 
+        Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output);
+
         Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values);
+
+        Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output);
 
         Task<int> BulkInsertAsync(IEnumerable<T> values);
 

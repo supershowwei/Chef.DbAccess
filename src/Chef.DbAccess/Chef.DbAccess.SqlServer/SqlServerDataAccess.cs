@@ -853,11 +853,25 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, value);
         }
 
+        public virtual Task<T> InsertAsync(T value, Expression<Func<T, object>> output)
+        {
+            var sql = this.GenerateInsertStatement(output);
+
+            return this.ExecuteQueryOneAsync<T>(sql, value);
+        }
+
         public virtual Task<int> InsertAsync(Expression<Func<T>> setter)
         {
             var (sql, parameters) = this.GenerateInsertStatement(setter, true);
 
             return this.ExecuteCommandAsync(sql, parameters);
+        }
+
+        public virtual Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output)
+        {
+            var (sql, parameters) = this.GenerateInsertStatement(setter, true, output);
+
+            return this.ExecuteQueryOneAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> InsertAsync(IEnumerable<T> values)
@@ -867,11 +881,33 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
+        public virtual Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            var statements = this.GenerateInsertStatement(output).Split(';');
+
+            return Transaction.Current != null
+                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
+                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
+        }
+
         public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
+        }
+
+        public virtual Task<List<T>> InsertAsync(
+            Expression<Func<T>> setterTemplate,
+            IEnumerable<T> values,
+            Expression<Func<T, object>> output)
+        {
+            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false, output);
+            var statements = sql.Split(';');
+
+            return Transaction.Current != null
+                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
+                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
         }
 
         public virtual Task<int> BulkInsertAsync(IEnumerable<T> values)
@@ -956,6 +992,84 @@ namespace Chef.DbAccess.SqlServer
                 var result = await db.QueryAsync<TResult>(sql, param);
 
                 return result.ToList();
+            }
+        }
+
+        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(
+            string sql,
+            object param,
+            string resultSql,
+            object resultParam,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null)
+        {
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                if (!string.IsNullOrEmpty(preSql))
+                {
+                    await db.ExecuteAsync(preSql, preParam);
+                }
+
+                await db.ExecuteAsync(sql, param);
+
+                var result = await db.QueryAsync<TResult>(resultSql, resultParam);
+
+                if (!string.IsNullOrEmpty(postSql))
+                {
+                    await db.ExecuteAsync(postSql, postParam);
+                }
+
+                return result.ToList();
+            }
+        }
+
+        protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(
+            string sql,
+            object param,
+            string resultSql,
+            object resultParam,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null)
+        {
+            IEnumerable<TResult> result;
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                await db.OpenAsync();
+
+                using (var tx = db.BeginTransaction())
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(preSql))
+                        {
+                            await db.ExecuteAsync(preSql, preParam, transaction: tx);
+                        }
+                        
+                        await db.ExecuteAsync(sql, param, transaction: tx);
+
+                        result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!string.IsNullOrEmpty(postSql))
+                        {
+                            await db.ExecuteAsync(postSql, postParam);
+                        }
+                    }
+
+                    return result.ToList();
+                }
             }
         }
 
@@ -2335,7 +2449,7 @@ WHERE ";
             return (sql, parameters);
         }
 
-        private string GenerateInsertStatement()
+        private string GenerateInsertStatement(Expression<Func<T, object>> output = null)
         {
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
@@ -2345,25 +2459,93 @@ WHERE ";
 
             var columnList = requiredColumns.ToColumnList(out var valueList);
 
-            var sql = $@"
+            SqlBuilder sql;
+            
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
 INSERT INTO [{this.tableName}]({columnList})
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+            else
+            {
+                sql = $@"
+INSERT INTO [{this.tableName}]({columnList})";
+            }
+
+            sql += $@"
     VALUES ({valueList});";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}];";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 
             return sql;
         }
 
-        private (string, IDictionary<string, object>) GenerateInsertStatement(Expression<Func<T>> setter, bool outParameters)
+        private (string, IDictionary<string, object>) GenerateInsertStatement(Expression<Func<T>> setter, bool outParameters, Expression<Func<T, object>> output = null)
         {
             string valueList;
             IDictionary<string, object> parameters = null;
 
             var columnList = outParameters ? setter.ToColumnList(out valueList, out parameters) : setter.ToColumnList(out valueList);
 
-            var sql = $@"
+            SqlBuilder sql;
+
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
 INSERT INTO [{this.tableName}]({columnList})
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+            else
+            {
+                sql = $@"
+INSERT INTO [{this.tableName}]({columnList})";
+            }
+
+            sql += $@"
     VALUES ({valueList});";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, parameters);
 

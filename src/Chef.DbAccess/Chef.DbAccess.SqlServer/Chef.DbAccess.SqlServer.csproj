@@ -2,10 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chef.DbAccess" Version="1.7.0" />
+    <PackageReference Include="Chef.DbAccess" Version="1.8.0-alpha.4" />
     <PackageReference Include="Dapper" Version="2.0.4" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.4.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
