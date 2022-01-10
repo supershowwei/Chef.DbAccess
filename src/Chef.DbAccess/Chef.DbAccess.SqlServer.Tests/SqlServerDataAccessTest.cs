@@ -31,6 +31,10 @@ namespace Chef.DbAccess.SqlServer.Tests
             SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
                 "ClubType",
                 new Dictionary<string, System.Type> { ["ClubID"] = typeof(int), ["Name"] = typeof(string), ["IsActive"] = typeof(bool) });
+
+            SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
+                "IdentityTableType",
+                new Dictionary<string, System.Type> { ["Name"] = typeof(string) });
         }
 
         [TestMethod]
@@ -1543,24 +1547,6 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
-        public async Task Test_InsertAsync_and_DeleteAsync_Multiply_use_Setter_and_Output()
-        {
-            var identityTableDataAccess = DataAccessFactory.Create<IdentityTable>();
-
-            var identityItems = await identityTableDataAccess.InsertAsync(
-                                    () => new IdentityTable { Name = default },
-                                    new List<IdentityTable> { new IdentityTable { Name = "Johnny" }, new IdentityTable { Name = "Amy" } },
-                                    x => new { x.Id, x.Name });
-
-            identityItems[0].Id.Should().BeGreaterThan(0);
-            identityItems[1].Id.Should().BeGreaterThan(0);
-            identityItems[0].Name.Should().Be("Johnny");
-            identityItems[1].Name.Should().Be("Amy");
-
-            await identityTableDataAccess.DeleteAsync(x => x.Id >= 0);
-        }
-
-        [TestMethod]
         public async Task Test_InsertAsync_and_DeleteAsync_Multiply_use_Setter_and_QueryObject()
         {
             var clubIds = new[]
@@ -1588,6 +1574,27 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs = await clubDataAccess.Where(x => clubIds.Contains(x.Id)).Select(x => new { x.Id, x.Name }).QueryAsync();
 
             clubs.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task Test_InsertAsync_and_DeleteAsync_Multiply_use_QueryObject_and_Output()
+        {
+            var identityTableDataAccess = DataAccessFactory.Create<IdentityTable>();
+
+            var identityItems = await identityTableDataAccess.Set(() => new IdentityTable { Name = default })
+                                    .InsertAsync(
+                                        new List<IdentityTable>
+                                        {
+                                            new IdentityTable { Name = "Johnny" }, new IdentityTable { Name = "Amy" }
+                                        },
+                                        x => new { x.Id, x.Name });
+
+            identityItems[0].Id.Should().BeGreaterThan(0);
+            identityItems[1].Id.Should().BeGreaterThan(0);
+            identityItems[0].Name.Should().Be("Johnny");
+            identityItems[1].Name.Should().Be("Amy");
+
+            await identityTableDataAccess.DeleteAsync(x => x.Id >= 0);
         }
 
         [TestMethod]
@@ -1828,6 +1835,23 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_BulkInsert_use_Output()
+        {
+            var identityTableDataAccess = DataAccessFactory.Create<IdentityTable>();
+
+            var identityItems = await identityTableDataAccess.BulkInsertAsync(
+                                    new List<IdentityTable> { new IdentityTable { Name = "Johnny" }, new IdentityTable { Name = "Amy" } },
+                                    x => new { x.Id, x.Name });
+
+            identityItems[0].Id.Should().BeGreaterThan(0);
+            identityItems[1].Id.Should().BeGreaterThan(0);
+            identityItems[0].Name.Should().Be("Johnny");
+            identityItems[1].Name.Should().Be("Amy");
+
+            await identityTableDataAccess.DeleteAsync(x => x.Id >= 0);
+        }
+
+        [TestMethod]
         public void Test_BulkInsert_without_UserDefinedTable_will_Throw_ArgumentException()
         {
             var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>("Advertisement");
@@ -1867,6 +1891,45 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs.Count.Should().Be(2);
             clubs[0].Name.Should().Be("TestClub1");
             clubs[1].Name.Should().Be("TestClub2");
+        }
+
+        [TestMethod]
+        public async Task Test_BulkInsert_use_Setter_and_Output()
+        {
+            var identityTableDataAccess = DataAccessFactory.Create<IdentityTable>();
+
+            var identityItems = await identityTableDataAccess.BulkInsertAsync(
+                                    () => new IdentityTable { Name = default },
+                                    new List<IdentityTable> { new IdentityTable { Name = "Johnny" }, new IdentityTable { Name = "Amy" } },
+                                    x => new { x.Id, x.Name });
+
+            identityItems[0].Id.Should().BeGreaterThan(0);
+            identityItems[1].Id.Should().BeGreaterThan(0);
+            identityItems[0].Name.Should().Be("Johnny");
+            identityItems[1].Name.Should().Be("Amy");
+
+            await identityTableDataAccess.DeleteAsync(x => x.Id >= 0);
+        }
+
+        [TestMethod]
+        public async Task Test_BulkInsert_use_QueryObject_and_Output()
+        {
+            var identityTableDataAccess = DataAccessFactory.Create<IdentityTable>();
+
+            var identityItems = await identityTableDataAccess.Set(() => new IdentityTable { Name = default })
+                                    .BulkInsertAsync(
+                                        new List<IdentityTable>
+                                        {
+                                            new IdentityTable { Name = "Johnny" }, new IdentityTable { Name = "Amy" }
+                                        },
+                                        x => new { x.Id, x.Name });
+
+            identityItems[0].Id.Should().BeGreaterThan(0);
+            identityItems[1].Id.Should().BeGreaterThan(0);
+            identityItems[0].Name.Should().Be("Johnny");
+            identityItems[1].Name.Should().Be("Amy");
+
+            await identityTableDataAccess.DeleteAsync(x => x.Id >= 0);
         }
 
         [TestMethod]
@@ -2142,6 +2205,7 @@ namespace Chef.DbAccess.SqlServer.Tests
     }
 
     [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True")]
+    [UserDefined(TableType = "IdentityTableType")]
     internal class IdentityTable
     {
         [Column("SeqNo")]

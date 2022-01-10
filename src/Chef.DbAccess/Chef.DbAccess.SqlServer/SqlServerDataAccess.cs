@@ -917,11 +917,28 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
+        public virtual Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
+
+            return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+        }
+
         public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
 
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+        }
+
+        public virtual Task<List<T>> BulkInsertAsync(
+            Expression<Func<T>> setterTemplate,
+            IEnumerable<T> values,
+            Expression<Func<T, object>> output)
+        {
+            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
+
+            return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
@@ -1007,6 +1024,8 @@ namespace Chef.DbAccess.SqlServer
         {
             using (var db = new SqlConnection(this.connectionString))
             {
+                await db.OpenAsync();
+
                 if (!string.IsNullOrEmpty(preSql))
                 {
                     await db.ExecuteAsync(preSql, preParam);
@@ -2552,7 +2571,7 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values)
+        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null)
         {
             var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
 
@@ -2564,26 +2583,94 @@ DROP TABLE [{tmpTable}]";
 
             var columnList = requiredColumns.ToColumnList(out _);
 
-            var sql = $@"
+            SqlBuilder sql;
+
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
 INSERT INTO [{this.tableName}]({columnList})
-    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+            else
+            {
+                sql = $@"
+INSERT INTO [{this.tableName}]({columnList})";
+            }
+
+            sql += $@"
+    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp;";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 
             return (sql, tableType, tableVariable);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null)
         {
             var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
 
             var columnList = setterTemplate.ToColumnList(out _);
 
-            var sql = $@"
+            SqlBuilder sql;
+
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
 INSERT INTO [{this.tableName}]({columnList})
-    SELECT {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+            else
+            {
+                sql = $@"
+INSERT INTO [{this.tableName}]({columnList})";
+            }
+
+            sql += $@"
+    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp;";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 

@@ -272,6 +272,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.BulkInsertAsync(me.Setter, values);
         }
 
+        public static Task<List<T>> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output = null)
+        {
+            return me.DataAccess.BulkInsertAsync(me.Setter, values, output);
+        }
+
         public static Task<int> UpdateAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.UpdateAsync(me.Predicate, me.Setter);
