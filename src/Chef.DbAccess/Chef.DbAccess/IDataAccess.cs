@@ -272,9 +272,15 @@ namespace Chef.DbAccess
 
         Task<int> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter);
 
+        Task<T> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, Expression<Func<T, object>> output);
+
         Task<int> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values);
 
+        Task<List<T>> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output);
+
         Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values);
+
+        Task<List<T>> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output);
 
         Task<int> DeleteAsync(Expression<Func<T, bool>> predicate);
     }

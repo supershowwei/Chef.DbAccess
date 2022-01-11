@@ -1636,6 +1636,38 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpsertAsync_use_Output()
+        {
+            var clubId = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000);
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubInserted = await clubDataAccess.UpsertAsync(
+                           x => x.Id == clubId,
+                           () => new Club { Name = "TestClub" },
+                           x => new { x.Id, x.Name, x.IsActive });
+
+            clubInserted.Id.Should().Be(clubId);
+            clubInserted.Name.Should().Be("TestClub");
+            clubInserted.IsActive.Should().BeTrue();
+
+            var clubUpserted = await clubDataAccess.Where(x => x.Id == clubId && x.IsActive == true)
+                                   .Set(x => x.Name, "TestClub997")
+                                   .Set(x => x.IsActive, false)
+                                   .UpsertAsync(x => new { x.Id, x.Name, x.IsActive });
+
+            await clubDataAccess.DeleteAsync(x => x.Id == clubId);
+
+            clubUpserted.Id.Should().Be(clubId);
+            clubUpserted.Name.Should().Be("TestClub997");
+            clubUpserted.IsActive.Should().BeFalse();
+
+            var club = await clubDataAccess.Where(x => x.Id == clubId).Select(x => new { x.Id, x.Name, x.IsActive }).QueryOneAsync();
+
+            club.Should().BeNull();
+        }
+
+        [TestMethod]
         public async Task Test_UpsertAsync_use_Dynamic_Setter()
         {
             var clubDataAccess = SqlServerDataAccessFactory.Instance.Create<Club>();
@@ -1763,6 +1795,47 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs.Count.Should().Be(2);
             clubs[0].Name.Should().Be("TestClub3");
             clubs[1].Name.Should().Be("TestClub4");
+        }
+
+        [TestMethod]
+        public async Task Test_UpsertAsync_Multiply_use_Output()
+        {
+            var clubIds = new[]
+                          {
+                              new Random(Guid.NewGuid().GetHashCode()).Next(100, 500),
+                              new Random(Guid.NewGuid().GetHashCode()).Next(500, 1000)
+                          };
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubsInserterd = await clubDataAccess.UpsertAsync(
+                                     x => x.Id == default(int),
+                                     () => new Club { Name = default(string) },
+                                     new List<Club>
+                                     {
+                                         new Club { Id = clubIds[0], Name = "TestClub1" }, new Club { Id = clubIds[1], Name = "TestClub2" }
+                                     },
+                                     x => new { x.Id, x.Name });
+
+            clubsInserterd.Count.Should().Be(2);
+            clubsInserterd[0].Name.Should().Be("TestClub1");
+            clubsInserterd[1].Name.Should().Be("TestClub2");
+
+            var clubsUpserted = await clubDataAccess.Where(x => x.Id == default(int))
+                                    .Set(() => new Club { Name = default(string) })
+                                    .UpsertAsync(
+                                        new List<Club>
+                                        {
+                                            new Club { Id = clubIds[0], Name = "TestClub3" },
+                                            new Club { Id = clubIds[1], Name = "TestClub4" }
+                                        },
+                                        x => new { x.Id, x.Name });
+
+            await clubDataAccess.DeleteAsync(x => clubIds.Contains(x.Id));
+
+            clubsUpserted.Count.Should().Be(2);
+            clubsUpserted[0].Name.Should().Be("TestClub3");
+            clubsUpserted[1].Name.Should().Be("TestClub4");
         }
 
         [TestMethod]
@@ -2078,6 +2151,47 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs.Count.Should().Be(2);
             clubs[0].Name.Should().Be("TestClub3");
             clubs[1].Name.Should().Be("TestClub4");
+        }
+
+        [TestMethod]
+        public async Task Test_BulkUpsertAsync_use_Output()
+        {
+            var clubIds = new[]
+                          {
+                              new Random(Guid.NewGuid().GetHashCode()).Next(100, 500),
+                              new Random(Guid.NewGuid().GetHashCode()).Next(500, 1000)
+                          };
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubsInserted = await clubDataAccess.BulkUpsertAsync(
+                                    x => x.Id >= 0 && x.Id <= 0,
+                                    () => new Club { Name = default(string) },
+                                    new List<Club>
+                                    {
+                                        new Club { Id = clubIds[0], Name = "TestClub1" }, new Club { Id = clubIds[1], Name = "TestClub2" }
+                                    },
+                                    x => new { x.Id, x.Name });
+
+            clubsInserted.Count.Should().Be(2);
+            clubsInserted[0].Name.Should().Be("TestClub1");
+            clubsInserted[1].Name.Should().Be("TestClub2");
+
+            var clubsUpserted = await clubDataAccess.Where(x => x.Id == default(int))
+                                    .Set(() => new Club { Name = default(string) })
+                                    .BulkUpsertAsync(
+                                        new List<Club>
+                                        {
+                                            new Club { Id = clubIds[0], Name = "TestClub3" },
+                                            new Club { Id = clubIds[1], Name = "TestClub4" }
+                                        },
+                                        x => new { x.Id, x.Name });
+
+            await clubDataAccess.DeleteAsync(x => clubIds.Contains(x.Id));
+
+            clubsUpserted.Count.Should().Be(2);
+            clubsUpserted[0].Name.Should().Be("TestClub3");
+            clubsUpserted[1].Name.Should().Be("TestClub4");
         }
 
         [TestMethod]

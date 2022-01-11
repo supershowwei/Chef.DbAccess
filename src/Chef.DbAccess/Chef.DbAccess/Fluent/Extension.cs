@@ -297,14 +297,29 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter);
         }
 
+        public static Task<T> UpsertAsync<T>(this QueryObject<T> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, output);
+        }
+
         public static Task<int> UpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values);
         }
 
+        public static Task<List<T>> UpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values, output);
+        }
+
         public static Task<int> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values);
+        }
+
+        public static Task<List<T>> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values, output);
         }
 
         public static Task<int> DeleteAsync<T>(this QueryObject<T> me)

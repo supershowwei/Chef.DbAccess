@@ -21,7 +21,7 @@ namespace Chef.DbAccess.SqlServer
 {
     public abstract class SqlServerDataAccess
     {
-        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^;,\s\}\)]+(_[\d]+)?\]?\}?)");
+        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^#;,\s\}\)]+(_[\d]+)?\]?\}?)");
         protected static readonly Regex ColumnRegex = new Regex(@"\[[^\]]+\]");
 
         protected SqlServerDataAccess()
@@ -897,10 +897,7 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
-        public virtual Task<List<T>> InsertAsync(
-            Expression<Func<T>> setterTemplate,
-            IEnumerable<T> values,
-            Expression<Func<T, object>> output)
+        public virtual Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
             var (sql, _) = this.GenerateInsertStatement(setterTemplate, false, output);
             var statements = sql.Split(';');
@@ -931,10 +928,7 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
-        public virtual Task<List<T>> BulkInsertAsync(
-            Expression<Func<T>> setterTemplate,
-            IEnumerable<T> values,
-            Expression<Func<T, object>> output)
+        public virtual Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
             var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
 
@@ -969,11 +963,30 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, parameters) : this.ExecuteTransactionalCommandAsync(sql, parameters);
         }
 
+        public virtual Task<T> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, Expression<Func<T, object>> output)
+        {
+            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true, output);
+
+            return Transaction.Current != null
+                       ? this.ExecuteQueryOneAsync<T>(sql, parameters)
+                       : this.ExecuteTransactionalQueryOneAsync<T>(sql, parameters);
+        }
+
         public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
+        }
+
+        public virtual Task<List<T>> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false, output);
+            var statements = sql.Split(';');
+
+            return Transaction.Current != null
+                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
+                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
         }
 
         public virtual Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
@@ -983,6 +996,15 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null
                        ? this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
                        : this.ExecuteTransactionalCommandAsync(sql,  new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+        }
+
+        public virtual Task<List<T>> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
+        {
+            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values, output);
+
+            return Transaction.Current != null
+                       ? this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
+                       : this.ExecuteTransactionalQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> DeleteAsync(Expression<Func<T, bool>> predicate)
@@ -1002,6 +1024,32 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
+        protected virtual async Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
+        {
+            TResult result;
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                await db.OpenAsync();
+
+                using (var tx = db.BeginTransaction())
+                {
+                    try
+                    {
+                        result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+
+                    return result;
+                }
+            }
+        }
+
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
             using (var db = new SqlConnection(this.connectionString))
@@ -1009,6 +1057,32 @@ namespace Chef.DbAccess.SqlServer
                 var result = await db.QueryAsync<TResult>(sql, param);
 
                 return result.ToList();
+            }
+        }
+
+        protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
+        {
+            IEnumerable<TResult> result;
+            using (var db = new SqlConnection(this.connectionString))
+            {
+                await db.OpenAsync();
+
+                using (var tx = db.BeginTransaction())
+                {
+                    try
+                    {
+                        result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+
+                    return result.ToList();
+                }
             }
         }
 
@@ -2717,20 +2791,52 @@ INNER JOIN @TableVariable tvp
         private (string, IDictionary<string, object>) GenerateUpsertStatement(
             Expression<Func<T, bool>> predicate,
             Expression<Func<T>> setter,
-            bool outParameters)
+            bool outParameters,
+            Expression<Func<T, object>> output = null)
         {
             IDictionary<string, object> parameters = null;
 
-            SqlBuilder sql = $@"
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+            SqlBuilder sql;
 
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            var insertedColumnList = string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+";
+            }
+            else
+            {
+                sql = @"
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+";
+            }
+
+            sql += $@"
 UPDATE [{this.tableName}] WITH (ROWLOCK)
 SET ";
             sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
+
+            if (output != null)
+            {
+                sql += $@"
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+
             sql += @"
 WHERE ";
             sql += outParameters ? predicate.ToSearchCondition(parameters) : predicate.ToSearchCondition();
-            sql += ";";
 
             var (columnList, valueList) = ResolveColumnList(sql);
 
@@ -2738,9 +2844,28 @@ WHERE ";
             sql += $@"
 IF @@rowcount = 0
     BEGIN
-        INSERT INTO [{this.tableName}]({columnList})
-            VALUES ({valueList});
-    END";
+        INSERT INTO [{this.tableName}]({columnList})";
+
+            if (output != null)
+            {
+                sql += $@"
+        OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+
+            sql += $@"
+            VALUES ({valueList})
+    END;";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 
@@ -2750,31 +2875,78 @@ IF @@rowcount = 0
         private (string, string, DataTable) GenerateBulkUpsertStatement(
             Expression<Func<T, bool>> predicateTemplate,
             Expression<Func<T>> setterTemplate,
-            IEnumerable<T> values)
+            IEnumerable<T> values,
+            Expression<Func<T, object>> output = null)
         {
             var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
 
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition();
 
-            SqlBuilder sql = $@"
+            SqlBuilder sql = string.Empty;
+
+            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+
+            var insertedColumnList = string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+";
+            }
+
+            sql += $@"
 UPDATE [{this.tableName}]
-SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
+SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}";
+
+            if (output != null)
+            {
+                sql += $@"
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+
+            sql += $@"
 FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
-    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
+    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")}";
 
             (columnList, _) = ResolveColumnList(sql);
 
             sql.Append("\r\n");
             sql += $@"
-INSERT INTO [{this.tableName}]({columnList})
+INSERT INTO [{this.tableName}]({columnList})";
+
+            if (output != null)
+            {
+                sql += $@"
+OUTPUT {insertedColumnList} INTO [{tmpTable}]";
+            }
+
+            sql += $@"
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp
     WHERE NOT EXISTS (SELECT
                 1
             FROM [{this.tableName}] t WITH (NOLOCK)
             WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 
