@@ -515,7 +515,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseJoinCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters);
 
             return sb.ToString();
         }
@@ -547,7 +547,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseJoinCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters);
 
             return sb.ToString();
         }
@@ -938,6 +938,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     var argumentExpr = binaryExpr.Right;
 
+                    while (argumentExpr is UnaryExpression unaryExpr)
+                    {
+                        argumentExpr = unaryExpr.Operand; 
+                    }
+
                     if (!(binaryExpr.Left is MemberExpression left))
                     {
                         switch (binaryExpr.Left)
@@ -968,29 +973,41 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnName = columnAttribute?.Name ?? parameterName;
                     var parameterType = ((PropertyInfo)left.Member).PropertyType;
 
-                    if (parameters != null)
+                    if (argumentExpr is MemberExpression rightMemberExpr && rightMemberExpr.Expression is ParameterExpression rightParameterExpr)
                     {
-                        SetParameter(left.Member, ExtractConstant(argumentExpr), columnAttribute, parameters, out parameterName);
-                    }
+                        var rightAlias = aliasMap[rightParameterExpr.Name];
+                        var rightColumnAttribute = rightMemberExpr.Member.GetCustomAttribute<ColumnAttribute>();
+                        var rightColumnName = rightColumnAttribute?.Name ?? rightMemberExpr.Member.Name;
 
-                    if (parameters != null && parameters[parameterName] == null)
-                    {
-                        switch (binaryExpr.NodeType)
-                        {
-                            case ExpressionType.Equal:
-                                sb.AliasAppend($"[{columnName}] IS NULL", alias);
-                                break;
-
-                            case ExpressionType.NotEqual:
-                                sb.AliasAppend($"[{columnName}] IS NOT NULL", alias);
-                                break;
-
-                            default: throw new ArgumentException("Invalid NodeType.");
-                        }
+                        sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} ", alias);
+                        sb.AliasAppend($"[{rightColumnName}]", rightAlias);
                     }
                     else
                     {
-                        sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                        if (parameters != null)
+                        {
+                            SetParameter(left.Member, ExtractConstant(argumentExpr), columnAttribute, parameters, out parameterName);
+                        }
+
+                        if (parameters != null && parameters[parameterName] == null)
+                        {
+                            switch (binaryExpr.NodeType)
+                            {
+                                case ExpressionType.Equal:
+                                    sb.AliasAppend($"[{columnName}] IS NULL", alias);
+                                    break;
+
+                                case ExpressionType.NotEqual:
+                                    sb.AliasAppend($"[{columnName}] IS NOT NULL", alias);
+                                    break;
+
+                                default: throw new ArgumentException("Invalid NodeType.");
+                            }
+                        }
+                        else
+                        {
+                            sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                        }
                     }
                 }
             }
@@ -1107,80 +1124,6 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 }
 
                 sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
-            }
-        }
-
-        private static void ParseJoinCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters)
-        {
-            if (expr is BinaryExpression binaryExpr)
-            {
-                if (binaryExpr.NodeType == ExpressionType.AndAlso || binaryExpr.NodeType == ExpressionType.OrElse)
-                {
-                    sb.Append("(");
-
-                    ParseJoinCondition(binaryExpr.Left, aliasMap, sb, parameters);
-
-                    switch (binaryExpr.NodeType)
-                    {
-                        case ExpressionType.AndAlso:
-                            sb.Append(") AND (");
-                            break;
-
-                        case ExpressionType.OrElse:
-                            sb.Append(") OR (");
-                            break;
-                    }
-
-                    ParseJoinCondition(binaryExpr.Right, aliasMap, sb, parameters);
-
-                    sb.Append(")");
-                }
-                else
-                {
-                    switch (binaryExpr.Right)
-                    {
-                        case ConstantExpression _:
-                        case MemberExpression right when right.Expression.NodeType != ExpressionType.Parameter:
-                            ParseCondition(binaryExpr, aliasMap, sb, parameters);
-                            break;
-
-                        default:
-                            ParseJoinCondition(binaryExpr.Left, aliasMap, sb, parameters);
-
-                            sb.Append($" {MapOperator(binaryExpr.NodeType)} ");
-
-                            ParseJoinCondition(binaryExpr.Right, aliasMap, sb, parameters);
-                            break;
-                    }
-                }
-            }
-            else
-            {
-                if (!(expr is MemberExpression memberExpr))
-                {
-                    if (!(expr is UnaryExpression unaryExpr))
-                    {
-                        throw new ArgumentException("Expression must be MemberExpression.");
-                    }
-
-                    if ((memberExpr = unaryExpr.Operand as MemberExpression) == null)
-                    {
-                        throw new ArgumentException("Expression must be MemberExpression.");
-                    }
-                }
-
-                if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
-                {
-                    throw new ArgumentException("Member can not applied [NotMapped].");
-                }
-
-                var parameterExpr = (ParameterExpression)memberExpr.Expression;
-
-                var alias = aliasMap[parameterExpr.Name];
-                var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
-                var columnName = columnAttribute?.Name ?? memberExpr.Member.Name;
-
-                sb.AliasAppend($"[{columnName}]", alias);
             }
         }
 

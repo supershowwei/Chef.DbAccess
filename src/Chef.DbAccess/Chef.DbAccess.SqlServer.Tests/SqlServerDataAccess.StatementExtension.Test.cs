@@ -544,6 +544,21 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToInnerJoin_with_Nullable_Clause()
+        {
+            Expression<Func<Member, Video, bool>> innerJoinPredicate =
+                (x, y) => x.Id == y.Id && x.Id > 0 && y.Id > 0 && (x.IsDelete == null || x.IsDelete == false);
+
+            var innerJoinSearchCodition = innerJoinPredicate.ToInnerJoin<Video>(
+                new[] { "m", "v" },
+                null,
+                null,
+                new Dictionary<string, object>());
+
+            innerJoinSearchCodition.Should().Be("INNER JOIN Video [v] WITH (NOLOCK) ON ((([m].[Id] = [v].[ID]) AND ([m].[Id] > {=Id_0})) AND ([v].[ID] > {=Id_1})) AND (([m].[IsDelete] IS NULL) OR ([m].[IsDelete] = {=IsDelete_1}))");
+        }
+
+        [TestMethod]
         public void Test_ToInnerJoin_with_Database_and_Schema()
         {
             Expression<Func<Member, Video, bool>> innerJoinPredicate = (x, y) => x.Id == y.Id;
@@ -658,7 +673,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var selectList = select.ToSelectList();
 
-            selectList.Should().Be("[Id], [first_name] AS [FirstName], [last_name] AS [LastName], [Seniority], [Age], [IsActive], [IsActive] AS [Enabled], [SubordinateCount], [MaxSubordinateId], [SubordinateId], [Subordinate], [Age]");
+            selectList.Should().Be("[Id], [first_name] AS [FirstName], [last_name] AS [LastName], [Seniority], [Age], [IsActive], [IsDelete], [IsActive] AS [Enabled], [SubordinateCount], [MaxSubordinateId], [SubordinateId], [Subordinate], [Age]");
         }
 
         [TestMethod]
@@ -668,7 +683,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var selectList = selector.ToJoinSelectList(new[] { "m", "v" }, out var splitOn);
 
-            selectList.Should().Be("[m].[Id], [m].[first_name] AS [FirstName], [m].[Id], [m].[first_name] AS [FirstName], [m].[last_name] AS [LastName], [m].[Seniority], [m].[Age], [m].[IsActive], [m].[IsActive] AS [Enabled], [m].[SubordinateCount], [m].[MaxSubordinateId], [m].[SubordinateId], [m].[Subordinate], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId]");
+            selectList.Should().Be("[m].[Id], [m].[first_name] AS [FirstName], [m].[Id], [m].[first_name] AS [FirstName], [m].[last_name] AS [LastName], [m].[Seniority], [m].[Age], [m].[IsActive], [m].[IsDelete], [m].[IsActive] AS [Enabled], [m].[SubordinateCount], [m].[MaxSubordinateId], [m].[SubordinateId], [m].[Subordinate], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId]");
             splitOn.Should().Be("Id");
         }
 
@@ -1039,6 +1054,8 @@ namespace Chef.DbAccess.SqlServer.Tests
         public int Age { get; set; }
 
         public bool IsActive { get; set; }
+
+        public bool? IsDelete { get; set; }
 
         [Column("IsActive")]
         public bool Enabled { get; set; }
