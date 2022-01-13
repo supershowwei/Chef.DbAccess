@@ -911,6 +911,14 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
         private static void ParseCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters)
         {
+            var isNot = false;
+
+            if (expr.NodeType == ExpressionType.Not)
+            {
+                isNot = true;
+                expr = ((UnaryExpression)expr).Operand;
+            }
+
             if (expr is BinaryExpression binaryExpr)
             {
                 if (binaryExpr.NodeType == ExpressionType.AndAlso || binaryExpr.NodeType == ExpressionType.OrElse)
@@ -1037,7 +1045,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, out parameterName);
                     }
 
-                    sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                    sb.AliasAppend($"[{columnName}] {(isNot ? "<>" : "=")} {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
                 }
                 else if (methodFullName.IsLikeOperator())
                 {
@@ -1063,15 +1071,15 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     if (methodFullName.Equals("System.String.Contains"))
                     {
-                        sb.AliasAppend($"[{columnName}] LIKE '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
                     }
                     else if (methodFullName.Equals("System.String.StartsWith"))
                     {
-                        sb.AliasAppend($"[{columnName}] LIKE {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
                     }
                     else if (methodFullName.Equals("System.String.EndsWith"))
                     {
-                        sb.AliasAppend($"[{columnName}] LIKE '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
                     }
                 }
                 else if (methodFullName.EndsWith(".Contains"))
@@ -1100,10 +1108,21 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                         SetParameter(argumentExpr.Member, item, columnAttribute, parameters, out var parameterName);
 
-                        sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)} OR ", alias);
+                        sb.AliasAppend(
+                            isNot
+                                ? $"[{columnName}] <> {GenerateParameterStatement(parameterName, parameterType, parameters)} AND "
+                                : $"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)} OR ",
+                            alias);
                     }
 
-                    sb.Remove(sb.Length - 4, 4);
+                    if (isNot)
+                    {
+                        sb.Remove(sb.Length - 5, 5);
+                    }
+                    else
+                    {
+                        sb.Remove(sb.Length - 4, 4);
+                    }
                 }
             }
             else if (expr is MemberExpression memberExpr && memberExpr.Expression is ParameterExpression parameterExpr)
@@ -1118,7 +1137,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     object value = null;
 
-                    if (parameterType == typeof(bool)) value = true;
+                    if (parameterType == typeof(bool)) value = !isNot;
 
                     if (value != null) SetParameter(memberExpr.Member, value, columnAttribute, parameters, out parameterName);
                 }

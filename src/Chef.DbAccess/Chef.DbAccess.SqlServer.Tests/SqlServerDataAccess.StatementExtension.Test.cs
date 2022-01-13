@@ -101,6 +101,17 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_Single_Not_Boolean_will_be_a_Clause()
+        {
+            Expression<Func<Member, bool>> predicate = x => !x.IsActive;
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("[IsActive] = {=IsActive_0}");
+            parameters["IsActive_0"].Should().Be(false);
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_Single_Boolean_will_be_a_Clause_with_Alias()
         {
             Expression<Func<Member, bool>> predicate = x => x.Enabled;
@@ -188,6 +199,17 @@ namespace Chef.DbAccess.SqlServer.Tests
             var searchCondition = predicate.ToSearchCondition(out var parameters);
 
             searchCondition.Should().Be("[Id] = {=Id_0}");
+            parameters["Id_0"].Should().Be(1);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_Not_Equals()
+        {
+            Expression<Func<Member, bool>> predicate = x => !x.Id.Equals(1);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("[Id] <> {=Id_0}");
             parameters["Id_0"].Should().Be(1);
         }
 
@@ -346,6 +368,21 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_use_Not_Contains_with_Variable()
+        {
+            var arr = new[] { "1", "2", "3" };
+
+            Expression<Func<Member, bool>> predicate = x => !arr.Contains(x.FirstName);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("[first_name] <> @FirstName_0 AND [first_name] <> @FirstName_1 AND [first_name] <> @FirstName_2");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
+            ((DbString)parameters["FirstName_1"]).Value.Should().Be("2");
+            ((DbString)parameters["FirstName_2"]).Value.Should().Be("3");
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_And_with_Contains()
         {
             var arr = new[] { "1", "2", "3" };
@@ -378,6 +415,20 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_Or_Not_Contains()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.LastName == "999" || !new[] { 1, 2, 3 }.Contains(x.Id);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([last_name] = @LastName_0) OR ([Id] <> {=Id_0} AND [Id] <> {=Id_1} AND [Id] <> {=Id_2})");
+            parameters["LastName_0"].Should().Be("999");
+            parameters["Id_0"].Should().Be(1);
+            parameters["Id_1"].Should().Be(2);
+            parameters["Id_2"].Should().Be(3);
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_use_String_Contains()
         {
             var keyword = "777";
@@ -387,6 +438,20 @@ namespace Chef.DbAccess.SqlServer.Tests
             var searchCondition = predicate.ToSearchCondition(out var parameters);
 
             searchCondition.Should().Be("([last_name] LIKE '%' + @LastName_0 + '%') OR ([first_name] LIKE '%' + @FirstName_0 + '%')");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("777");
+            parameters["LastName_0"].Should().Be("888");
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_String_Not_Contains()
+        {
+            var keyword = "777";
+
+            Expression<Func<Member, bool>> predicate = x => !x.LastName.Contains("888") || !x.FirstName.Contains(keyword);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([last_name] NOT LIKE '%' + @LastName_0 + '%') OR ([first_name] NOT LIKE '%' + @FirstName_0 + '%')");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("777");
             parameters["LastName_0"].Should().Be("888");
         }
@@ -406,6 +471,20 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_use_String_Not_StartsWith()
+        {
+            var keyword = "666";
+
+            Expression<Func<Member, bool>> predicate = x => x.LastName.StartsWith("777") || !x.FirstName.StartsWith(keyword);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([last_name] LIKE @LastName_0 + '%') OR ([first_name] NOT LIKE @FirstName_0 + '%')");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("666");
+            parameters["LastName_0"].Should().Be("777");
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_use_String_EndsWith()
         {
             var keyword = "555";
@@ -415,6 +494,20 @@ namespace Chef.DbAccess.SqlServer.Tests
             var searchCondition = predicate.ToSearchCondition(out var parameters);
 
             searchCondition.Should().Be("([last_name] LIKE '%' + @LastName_0) OR ([first_name] LIKE '%' + @FirstName_0)");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("555");
+            parameters["LastName_0"].Should().Be("666");
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_String_Not_EndsWith()
+        {
+            var keyword = "555";
+
+            Expression<Func<Member, bool>> predicate = x => !x.LastName.EndsWith("666") || x.FirstName.EndsWith(keyword);
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([last_name] NOT LIKE '%' + @LastName_0) OR ([first_name] LIKE '%' + @FirstName_0)");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("555");
             parameters["LastName_0"].Should().Be("666");
         }
