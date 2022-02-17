@@ -2554,7 +2554,7 @@ WHERE ";
 
             SqlBuilder sql;
             
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             if (output != null)
             {
@@ -2604,7 +2604,7 @@ DROP TABLE [{tmpTable}];";
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             if (output != null)
             {
@@ -2659,7 +2659,7 @@ DROP TABLE [{tmpTable}]";
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             if (output != null)
             {
@@ -2709,7 +2709,7 @@ DROP TABLE [{tmpTable}]";
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             if (output != null)
             {
@@ -2798,7 +2798,7 @@ INNER JOIN @TableVariable tvp
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             var insertedColumnList = string.Empty;
 
@@ -2885,7 +2885,7 @@ DROP TABLE [{tmpTable}]";
 
             SqlBuilder sql = string.Empty;
 
-            var tmpTable = output != null ? $"#{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
 
             var insertedColumnList = string.Empty;
 
