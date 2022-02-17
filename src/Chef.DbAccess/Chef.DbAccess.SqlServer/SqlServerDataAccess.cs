@@ -2577,7 +2577,7 @@ INSERT INTO [{this.tableName}]({columnList})";
             }
 
             sql += $@"
-    VALUES ({valueList});";
+    SELECT {valueList};";
 
             if (output != null)
             {
@@ -2627,7 +2627,7 @@ INSERT INTO [{this.tableName}]({columnList})";
             }
 
             sql += $@"
-    VALUES ({valueList});";
+    SELECT {valueList};";
 
             if (output != null)
             {
@@ -2853,7 +2853,7 @@ IF @@rowcount = 0
             }
 
             sql += $@"
-            VALUES ({valueList})
+            SELECT {valueList}
     END;";
 
             if (output != null)
