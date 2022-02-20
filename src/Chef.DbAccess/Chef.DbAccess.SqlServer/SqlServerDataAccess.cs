@@ -9,6 +9,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -21,8 +22,9 @@ namespace Chef.DbAccess.SqlServer
 {
     public abstract class SqlServerDataAccess
     {
-        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^#;,\s\}\)]+(_[\d]+)?\]?\}?)");
-        protected static readonly Regex ColumnRegex = new Regex(@"\[[^\]]+\]");
+        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^#;,\s\}\]\)]+(_[\d]+)?\]?\}?)", RegexOptions.Compiled);
+        protected static readonly Regex ColumnRegex = new Regex(@"\[[^\]]+\]", RegexOptions.Compiled);
+        protected static readonly Regex ParameterRegex = new Regex(@"@([^#;,\s\}\]\)]+)", RegexOptions.Compiled);
 
         protected SqlServerDataAccess()
         {
@@ -846,60 +848,93 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, param);
         }
 
-        public virtual Task<int> InsertAsync(T value)
+        public virtual Task<int> InsertAsync(T value, Expression<Func<T, bool>> nonexistence = null)
         {
-            var sql = this.GenerateInsertStatement();
+            if (nonexistence != null)
+            {
+                var parameters = value.ExtractRequired();
 
-            return this.ExecuteCommandAsync(sql, value);
+                var sql = this.GenerateInsertStatement(nonexistence: nonexistence, parameters: parameters);
+
+                return this.ExecuteCommandAsync(sql, parameters);
+            }
+            else
+            {
+                var sql = this.GenerateInsertStatement();
+
+                return this.ExecuteCommandAsync(sql, value);
+            }
         }
 
-        public virtual Task<T> InsertAsync(T value, Expression<Func<T, object>> output)
+        public virtual Task<T> InsertAsync(T value, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var sql = this.GenerateInsertStatement(output);
+            if (nonexistence != null)
+            {
+                var parameters = value.ExtractRequired();
 
-            return this.ExecuteQueryOneAsync<T>(sql, value);
+                var sql = this.GenerateInsertStatement(output, nonexistence, parameters);
+
+                return this.ExecuteQueryOneAsync<T>(sql, parameters);
+            }
+            else
+            {
+                var sql = this.GenerateInsertStatement(output);
+
+                return this.ExecuteQueryOneAsync<T>(sql, value);
+            }
         }
 
-        public virtual Task<int> InsertAsync(Expression<Func<T>> setter)
+        public virtual Task<int> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, parameters) = this.GenerateInsertStatement(setter, true);
+            var (sql, parameters) = nonexistence != null
+                                        ? this.GenerateInsertStatement(setter, true, nonexistence: nonexistence)
+                                        : this.GenerateInsertStatement(setter, true);
 
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output)
+        public virtual Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, parameters) = this.GenerateInsertStatement(setter, true, output);
+            var (sql, parameters) = nonexistence != null
+                                        ? this.GenerateInsertStatement(setter, true, output, nonexistence)
+                                        : this.GenerateInsertStatement(setter, true, output);
 
             return this.ExecuteQueryOneAsync<T>(sql, parameters);
         }
 
-        public virtual Task<int> InsertAsync(IEnumerable<T> values)
+        public virtual Task<int> InsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
         {
-            var sql = this.GenerateInsertStatement();
+            var sql = nonexistence != null ? this.GenerateInsertStatement(nonexistence: nonexistence) : this.GenerateInsertStatement();
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
-        public virtual Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var statements = this.GenerateInsertStatement(output).Split(';');
+            var statements = nonexistence != null
+                                 ? this.GenerateInsertStatement(output, nonexistence).Split(';')
+                                 : this.GenerateInsertStatement(output).Split(';');
 
             return Transaction.Current != null
                        ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
                        : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
         }
 
-        public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false);
+            var (sql, _) = nonexistence != null
+                               ? this.GenerateInsertStatement(setterTemplate, false, nonexistence: nonexistence)
+                               : this.GenerateInsertStatement(setterTemplate, false);
 
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
-        public virtual Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, _) = this.GenerateInsertStatement(setterTemplate, false, output);
+            var (sql, _) = nonexistence != null
+                               ? this.GenerateInsertStatement(setterTemplate, false, output, nonexistence)
+                               : this.GenerateInsertStatement(setterTemplate, false, output);
+
             var statements = sql.Split(';');
 
             return Transaction.Current != null
@@ -907,32 +942,68 @@ namespace Chef.DbAccess.SqlServer
                        : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
         }
 
-        public virtual Task<int> BulkInsertAsync(IEnumerable<T> values)
+        public virtual Task<int> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
+            if (nonexistence != null)
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, nonexistence: nonexistence);
 
-            return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
+            else
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
+
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
         }
 
-        public virtual Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
+            if (nonexistence != null)
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output, nonexistence);
 
-            return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
+            else
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
+
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
         }
 
-        public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
+            if (nonexistence != null)
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, nonexistence: nonexistence);
 
-            return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
+            else
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
+
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
         }
 
-        public virtual Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
+            if (nonexistence != null)
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output, nonexistence);
 
-            return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
+            else
+            {
+                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
+
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+            }
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
@@ -1523,7 +1594,7 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -2243,7 +2314,7 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -2522,7 +2593,7 @@ SELECT
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -2542,7 +2613,7 @@ WHERE ";
             return (sql, parameters);
         }
 
-        private string GenerateInsertStatement(Expression<Func<T, object>> output = null)
+        private string GenerateInsertStatement(Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null, IDictionary<string, object> parameters = null)
         {
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
@@ -2576,8 +2647,22 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
 INSERT INTO [{this.tableName}]({columnList})";
             }
 
-            sql += $@"
+            if (nonexistence != null)
+            {
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, parameters, null);
+
+                sql += $@"
+    SELECT {valueList}
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [{this.tableName}] [{this.alias}]
+            WHERE {nonexistenceCondition});";
+            }
+            else
+            {
+                sql += $@"
     SELECT {valueList};";
+            }
 
             if (output != null)
             {
@@ -2595,7 +2680,7 @@ DROP TABLE [{tmpTable}];";
             return sql;
         }
 
-        private (string, IDictionary<string, object>) GenerateInsertStatement(Expression<Func<T>> setter, bool outParameters, Expression<Func<T, object>> output = null)
+        private (string, IDictionary<string, object>) GenerateInsertStatement(Expression<Func<T>> setter, bool outParameters, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
             string valueList;
             IDictionary<string, object> parameters = null;
@@ -2626,8 +2711,22 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
 INSERT INTO [{this.tableName}]({columnList})";
             }
 
-            sql += $@"
+            if (nonexistence != null)
+            {
+                var nonexistenceCondition = outParameters ? nonexistence.ToSearchCondition(this.alias, parameters, null) : nonexistence.ToSearchCondition(this.alias);
+
+                sql += $@"
+    SELECT {valueList}
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [{this.tableName}] [{this.alias}]
+            WHERE {nonexistenceCondition});";
+            }
+            else
+            {
+                sql += $@"
     SELECT {valueList};";
+            }
 
             if (output != null)
             {
@@ -2645,9 +2744,11 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null)
+        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+            var userDefinedColumnNameMap = nonexistence != null ? new Dictionary<string, string>() : null;
+
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, userDefinedColumnNameMap);
 
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
@@ -2681,9 +2782,24 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
 INSERT INTO [{this.tableName}]({columnList})";
             }
 
-            sql += $@"
+            if (nonexistence != null)
+            {
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedColumnNameMap);
+
+                sql += $@"
+    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [{this.tableName}] [{this.alias}]
+            WHERE {ParameterRegex.Replace(nonexistenceCondition, "tvp.[$1]")});";
+            }
+            else
+            {
+                sql += $@"
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp;";
+            }
 
             if (output != null)
             {
@@ -2701,9 +2817,11 @@ DROP TABLE [{tmpTable}]";
             return (sql, tableType, tableVariable);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null)
+        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+            var userDefinedColumnNameMap = nonexistence != null ? new Dictionary<string, string>() : null;
+
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, userDefinedColumnNameMap);
 
             var columnList = setterTemplate.ToColumnList(out _);
 
@@ -2731,9 +2849,24 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
 INSERT INTO [{this.tableName}]({columnList})";
             }
 
-            sql += $@"
+            if (nonexistence != null)
+            {
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedColumnNameMap);
+
+                sql += $@"
+    SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [{this.tableName}] [{this.alias}]
+            WHERE {ParameterRegex.Replace(nonexistenceCondition, "tvp.[$1]")});";
+            }
+            else
+            {
+                sql += $@"
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
     FROM @TableVariable tvp;";
+            }
 
             if (output != null)
             {
@@ -2771,7 +2904,7 @@ WHERE ";
 
         private (string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, null);
 
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition();
@@ -2878,7 +3011,7 @@ DROP TABLE [{tmpTable}]";
             IEnumerable<T> values,
             Expression<Func<T, object>> output = null)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values);
+            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, null);
 
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition();
@@ -3010,7 +3143,7 @@ WHERE ";
             }
         }
 
-        private (string, DataTable) ConvertToTableValuedParameters(IEnumerable<T> values)
+        private (string, DataTable) ConvertToTableValuedParameters(IEnumerable<T> values, IDictionary<string, string> userDefinedColumnNameMap)
         {
             var userDefinedAttribute = typeof(T).GetCustomAttribute<UserDefinedAttribute>(true);
 
@@ -3029,19 +3162,24 @@ WHERE ";
 
             dataTable.Columns.AddRange(columns.ToArray());
 
-            var properties = columns.ToDictionary(
-                x => x.ColumnName,
-                x =>
-                    {
-                        var property = typeof(T).GetProperty(x.ColumnName);
+            var properties = typeof(T).GetProperties().ToDictionary(x => x.Name, x => x);
 
-                        if (property == null)
-                        {
-                            property = typeof(T).GetProperties().Single(p => p.GetCustomAttribute<ColumnAttribute>()?.Name == x.ColumnName);
-                        }
+            var propertyMap = new Dictionary<string, PropertyInfo>();
 
-                        return property;
-                    });
+            foreach (var dataColumn in columns)
+            {
+                if (!properties.TryGetValue(dataColumn.ColumnName, out var property))
+                {
+                    property = properties.Values.Single(p => p.GetCustomAttribute<ColumnAttribute>()?.Name == dataColumn.ColumnName);
+                }
+
+                propertyMap[dataColumn.ColumnName] = property;
+
+                if (userDefinedColumnNameMap != null)
+                {
+                    userDefinedColumnNameMap[property.Name] = dataColumn.ColumnName;
+                }
+            }
 
             foreach (var value in values)
             {
@@ -3049,7 +3187,7 @@ WHERE ";
 
                 foreach (var dataColumn in columns)
                 {
-                    dataRow[dataColumn.ColumnName] = properties[dataColumn.ColumnName].GetValue(value);
+                    dataRow[dataColumn.ColumnName] = propertyMap[dataColumn.ColumnName].GetValue(value);
                 }
 
                 dataTable.Rows.Add(dataRow);

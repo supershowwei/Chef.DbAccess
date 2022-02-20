@@ -240,29 +240,29 @@ namespace Chef.DbAccess
 
         Task<int> ExecuteAsync(string sql, object param);
 
-        Task<int> InsertAsync(T value);
+        Task<int> InsertAsync(T value, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<T> InsertAsync(T value, Expression<Func<T, object>> output);
+        Task<T> InsertAsync(T value, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<int> InsertAsync(Expression<Func<T>> setter);
+        Task<int> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output);
+        Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<int> InsertAsync(IEnumerable<T> values);
+        Task<int> InsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output);
+        Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values);
+        Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output);
+        Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<int> BulkInsertAsync(IEnumerable<T> values);
+        Task<int> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output);
+        Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values);
+        Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null);
 
-        Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output);
+        Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null);
 
         Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter);
 

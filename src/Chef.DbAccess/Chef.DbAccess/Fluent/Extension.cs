@@ -252,9 +252,19 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.InsertAsync(me.Setter);
         }
 
+        public static Task<int> InsertAsync<T>(this QueryObject<T> me, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.InsertAsync(me.Setter, nonexistence);
+        }
+
         public static Task<T> InsertAsync<T>(this QueryObject<T> me, Expression<Func<T, object>> output)
         {
             return me.DataAccess.InsertAsync(me.Setter, output);
+        }
+
+        public static Task<T> InsertAsync<T>(this QueryObject<T> me, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.InsertAsync(me.Setter, output, nonexistence);
         }
 
         public static Task<int> InsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
@@ -262,9 +272,19 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.InsertAsync(me.Setter, values);
         }
 
+        public static Task<int> InsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.InsertAsync(me.Setter, values, nonexistence);
+        }
+
         public static Task<List<T>> InsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
             return me.DataAccess.InsertAsync(me.Setter, values, output);
+        }
+
+        public static Task<List<T>> InsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.InsertAsync(me.Setter, values, output, nonexistence);
         }
 
         public static Task<int> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
@@ -272,9 +292,19 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.BulkInsertAsync(me.Setter, values);
         }
 
-        public static Task<List<T>> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output = null)
+        public static Task<int> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.BulkInsertAsync(me.Setter, values, nonexistence);
+        }
+
+        public static Task<List<T>> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
             return me.DataAccess.BulkInsertAsync(me.Setter, values, output);
+        }
+
+        public static Task<List<T>> BulkInsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence)
+        {
+            return me.DataAccess.BulkInsertAsync(me.Setter, values, output, nonexistence);
         }
 
         public static Task<int> UpdateAsync<T>(this QueryObject<T> me)

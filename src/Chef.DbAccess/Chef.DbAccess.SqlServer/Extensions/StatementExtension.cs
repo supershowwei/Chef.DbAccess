@@ -272,12 +272,17 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me)
         {
-            return ToSearchCondition(me, string.Empty, null);
+            return ToSearchCondition(me, string.Empty, null, null);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias)
         {
-            return ToSearchCondition(me, alias, null);
+            return ToSearchCondition(me, alias, null, null);
+        }
+
+        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, string> parameterNames)
+        {
+            return ToSearchCondition(me, alias, null, parameterNames);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, out IDictionary<string, object> parameters)
@@ -289,21 +294,21 @@ namespace Chef.DbAccess.SqlServer.Extensions
         {
             parameters = new Dictionary<string, object>();
 
-            return ToSearchCondition(me, alias, parameters);
+            return ToSearchCondition(me, alias, parameters, null);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, IDictionary<string, object> parameters)
         {
-            return ToSearchCondition(me, string.Empty, parameters);
+            return ToSearchCondition(me, string.Empty, parameters, null);
         }
 
-        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, object> parameters)
+        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames)
         {
             var aliasMap = GenerateAliasMap(me.Parameters, new[] { alias });
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, parameterNames);
 
             return sb.ToString();
         }
@@ -333,7 +338,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -363,7 +368,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -393,7 +398,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -423,7 +428,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -453,7 +458,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -483,7 +488,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -515,7 +520,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -547,7 +552,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseCondition(me.Body, aliasMap, sb, parameters);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null);
 
             return sb.ToString();
         }
@@ -593,7 +598,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var parameterType = propertyInfo.PropertyType;
 
                 columnListBuilder.Append($"[{columnName}], ");
-                valueListBuilder.Append($"{GenerateParameterStatement(parameterName, parameterType, null)}, ");
+                valueListBuilder.Append($"{GenerateParameterStatement(parameterName, parameterType, null, null)}, ");
             }
 
             columnListBuilder.Remove(columnListBuilder.Length - 2, 2);
@@ -639,11 +644,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                 if (parameters != null)
                 {
-                    SetParameter(memberAssignment.Member, ExtractConstant(memberAssignment.Expression), columnAttribute, parameters, out parameterName);
+                    SetParameter(memberAssignment.Member, ExtractConstant(memberAssignment.Expression), columnAttribute, parameters, null, out parameterName);
                 }
 
                 columnListBuilder.Append($"[{columnName}], ");
-                valueListBuilder.Append($"{GenerateParameterStatement(parameterName, parameterType, parameters)}, ");
+                valueListBuilder.Append($"{GenerateParameterStatement(parameterName, parameterType, parameters, null)}, ");
             }
 
             columnListBuilder.Remove(columnListBuilder.Length - 2, 2);
@@ -707,10 +712,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                 if (parameters != null)
                 {
-                    SetParameter(memberAssignment.Member, ExtractConstant(memberAssignment.Expression), columnAttribute, parameters, out parameterName);
+                    SetParameter(memberAssignment.Member, ExtractConstant(memberAssignment.Expression), columnAttribute, parameters, null, out parameterName);
                 }
 
-                sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)}, ", alias);
+                sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters, null)}, ", alias);
             }
 
             sb.Remove(sb.Length - 2, 2);
@@ -909,7 +914,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return aliasMap;
         }
 
-        private static void ParseCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters)
+        private static void ParseCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames)
         {
             var isNot = false;
 
@@ -925,7 +930,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     sb.Append("(");
 
-                    ParseCondition(binaryExpr.Left, aliasMap, sb, parameters);
+                    ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames);
 
                     switch (binaryExpr.NodeType)
                     {
@@ -938,7 +943,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                             break;
                     }
 
-                    ParseCondition(binaryExpr.Right, aliasMap, sb, parameters);
+                    ParseCondition(binaryExpr.Right, aliasMap, sb, parameters, parameterNames);
 
                     sb.Append(")");
                 }
@@ -994,7 +999,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     {
                         if (parameters != null)
                         {
-                            SetParameter(left.Member, ExtractConstant(argumentExpr), columnAttribute, parameters, out parameterName);
+                            SetParameter(left.Member, ExtractConstant(argumentExpr), columnAttribute, parameters, parameterNames, out parameterName);
                         }
 
                         if (parameters != null && parameters[parameterName] == null)
@@ -1014,7 +1019,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         }
                         else
                         {
-                            sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                            sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
                         }
                     }
                 }
@@ -1042,10 +1047,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     if (parameters != null)
                     {
-                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, out parameterName);
+                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, parameterNames, out parameterName);
                     }
 
-                    sb.AliasAppend($"[{columnName}] {(isNot ? "<>" : "=")} {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                    sb.AliasAppend($"[{columnName}] {(isNot ? "<>" : "=")} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
                 }
                 else if (methodFullName.IsLikeOperator())
                 {
@@ -1066,20 +1071,20 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     if (parameters != null)
                     {
-                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, out parameterName);
+                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, parameterNames, out parameterName);
                     }
 
                     if (methodFullName.Equals("System.String.Contains"))
                     {
-                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} + '%'", alias);
                     }
                     else if (methodFullName.Equals("System.String.StartsWith"))
                     {
-                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} {GenerateParameterStatement(parameterName, parameterType, parameters)} + '%'", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} + '%'", alias);
                     }
                     else if (methodFullName.Equals("System.String.EndsWith"))
                     {
-                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                        sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
                     }
                 }
                 else if (methodFullName.EndsWith(".Contains"))
@@ -1106,12 +1111,12 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     {
                         if (parameters == null) throw new ArgumentException($"'{nameof(parameters)}' can not be null.");
 
-                        SetParameter(argumentExpr.Member, item, columnAttribute, parameters, out var parameterName);
+                        SetParameter(argumentExpr.Member, item, columnAttribute, parameters, parameterNames, out var parameterName);
 
                         sb.AliasAppend(
                             isNot
-                                ? $"[{columnName}] <> {GenerateParameterStatement(parameterName, parameterType, parameters)} AND "
-                                : $"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)} OR ",
+                                ? $"[{columnName}] <> {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} AND "
+                                : $"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} OR ",
                             alias);
                     }
 
@@ -1139,16 +1144,19 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     if (parameterType == typeof(bool)) value = !isNot;
 
-                    if (value != null) SetParameter(memberExpr.Member, value, columnAttribute, parameters, out parameterName);
+                    if (value != null) SetParameter(memberExpr.Member, value, columnAttribute, parameters, parameterNames, out parameterName);
                 }
 
-                sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters)}", alias);
+                sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
             }
         }
 
-        private static void SetParameter(MemberInfo member, object value, ColumnAttribute columnAttribute, IDictionary<string, object> parameters, out string parameterName)
+        private static void SetParameter(MemberInfo member, object value, ColumnAttribute columnAttribute, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames, out string parameterName)
         {
-            parameterName = CreateUniqueParameterName(member.Name, parameters);
+            if (parameterNames == null || !parameterNames.TryGetValue(member.Name, out parameterName))
+            {
+                parameterName = CreateUniqueParameterName(member.Name, parameters);
+            }
 
             if (value != null && !string.IsNullOrEmpty(columnAttribute?.TypeName))
             {
@@ -1280,8 +1288,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
             }
         }
 
-        private static string GenerateParameterStatement(string parameterName, Type parameterType, IDictionary<string, object> parameters)
+        private static string GenerateParameterStatement(string parameterName, Type parameterType, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames)
         {
+            if (parameterNames != null && parameterNames.ContainsKey(parameterName)) return $"@{parameterNames[parameterName]}";
+
             if (parameters?[parameterName] != null)
             {
                 parameterType = parameters[parameterName].GetType();
