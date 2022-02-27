@@ -12,7 +12,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Transactions;
 using Chef.DbAccess.SqlServer.Extensions;
 using Dapper;
 
@@ -31,7 +30,7 @@ namespace Chef.DbAccess.SqlServer
         }
     }
 
-    public class SqlServerDataAccess<T> : SqlServerDataAccess, IDataAccess<T>
+    public partial class SqlServerDataAccess<T> : SqlServerDataAccess, IDataAccess<T>
     {
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> RequiredColumns = new ConcurrentDictionary<Type, PropertyInfo[]>();
         private static readonly ConcurrentDictionary<string, Delegate> Setters = new ConcurrentDictionary<string, Delegate>();
@@ -55,787 +54,6 @@ namespace Chef.DbAccess.SqlServer
 
         public Action<string, IDictionary<string, object>> OutputSql { get; set; }
 
-        public virtual Task<T> QueryOneAsync(string sql, object param)
-        {
-            return this.ExecuteQueryOneAsync<T>(sql, param);
-        }
-
-        public virtual Task<T> QueryOneAsync(
-            Expression<Func<T, bool>> predicate,
-            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
-            Expression<Func<T, object>> selector = null,
-            Expression<Func<T, object>> groupingColumns = null,
-            Expression<Func<Grouping<T>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            return this.ExecuteQueryOneAsync<T>(sql, parameters);
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, object>> selector = null,
-            Expression<Func<T, TSecond, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, T>(
-                                     sql,
-                                     (first, second) =>
-                                         {
-                                             secondSetter(first, second);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, T>(
-                                     sql,
-                                     (first, second, third) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, T>(
-                                     sql,
-                                     (first, second, third, fourth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth, sixth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-                                             sixthSetter(first, second, third, fourth, fifth, sixth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual async Task<T> QueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) =
-                this.GenerateQueryStatement(
-                    this.tableName,
-                    this.alias,
-                    secondJoin,
-                    thirdJoin,
-                    fourthJoin,
-                    fifthJoin,
-                    sixthJoin,
-                    seventhJoin,
-                    predicate,
-                    orderings,
-                    selector,
-                    groupingColumns,
-                    groupingSelector,
-                    skipped,
-                    taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryOneAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth, sixth, seventh) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-                                             sixthSetter(first, second, third, fourth, fifth, sixth);
-                                             seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.SingleOrDefault();
-                }
-            }
-        }
-
-        public virtual Task<List<T>> QueryAsync(string sql, object param)
-        {
-            return this.ExecuteQueryAsync<T>(sql, param);
-        }
-
-        public virtual Task<List<T>> QueryAsync(
-            Expression<Func<T, bool>> predicate,
-            IEnumerable<(Expression<Func<T, object>>, Sortord)> orderings = null,
-            Expression<Func<T, object>> selector = null,
-            Expression<Func<T, object>> groupingColumns = null,
-            Expression<Func<Grouping<T>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters) = this.GenerateQueryStatement(this.tableName, this.alias, predicate, orderings, selector, groupingColumns, groupingSelector, skipped, taken);
-
-            return this.ExecuteQueryAsync<T>(sql, parameters);
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, object>> selector = null,
-            Expression<Func<T, TSecond, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, T>(
-                                     sql,
-                                     (first, second) =>
-                                         {
-                                             secondSetter(first, second);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, T>(
-                                     sql,
-                                     (first, second, third) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, T>(
-                                     sql,
-                                     (first, second, third, fourth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth, sixth) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-                                             sixthSetter(first, second, third, fourth, fifth, sixth);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual async Task<List<T>> QueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
-            IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>>, Sortord)> orderings = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
-            Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
-            int? skipped = null,
-            int? taken = null)
-        {
-            var (sql, parameters, splitOn, secondSetter, thirdSetter, fourthSetter, fifthSetter, sixthSetter, seventhSetter) = this.GenerateQueryStatement(
-                this.tableName,
-                this.alias,
-                secondJoin,
-                thirdJoin,
-                fourthJoin,
-                fifthJoin,
-                sixthJoin,
-                seventhJoin,
-                predicate,
-                orderings,
-                selector,
-                groupingColumns,
-                groupingSelector,
-                skipped,
-                taken);
-
-            if (groupingSelector != null)
-            {
-                var result = await this.ExecuteQueryAsync<T>(sql, parameters);
-
-                return result;
-            }
-            else
-            {
-                using (var db = new SqlConnection(this.connectionString))
-                {
-                    var result = await db.QueryAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, T>(
-                                     sql,
-                                     (first, second, third, fourth, fifth, sixth, seventh) =>
-                                         {
-                                             secondSetter(first, second);
-                                             thirdSetter(first, second, third);
-                                             fourthSetter(first, second, third, fourth);
-                                             fifthSetter(first, second, third, fourth, fifth);
-                                             sixthSetter(first, second, third, fourth, fifth, sixth);
-                                             seventhSetter(first, second, third, fourth, fifth, sixth, seventh);
-
-                                             return first;
-                                         },
-                                     parameters,
-                                     splitOn: splitOn);
-
-                    return result.ToList();
-                }
-            }
-        }
-
-        public virtual Task<int> CountAsync(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
-        public virtual Task<int> CountAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateCountStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate);
-
-            return this.ExecuteQueryOneAsync<int>(sql, parameters);
-        }
-
         public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
         {
             var (sql, parameters) = this.GenerateExistsStatement(predicate);
@@ -846,236 +64,6 @@ namespace Chef.DbAccess.SqlServer
         public virtual Task<int> ExecuteAsync(string sql, object param)
         {
             return this.ExecuteCommandAsync(sql, param);
-        }
-
-        public virtual Task<int> InsertAsync(T value, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var parameters = value.ExtractRequired();
-
-                var sql = this.GenerateInsertStatement(nonexistence: nonexistence, parameters: parameters);
-
-                return this.ExecuteCommandAsync(sql, parameters);
-            }
-            else
-            {
-                var sql = this.GenerateInsertStatement();
-
-                return this.ExecuteCommandAsync(sql, value);
-            }
-        }
-
-        public virtual Task<T> InsertAsync(T value, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var parameters = value.ExtractRequired();
-
-                var sql = this.GenerateInsertStatement(output, nonexistence, parameters);
-
-                return this.ExecuteQueryOneAsync<T>(sql, parameters);
-            }
-            else
-            {
-                var sql = this.GenerateInsertStatement(output);
-
-                return this.ExecuteQueryOneAsync<T>(sql, value);
-            }
-        }
-
-        public virtual Task<int> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var (sql, parameters) = nonexistence != null
-                                        ? this.GenerateInsertStatement(setter, true, nonexistence: nonexistence)
-                                        : this.GenerateInsertStatement(setter, true);
-
-            return this.ExecuteCommandAsync(sql, parameters);
-        }
-
-        public virtual Task<T> InsertAsync(Expression<Func<T>> setter, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var (sql, parameters) = nonexistence != null
-                                        ? this.GenerateInsertStatement(setter, true, output, nonexistence)
-                                        : this.GenerateInsertStatement(setter, true, output);
-
-            return this.ExecuteQueryOneAsync<T>(sql, parameters);
-        }
-
-        public virtual Task<int> InsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var sql = nonexistence != null ? this.GenerateInsertStatement(nonexistence: nonexistence) : this.GenerateInsertStatement();
-
-            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual Task<List<T>> InsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var statements = nonexistence != null
-                                 ? this.GenerateInsertStatement(output, nonexistence).Split(';')
-                                 : this.GenerateInsertStatement(output).Split(';');
-
-            return Transaction.Current != null
-                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
-                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
-        }
-
-        public virtual Task<int> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var (sql, _) = nonexistence != null
-                               ? this.GenerateInsertStatement(setterTemplate, false, nonexistence: nonexistence)
-                               : this.GenerateInsertStatement(setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual Task<List<T>> InsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            var (sql, _) = nonexistence != null
-                               ? this.GenerateInsertStatement(setterTemplate, false, output, nonexistence)
-                               : this.GenerateInsertStatement(setterTemplate, false, output);
-
-            var statements = sql.Split(';');
-
-            return Transaction.Current != null
-                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
-                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
-        }
-
-        public virtual Task<int> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, nonexistence: nonexistence);
-
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-            else
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
-
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-        }
-
-        public virtual Task<List<T>> BulkInsertAsync(IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output, nonexistence);
-
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-            else
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
-
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-        }
-
-        public virtual Task<int> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, nonexistence: nonexistence);
-
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-            else
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
-
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-        }
-
-        public virtual Task<List<T>> BulkInsertAsync(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output, Expression<Func<T, bool>> nonexistence = null)
-        {
-            if (nonexistence != null)
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output, nonexistence);
-
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-            else
-            {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
-
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-            }
-        }
-
-        public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
-        {
-            var (sql, parameters) = this.GenerateUpdateStatement(predicate, setter, true);
-
-            return this.ExecuteCommandAsync(sql, parameters);
-        }
-
-        public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual Task<int> BulkUpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpdateStatement(predicateTemplate, setterTemplate, values);
-
-            return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-        }
-
-        public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter)
-        {
-            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true);
-
-            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, parameters) : this.ExecuteTransactionalCommandAsync(sql, parameters);
-        }
-
-        public virtual Task<T> UpsertAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, Expression<Func<T, object>> output)
-        {
-            var (sql, parameters) = this.GenerateUpsertStatement(predicate, setter, true, output);
-
-            return Transaction.Current != null
-                       ? this.ExecuteQueryOneAsync<T>(sql, parameters)
-                       : this.ExecuteTransactionalQueryOneAsync<T>(sql, parameters);
-        }
-
-        public virtual Task<int> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false);
-
-            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
-        }
-
-        public virtual Task<List<T>> UpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
-        {
-            var (sql, _) = this.GenerateUpsertStatement(predicateTemplate, setterTemplate, false, output);
-            var statements = sql.Split(';');
-
-            return Transaction.Current != null
-                       ? this.ExecuteQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0])
-                       : this.ExecuteTransactionalQueryAsync<T>(statements[1], values, statements[2], null, preSql: statements[0]);
-        }
-
-        public virtual Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
-
-            return Transaction.Current != null
-                       ? this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
-                       : this.ExecuteTransactionalCommandAsync(sql,  new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
-        }
-
-        public virtual Task<List<T>> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
-        {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values, output);
-
-            return Transaction.Current != null
-                       ? this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
-                       : this.ExecuteTransactionalQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
         }
 
         public virtual Task<int> DeleteAsync(Expression<Func<T, bool>> predicate)
@@ -1318,6 +306,55 @@ namespace Chef.DbAccess.SqlServer
             return setter;
         }
 
+        private static Action<T, TSecond> GetOrCreateSetter<TSecond>(Expression<Func<T, List<TSecond>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ") -> [0]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[] { instanceParam, argumentParam };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond>>(block, parameters).Compile();
+                    });
+
+            return setter;
+        }
+
         private static Action<T, TSecond, TThird> GetOrCreateSetter<TSecond, TThird>(Expression<Func<T, TSecond, TThird>> lambdaExpr)
         {
             var memberExpr = (MemberExpression)lambdaExpr.Body;
@@ -1356,6 +393,64 @@ namespace Chef.DbAccess.SqlServer
                                     Expression.Convert(argumentParam, propertyInfo.PropertyType)),
                                 parameters)
                             .Compile();
+                    });
+
+            return setter;
+        }
+
+        private static Action<T, TSecond, TThird> GetOrCreateSetter<TSecond, TThird>(Expression<Func<T, TSecond, List<TThird>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+            var argumentIndex = lambdaExpr.Parameters.FindIndex(x => x.Name == parameterExpr.Name);
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ", ", typeof(TThird).FullName, ") -> [", argumentIndex, "]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond, TThird>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[]
+                                         {
+                                             argumentIndex == 0 ? instanceParam : Expression.Parameter(typeof(T)),
+                                             argumentIndex == 1 ? instanceParam : Expression.Parameter(typeof(TSecond)),
+                                             argumentParam
+                                         };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -1405,6 +500,65 @@ namespace Chef.DbAccess.SqlServer
             return setter;
         }
 
+        private static Action<T, TSecond, TThird, TFourth> GetOrCreateSetter<TSecond, TThird, TFourth>(Expression<Func<T, TSecond, TThird, List<TFourth>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+            var argumentIndex = lambdaExpr.Parameters.FindIndex(x => x.Name == parameterExpr.Name);
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ", ", typeof(TThird).FullName, ", ", typeof(TFourth).FullName, ") -> [", argumentIndex, "]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond, TThird, TFourth>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[]
+                                         {
+                                             argumentIndex == 0 ? instanceParam : Expression.Parameter(typeof(T)),
+                                             argumentIndex == 1 ? instanceParam : Expression.Parameter(typeof(TSecond)),
+                                             argumentIndex == 2 ? instanceParam : Expression.Parameter(typeof(TThird)),
+                                             argumentParam
+                                         };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth>>(block, parameters).Compile();
+                    });
+
+            return setter;
+        }
+
         private static Action<T, TSecond, TThird, TFourth, TFifth> GetOrCreateSetter<TSecond, TThird, TFourth, TFifth>(Expression<Func<T, TSecond, TThird, TFourth, TFifth>> lambdaExpr)
         {
             var memberExpr = (MemberExpression)lambdaExpr.Body;
@@ -1445,6 +599,66 @@ namespace Chef.DbAccess.SqlServer
                                     Expression.Convert(argumentParam, propertyInfo.PropertyType)),
                                 parameters)
                             .Compile();
+                    });
+
+            return setter;
+        }
+
+        private static Action<T, TSecond, TThird, TFourth, TFifth> GetOrCreateSetter<TSecond, TThird, TFourth, TFifth>(Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+            var argumentIndex = lambdaExpr.Parameters.FindIndex(x => x.Name == parameterExpr.Name);
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ", ", typeof(TThird).FullName, ", ", typeof(TFourth).FullName, ", ", typeof(TFifth).FullName, ") -> [", argumentIndex, "]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond, TThird, TFourth, TFifth>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[]
+                                         {
+                                             argumentIndex == 0 ? instanceParam : Expression.Parameter(typeof(T)),
+                                             argumentIndex == 1 ? instanceParam : Expression.Parameter(typeof(TSecond)),
+                                             argumentIndex == 2 ? instanceParam : Expression.Parameter(typeof(TThird)),
+                                             argumentIndex == 3 ? instanceParam : Expression.Parameter(typeof(TFourth)),
+                                             argumentParam
+                                         };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -1496,6 +710,67 @@ namespace Chef.DbAccess.SqlServer
             return setter;
         }
 
+        private static Action<T, TSecond, TThird, TFourth, TFifth, TSixth> GetOrCreateSetter<TSecond, TThird, TFourth, TFifth, TSixth>(Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+            var argumentIndex = lambdaExpr.Parameters.FindIndex(x => x.Name == parameterExpr.Name);
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ", ", typeof(TThird).FullName, ", ", typeof(TFourth).FullName, ", ", typeof(TFifth).FullName, ", ", typeof(TSixth).FullName, ") -> [", argumentIndex, "]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond, TThird, TFourth, TFifth, TSixth>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[]
+                                         {
+                                             argumentIndex == 0 ? instanceParam : Expression.Parameter(typeof(T)),
+                                             argumentIndex == 1 ? instanceParam : Expression.Parameter(typeof(TSecond)),
+                                             argumentIndex == 2 ? instanceParam : Expression.Parameter(typeof(TThird)),
+                                             argumentIndex == 3 ? instanceParam : Expression.Parameter(typeof(TFourth)),
+                                             argumentIndex == 4 ? instanceParam : Expression.Parameter(typeof(TFifth)),
+                                             argumentParam
+                                         };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth>>(block, parameters).Compile();
+                    });
+
+            return setter;
+        }
+
         private static Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> GetOrCreateSetter<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>> lambdaExpr)
         {
             var memberExpr = (MemberExpression)lambdaExpr.Body;
@@ -1537,6 +812,69 @@ namespace Chef.DbAccess.SqlServer
                                     propertyInfo.GetSetMethod(),
                                     Expression.Convert(argumentParam, propertyInfo.PropertyType)),
                                 parameters)
+                            .Compile();
+                    });
+
+            return setter;
+        }
+
+        private static Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> GetOrCreateSetter<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>> lambdaExpr)
+        {
+            var memberExpr = (MemberExpression)lambdaExpr.Body;
+
+            if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+            {
+                throw new ArgumentException("Member can not applied [NotMapped].");
+            }
+
+            var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+            var argumentIndex = lambdaExpr.Parameters.FindIndex(x => x.Name == parameterExpr.Name);
+
+            var propertyInfo = (PropertyInfo)memberExpr.Member;
+
+            var setterKey = string.Concat("(", typeof(T).FullName, ", ", typeof(TSecond).FullName, ", ", typeof(TThird).FullName, ", ", typeof(TFourth).FullName, ", ", typeof(TFifth).FullName, ", ", typeof(TSixth).FullName, ", ", typeof(TSeventh).FullName, ") -> [", argumentIndex, "]:", propertyInfo.DeclaringType.FullName, ".", propertyInfo.Name);
+
+            var setter = (Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>)Setters.GetOrAdd(
+                setterKey,
+                key =>
+                    {
+                        var instanceParam = Expression.Parameter(propertyInfo.DeclaringType);
+                        var argumentType = propertyInfo.PropertyType.GetGenericArguments()[0];
+                        var argumentParam = Expression.Parameter(argumentType);
+
+                        var parameters = new[]
+                                         {
+                                             argumentIndex == 0 ? instanceParam : Expression.Parameter(typeof(T)),
+                                             argumentIndex == 1 ? instanceParam : Expression.Parameter(typeof(TSecond)),
+                                             argumentIndex == 2 ? instanceParam : Expression.Parameter(typeof(TThird)),
+                                             argumentIndex == 3 ? instanceParam : Expression.Parameter(typeof(TFourth)),
+                                             argumentIndex == 4 ? instanceParam : Expression.Parameter(typeof(TFifth)),
+                                             argumentIndex == 5 ? instanceParam : Expression.Parameter(typeof(TSixth)),
+                                             argumentParam
+                                         };
+
+                        var propertyExpr = Expression.Property(instanceParam, propertyInfo);
+                        var argumentVar = Expression.Variable(argumentType);
+
+                        var block = Expression.Block(
+                            new[] { argumentVar },
+                            Expression.IfThen(
+                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.Block(
+                                    Expression.IfThen(
+                                        Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
+                                        Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
+                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                    Expression.IfThen(
+                                        Expression.IsFalse(
+                                            Expression.Call(
+                                                propertyExpr,
+                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                argumentVar)),
+                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>(block, parameters)
                             .Compile();
                     });
 
@@ -1652,7 +990,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>) GenerateQueryStatement<TSecond>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, object>> selector = null,
@@ -1693,7 +1031,7 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -1742,7 +1080,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -1754,8 +1092,8 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>, Action<T, TSecond, TThird>) GenerateQueryStatement<TSecond, TThird>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, TThird, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, TThird, object>> selector = null,
@@ -1796,8 +1134,8 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -1846,8 +1184,8 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
-            var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
+            var thirdSetter = thirdJoin.Item2 != null ? GetOrCreateSetter(thirdJoin.Item2) : GetOrCreateSetter(thirdJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -1859,9 +1197,9 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>, Action<T, TSecond, TThird>, Action<T, TSecond, TThird, TFourth>) GenerateQueryStatement<TSecond, TThird, TFourth>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
@@ -1902,9 +1240,9 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -1953,9 +1291,9 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
-            var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
-            var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
+            var thirdSetter = thirdJoin.Item2 != null ? GetOrCreateSetter(thirdJoin.Item2) : GetOrCreateSetter(thirdJoin.Item1);
+            var fourthSetter = fourthJoin.Item2 != null ? GetOrCreateSetter(fourthJoin.Item2) : GetOrCreateSetter(fourthJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -1967,10 +1305,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>, Action<T, TSecond, TThird>, Action<T, TSecond, TThird, TFourth>, Action<T, TSecond, TThird, TFourth, TFifth>) GenerateQueryStatement<TSecond, TThird, TFourth, TFifth>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
@@ -2011,10 +1349,10 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2063,10 +1401,10 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
-            var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
-            var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
-            var fifthSetter = GetOrCreateSetter(fifthJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
+            var thirdSetter = thirdJoin.Item2 != null ? GetOrCreateSetter(thirdJoin.Item2) : GetOrCreateSetter(thirdJoin.Item1);
+            var fourthSetter = fourthJoin.Item2 != null ? GetOrCreateSetter(fourthJoin.Item2) : GetOrCreateSetter(fourthJoin.Item1);
+            var fifthSetter = fifthJoin.Item2 != null ? GetOrCreateSetter(fifthJoin.Item2) : GetOrCreateSetter(fifthJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -2078,11 +1416,11 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>, Action<T, TSecond, TThird>, Action<T, TSecond, TThird, TFourth>, Action<T, TSecond, TThird, TFourth, TFifth>, Action<T, TSecond, TThird, TFourth, TFifth, TSixth>) GenerateQueryStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
@@ -2123,11 +1461,11 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2176,11 +1514,11 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
-            var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
-            var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
-            var fifthSetter = GetOrCreateSetter(fifthJoin.Item1);
-            var sixthSetter = GetOrCreateSetter(sixthJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
+            var thirdSetter = thirdJoin.Item2 != null ? GetOrCreateSetter(thirdJoin.Item2) : GetOrCreateSetter(thirdJoin.Item1);
+            var fourthSetter = fourthJoin.Item2 != null ? GetOrCreateSetter(fourthJoin.Item2) : GetOrCreateSetter(fourthJoin.Item1);
+            var fifthSetter = fifthJoin.Item2 != null ? GetOrCreateSetter(fifthJoin.Item2) : GetOrCreateSetter(fifthJoin.Item1);
+            var sixthSetter = sixthJoin.Item2 != null ? GetOrCreateSetter(sixthJoin.Item2) : GetOrCreateSetter(sixthJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -2192,12 +1530,12 @@ FETCH NEXT {taken.Value} ROWS ONLY";
         private (string, IDictionary<string, object>, string, Action<T, TSecond>, Action<T, TSecond, TThird>, Action<T, TSecond, TThird, TFourth>, Action<T, TSecond, TThird, TFourth, TFifth>, Action<T, TSecond, TThird, TFourth, TFifth, TSixth>, Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>) GenerateQueryStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
             string tableName,
             string alias,
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
             IEnumerable<(Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>>, Sortord)> orderings = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
@@ -2238,12 +1576,12 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item2, seventhJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item3, seventhJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2292,12 +1630,12 @@ FETCH NEXT {taken.Value} ROWS ONLY";
 
             sql += ";";
 
-            var secondSetter = GetOrCreateSetter(secondJoin.Item1);
-            var thirdSetter = GetOrCreateSetter(thirdJoin.Item1);
-            var fourthSetter = GetOrCreateSetter(fourthJoin.Item1);
-            var fifthSetter = GetOrCreateSetter(fifthJoin.Item1);
-            var sixthSetter = GetOrCreateSetter(sixthJoin.Item1);
-            var seventhSetter = GetOrCreateSetter(seventhJoin.Item1);
+            var secondSetter = secondJoin.Item2 != null ? GetOrCreateSetter(secondJoin.Item2) : GetOrCreateSetter(secondJoin.Item1);
+            var thirdSetter = thirdJoin.Item2 != null ? GetOrCreateSetter(thirdJoin.Item2) : GetOrCreateSetter(thirdJoin.Item1);
+            var fourthSetter = fourthJoin.Item2 != null ? GetOrCreateSetter(fourthJoin.Item2) : GetOrCreateSetter(fourthJoin.Item1);
+            var fifthSetter = fifthJoin.Item2 != null ? GetOrCreateSetter(fifthJoin.Item2) : GetOrCreateSetter(fifthJoin.Item1);
+            var sixthSetter = sixthJoin.Item2 != null ? GetOrCreateSetter(sixthJoin.Item2) : GetOrCreateSetter(sixthJoin.Item1);
+            var seventhSetter = seventhJoin.Item2 != null ? GetOrCreateSetter(seventhJoin.Item2) : GetOrCreateSetter(seventhJoin.Item1);
 
             if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -2333,7 +1671,7 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate)
         {
             var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
@@ -2344,7 +1682,7 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2365,8 +1703,8 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate)
         {
             var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
@@ -2377,8 +1715,8 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2399,9 +1737,9 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
         {
             var aliases = new[]
@@ -2415,9 +1753,9 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2438,10 +1776,10 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
         {
             var aliases = new[]
@@ -2459,10 +1797,10 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2483,11 +1821,11 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
         {
             var aliases = new[]
@@ -2506,11 +1844,11 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
@@ -2531,12 +1869,12 @@ WHERE ";
         }
 
         private (string, IDictionary<string, object>) GenerateCountStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
-            (Expression<Func<T, TSecond>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
         {
             var aliases = new[]
@@ -2556,12 +1894,12 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item2, secondJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item2, thirdJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item2, fourthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item2, fifthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item2, sixthJoin.Item3, aliases, parameters);
-            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item2, seventhJoin.Item3, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item3, seventhJoin.Item4, aliases, parameters);
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 

@@ -73,7 +73,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond>> propertyPath,
             Expression<Func<T, TSecond, bool>> condition)
         {
-            return new QueryObject<T, TSecond>(me, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond>(me, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond> InnerJoin<T, TSecond>(
+            this IDataAccess<T> me,
+            Expression<Func<T, List<TSecond>>> propertyPath,
+            Expression<Func<T, TSecond, bool>> condition)
+        {
+            return new QueryObject<T, TSecond>(me, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond> LeftJoin<T, TSecond>(
@@ -81,7 +89,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond>> propertyPath,
             Expression<Func<T, TSecond, bool>> condition)
         {
-            return new QueryObject<T, TSecond>(me, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond>(me, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond> LeftJoin<T, TSecond>(
+            this IDataAccess<T> me,
+            Expression<Func<T, List<TSecond>>> propertyPath,
+            Expression<Func<T, TSecond, bool>> condition)
+        {
+            return new QueryObject<T, TSecond>(me, (null, propertyPath, condition, JoinType.Left));
         }
 
         #endregion
@@ -366,7 +382,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird>> propertyPath,
             Expression<Func<T, TSecond, TThird, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond, TThird> InnerJoin<T, TSecond, TThird>(
+            this QueryObject<T, TSecond> me,
+            Expression<Func<T, TSecond, List<TThird>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond, TThird> LeftJoin<T, TSecond, TThird>(
@@ -374,7 +398,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird>> propertyPath,
             Expression<Func<T, TSecond, TThird, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond, TThird> LeftJoin<T, TSecond, TThird>(
+            this QueryObject<T, TSecond> me,
+            Expression<Func<T, TSecond, List<TThird>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird>(me.DataAccess, me.SecondJoin, (null, propertyPath, condition, JoinType.Left));
         }
 
         public static QueryObject<T, TSecond> Where<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T, TSecond, bool>> predicate)
@@ -507,7 +539,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth> InnerJoin<T, TSecond, TThird, TFourth>(
+            this QueryObject<T, TSecond, TThird> me,
+            Expression<Func<T, TSecond, TThird, List<TFourth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth> LeftJoin<T, TSecond, TThird, TFourth>(
@@ -515,7 +555,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth> LeftJoin<T, TSecond, TThird, TFourth>(
+            this QueryObject<T, TSecond, TThird> me,
+            Expression<Func<T, TSecond, TThird, List<TFourth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, (null, propertyPath, condition, JoinType.Left));
         }
 
         public static QueryObject<T, TSecond, TThird> Where<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me, Expression<Func<T, TSecond, TThird, bool>> predicate)
@@ -648,7 +696,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth> InnerJoin<T, TSecond, TThird, TFourth, TFifth>(
+            this QueryObject<T, TSecond, TThird, TFourth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth, TFifth> LeftJoin<T, TSecond, TThird, TFourth, TFifth>(
@@ -656,7 +712,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth> LeftJoin<T, TSecond, TThird, TFourth, TFifth>(
+            this QueryObject<T, TSecond, TThird, TFourth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, (null, propertyPath, condition, JoinType.Left));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth> Where<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me, Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
@@ -789,7 +853,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> InnerJoin<T, TSecond, TThird, TFourth, TFifth, TSixth>(
+            this QueryObject<T, TSecond, TThird, TFourth, TFifth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> LeftJoin<T, TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -797,7 +869,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> LeftJoin<T, TSecond, TThird, TFourth, TFifth, TSixth>(
+            this QueryObject<T, TSecond, TThird, TFourth, TFifth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, (null, propertyPath, condition, JoinType.Left));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth, TFifth> Where<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
@@ -930,7 +1010,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (propertyPath, condition, JoinType.Inner));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (propertyPath, null, condition, JoinType.Inner));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> InnerJoin<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (null, propertyPath, condition, JoinType.Inner));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> LeftJoin<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -938,7 +1026,15 @@ namespace Chef.DbAccess.Fluent
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>> propertyPath,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> condition)
         {
-            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (propertyPath, condition, JoinType.Left));
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (propertyPath, null, condition, JoinType.Left));
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> LeftJoin<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>> propertyPath,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> condition)
+        {
+            return new QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(me.DataAccess, me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, (null, propertyPath, condition, JoinType.Left));
         }
 
         public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> Where<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)

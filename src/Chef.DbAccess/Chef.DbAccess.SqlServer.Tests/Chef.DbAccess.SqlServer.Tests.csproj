@@ -74,6 +74,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SqlServerDataAccess.StatementExtension.Test.cs" />
     <Compile Include="SqlServerDataAccessTest.cs" />
+    <Compile Include="SqlServerDataAccessTest.Insert.cs" />
+    <Compile Include="SqlServerDataAccessTest.Query.cs" />
+    <Compile Include="SqlServerDataAccessTest.QueryOne.cs" />
+    <Compile Include="SqlServerDataAccessTest.Update.cs" />
+    <Compile Include="SqlServerDataAccessTest.Upsert.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
