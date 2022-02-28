@@ -13,4 +13,15 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
         [Required]
         public string Name { get; set; }
     }
+
+    [ConnectionString("MemberDB")]
+    [Table("Department")]
+    public class DepartmentForBenchmark
+    {
+        [Required]
+        public int Id { get; set; }
+
+        [Required]
+        public string Name { get; set; }
+    }
 }

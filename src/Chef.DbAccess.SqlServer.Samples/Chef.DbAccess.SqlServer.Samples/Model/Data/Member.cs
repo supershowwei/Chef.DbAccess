@@ -37,4 +37,30 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
         [NotMapped]
         public string Secret { get; set; }
     }
+
+    [ConnectionString("MemberDB")]
+    [Table("Member")]
+    public class MemberForBenchmark
+    {
+        public int Id { get; set; }
+
+        [StringLength(50)]
+        public string Name { get; set; }
+
+        [Column(TypeName = "varchar")]
+        public string Phone { get; set; }
+
+        public int Age { get; set; }
+
+        public int DepartmentId { get; set; }
+
+        public DepartmentForBenchmark Department { get; set; }
+
+        public int ManagerId { get; set; }
+
+        public MemberForBenchmark Manager { get; set; }
+
+        [NotMapped]
+        public string Secret { get; set; }
+    }
 }

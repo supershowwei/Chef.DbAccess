@@ -135,5 +135,10 @@ namespace Chef.DbAccess.SqlServer.Samples
                                           })
                                  .QueryOneAsync();
         }
+
+        private static async Task DemoOneToManyQuery()
+        {
+
+        }
     }
 }
