@@ -138,7 +138,25 @@ namespace Chef.DbAccess.SqlServer.Samples
 
         private static async Task DemoOneToManyQuery()
         {
+            IDataAccessFactory dataAccessFactory = SqlServerDataAccessFactory.Instance;
 
+            var memberDataAccess = dataAccessFactory.Create<Member>();
+
+            // 使用 InnerJoin() 找出年紀大於 20 歲的 Member，以及 Member 的 Manager 和目前所掌管的所有 ManagedDepartments。
+            var members = await memberDataAccess.InnerJoin(x => x.ManagedDepartments, (x, y) => x.Id == y.ManagerId)
+                              .InnerJoin((x, y) => x.Manager, (x, y, z) => x.ManagerId == z.Id)
+                              .Where((x, y, z) => x.Age > 20)
+                              .Select(
+                                  (x, y, z) => new
+                                               {
+                                                   x.Id,
+                                                   x.Name,
+                                                   DepartmentId = y.Id,
+                                                   DepartmentName = y.Name,
+                                                   ManagerId = z.Id,
+                                                   ManagerName = z.Name
+                                               })
+                              .QueryAsync();
         }
     }
 }

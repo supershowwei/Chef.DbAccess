@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Chef.DbAccess.SqlServer.Samples.Model.Data
@@ -34,6 +36,8 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
 
         public Member Manager { get; set; }
 
+        public List<Department> ManagedDepartments { get; set; }
+
         [NotMapped]
         public string Secret { get; set; }
     }
@@ -54,7 +58,7 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
 
         public int DepartmentId { get; set; }
 
-        public DepartmentForBenchmark Department { get; set; }
+        public List<DepartmentForBenchmark> Departments { get; set; }
 
         public int ManagerId { get; set; }
 
@@ -62,5 +66,30 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
 
         [NotMapped]
         public string Secret { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+
+            return this.Equals((MemberForBenchmark)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            if (this.Id == default) return base.GetHashCode();
+            if (this.Name == default) return base.GetHashCode();
+
+            return HashCode.Combine(this.Id, this.Name);
+        }
+
+        protected bool Equals(MemberForBenchmark other)
+        {
+            if (this.Id == default) return base.Equals(other);
+            if (this.Name == default) return base.Equals(other);
+
+            return this.Id == other.Id && this.Name == other.Name;
+        }
     }
 }

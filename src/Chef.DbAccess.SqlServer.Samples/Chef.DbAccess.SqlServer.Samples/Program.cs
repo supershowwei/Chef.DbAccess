@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using Chef.DbAccess.SqlServer.Samples.Model.Data;
 using Microsoft.Extensions.Configuration;
 
 namespace Chef.DbAccess.SqlServer.Samples
@@ -14,32 +12,7 @@ namespace Chef.DbAccess.SqlServer.Samples
         {
             Setup();
 
-            var queryBenchmark = new QueryBenchmark();
-
-            for (var i = 0; i < 100; i++)
-            {
-                queryBenchmark.InnerJoin();
-            }
-
-            var loop = 10;
-
-            for (int i = 0; i < loop; i++)
-            {
-                var count = 10000m;
-                var stopwatch = Stopwatch.StartNew();
-
-                for (var j = 0; j < count; j++)
-                {
-                    queryBenchmark.InnerJoin();
-                }
-
-                stopwatch.Stop();
-
-                Console.WriteLine(stopwatch.ElapsedMilliseconds / count);
-            }
-            
-
-            // BenchmarkRunner.Run<QueryBenchmark>();
+            new QueryBenchmark().Benchmark();
 
             //IDataAccessFactory dataAccessFactory = SqlServerDataAccessFactory.Instance;
 
