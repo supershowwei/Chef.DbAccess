@@ -31,6 +31,8 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != this.GetType()) return false;
 
+            if (this.Id == default) return base.Equals(obj);
+
             return this.Equals((DepartmentForBenchmark)obj);
         }
 
@@ -43,8 +45,6 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
 
         protected bool Equals(DepartmentForBenchmark other)
         {
-            if (this.Id == default) return base.Equals(other);
-
             return this.Id == other.Id;
         }
     }
