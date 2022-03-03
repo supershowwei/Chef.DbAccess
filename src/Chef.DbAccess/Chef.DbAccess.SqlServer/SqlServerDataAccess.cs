@@ -294,13 +294,15 @@ namespace Chef.DbAccess.SqlServer
 
                         var parameters = new[] { instanceParam, argumentParam };
 
-                        return Expression.Lambda<Action<T, TSecond>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -386,13 +388,15 @@ namespace Chef.DbAccess.SqlServer
                                              argumentParam
                                          };
 
-                        return Expression.Lambda<Action<T, TSecond, TThird>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -488,13 +492,15 @@ namespace Chef.DbAccess.SqlServer
                                              argumentParam
                                          };
 
-                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -592,13 +598,15 @@ namespace Chef.DbAccess.SqlServer
                                              argumentParam
                                          };
 
-                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -698,13 +706,15 @@ namespace Chef.DbAccess.SqlServer
                                              argumentParam
                                          };
 
-                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth>>(block, parameters).Compile();
                     });
 
             return setter;
@@ -806,13 +816,15 @@ namespace Chef.DbAccess.SqlServer
                                              argumentParam
                                          };
 
-                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>(
+                        var block = Expression.Block(
+                            Expression.IfThen(
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Call(
                                     instanceParam,
                                     propertyInfo.GetSetMethod(),
-                                    Expression.Convert(argumentParam, propertyInfo.PropertyType)),
-                                parameters)
-                            .Compile();
+                                    Expression.Convert(argumentParam, propertyInfo.PropertyType))));
+
+                        return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>(block, parameters).Compile();
                     });
 
             return setter;

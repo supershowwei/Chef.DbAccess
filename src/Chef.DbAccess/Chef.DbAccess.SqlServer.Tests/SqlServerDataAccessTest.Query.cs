@@ -323,6 +323,36 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_QueryAsync_with_LeftJoin_Six_Tables_OneToMany_and_Null_OneToOne()
+        {
+            var memberDataAccess = DataAccessFactory.Create<User>();
+
+            var result = await memberDataAccess.LeftJoin(x => x.Subordinates, (x, y) => x.Id == y.ManagerId)
+                             .LeftJoin((x, y) => y.Subordinates, (x, y, z) => y.Id == z.ManagerId)
+                             .LeftJoin((x, y, z) => z.Department, (x, y, z, m) => z.DepartmentId == m.DepId)
+                             .Where((x, y, z, m) => new[] { 1, 2 }.Contains(x.Id))
+                             .Select(
+                                 (x, y, z, m) => new
+                                                 {
+                                                     x.Id,
+                                                     x.Name,
+                                                     Level1SubordinateId = y.Id,
+                                                     Level1SubordinateName = y.Name,
+                                                     Level2SubordinateId = z.Id,
+                                                     Level2SubordinateName = z.Name,
+                                                     DepartmentId = m.DepId,
+                                                     DepartmentName = m.Name
+                                                 })
+                             .QueryAsync();
+
+            result.Count.Should().Be(2);
+            result[0].Subordinates.Count.Should().Be(3);
+            result[1].Subordinates.Count.Should().Be(1);
+            result[1].Subordinates[0].Subordinates.Count.Should().Be(3);
+            result[1].Subordinates[0].Subordinates.Where(x => x.Id != 2).All(x => x.Subordinates == null).Should().BeTrue();
+        }
+
+        [TestMethod]
         public async Task Test_QueryAsync_with_LeftJoin_Seven_Tables_OneToMany()
         {
             var memberDataAccess = DataAccessFactory.Create<User>();
