@@ -211,7 +211,7 @@ namespace Chef.DbAccess.SqlServer.Tests
             result[0].Subordinates.Count.Should().Be(1);
             result[0].Subordinates[0].Id.Should().Be(1);
             result[0].Subordinates[0].Subordinates.Count.Should().Be(3);
-            result[1].Subordinates.Should().BeNull();
+            result[1].Subordinates.Should().BeEmpty();
         }
 
         [TestMethod]
@@ -347,9 +347,9 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             result.Count.Should().Be(2);
             result[0].Subordinates.Count.Should().Be(3);
+            result[0].Subordinates.Where(x => x.Id != 2).All(x => x.Subordinates.Count == 0).Should().BeTrue();
             result[1].Subordinates.Count.Should().Be(1);
             result[1].Subordinates[0].Subordinates.Count.Should().Be(3);
-            result[1].Subordinates[0].Subordinates.Where(x => x.Id != 2).All(x => x.Subordinates == null).Should().BeTrue();
         }
 
         [TestMethod]

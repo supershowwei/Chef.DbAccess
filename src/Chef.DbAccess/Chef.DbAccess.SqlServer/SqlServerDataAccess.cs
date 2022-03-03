@@ -337,19 +337,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond>>(block, parameters).Compile();
                     });
@@ -440,19 +446,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond, TThird>>(block, parameters).Compile();
                     });
@@ -545,19 +557,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond, TThird, TFourth>>(block, parameters).Compile();
                     });
@@ -652,19 +670,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth>>(block, parameters).Compile();
                     });
@@ -761,19 +785,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth>>(block, parameters).Compile();
                     });
@@ -872,19 +902,25 @@ namespace Chef.DbAccess.SqlServer
                         var block = Expression.Block(
                             new[] { argumentVar },
                             Expression.IfThen(
-                                Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                Expression.NotEqual(instanceParam, Expression.Constant(null, propertyInfo.DeclaringType)),
                                 Expression.Block(
                                     Expression.IfThen(
                                         Expression.Equal(propertyExpr, Expression.Constant(null, propertyInfo.PropertyType)),
                                         Expression.Assign(propertyExpr, Expression.New(propertyInfo.PropertyType))),
-                                    Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
                                     Expression.IfThen(
-                                        Expression.IsFalse(
-                                            Expression.Call(
-                                                propertyExpr,
-                                                propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
-                                                argumentVar)),
-                                        Expression.Call(propertyExpr, propertyInfo.PropertyType.GetMethod("Add"), argumentVar)))));
+                                        Expression.NotEqual(argumentParam, Expression.Constant(null, argumentType)),
+                                        Expression.Block(
+                                            Expression.Assign(argumentVar, Expression.Convert(argumentParam, argumentType)),
+                                            Expression.IfThen(
+                                                Expression.IsFalse(
+                                                    Expression.Call(
+                                                        propertyExpr,
+                                                        propertyInfo.PropertyType.GetMethod("Contains", new[] { argumentType }),
+                                                        argumentVar)),
+                                                Expression.Call(
+                                                    propertyExpr,
+                                                    propertyInfo.PropertyType.GetMethod("Add"),
+                                                    argumentVar)))))));
 
                         return Expression.Lambda<Action<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>(block, parameters)
                             .Compile();
