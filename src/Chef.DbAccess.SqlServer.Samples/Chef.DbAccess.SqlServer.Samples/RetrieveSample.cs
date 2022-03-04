@@ -25,6 +25,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                               .Select(x => new { x.Name, x.Age })
                               .QueryAsync();
 
+            // SELECT 出來的結果再轉成任意類別
+            var partialMembers = await memberDataAccess
+                                     .Where(x => new[] { 1, 2, 3 }.Contains(x.Id))
+                                     .Select(x => new { x.Id, x.Name, x.Age })
+                                     .QueryAsync(x => new { x.Id, x.Name });
+
             // SELECT 多筆 Id NOT IN (1, 2, 3) 的 Member
             members = await memberDataAccess
                           .Where(x => !new[] { 1, 2, 3 }.Contains(x.Id))
