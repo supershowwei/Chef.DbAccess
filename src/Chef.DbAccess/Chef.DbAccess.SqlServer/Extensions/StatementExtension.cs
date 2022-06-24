@@ -1138,13 +1138,9 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnName = columnAttribute?.Name ?? parameterName;
                 var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
 
-                if (parameters != null)
+                if (parameters != null && parameterType == typeof(bool))
                 {
-                    object value = null;
-
-                    if (parameterType == typeof(bool)) value = !isNot;
-
-                    if (value != null) SetParameter(memberExpr.Member, value, columnAttribute, parameters, parameterNames, out parameterName);
+                    SetParameter(memberExpr.Member, !isNot, columnAttribute, parameters, parameterNames, out parameterName);
                 }
 
                 sb.AliasAppend($"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
