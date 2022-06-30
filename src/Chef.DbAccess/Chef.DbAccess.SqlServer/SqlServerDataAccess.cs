@@ -951,13 +951,14 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, object>> selector = null,
             Expression<Func<T, object>> groupingColumns = null,
             Expression<Func<Grouping<T>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
             if (groupingColumns != null && groupingSelector == null) throw new ArgumentException("Must has grouping selection.");
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             if (groupingSelector != null)
             {
@@ -1044,6 +1045,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, object>> selector = null,
             Expression<Func<T, TSecond, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1052,7 +1054,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
@@ -1147,6 +1149,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, TThird, object>> selector = null,
             Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1155,7 +1158,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
@@ -1253,6 +1256,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1261,7 +1265,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
@@ -1362,6 +1366,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1370,7 +1375,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
@@ -1474,6 +1479,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1482,7 +1488,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5), GenerateAlias(typeof(TSixth), 6) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
@@ -1589,6 +1595,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
+            bool distinct = false,
             int? skipped = null,
             int? taken = null)
         {
@@ -1597,7 +1604,7 @@ FETCH NEXT {taken.Value} ROWS ONLY";
             var aliases = new[] { alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4), GenerateAlias(typeof(TFifth), 5), GenerateAlias(typeof(TSixth), 6), GenerateAlias(typeof(TSeventh), 7) };
 
             SqlBuilder sql = $@"
-SELECT {(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
+SELECT {(distinct ? "DISTINCT " : string.Empty)}{(taken.HasValue && !skipped.HasValue ? string.Concat("TOP(", taken, ") ") : string.Empty)}";
 
             string splitOn;
 
