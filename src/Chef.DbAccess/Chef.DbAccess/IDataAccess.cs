@@ -31,6 +31,7 @@ namespace Chef.DbAccess
             Expression<Func<T, object>> selector = null,
             Expression<Func<T, object>> groupingColumns = null,
             Expression<Func<Grouping<T>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -41,6 +42,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, object>> selector = null,
             Expression<Func<T, TSecond, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -52,6 +54,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, object>> selector = null,
             Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -64,6 +67,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -77,6 +81,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -91,6 +96,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -106,6 +112,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -117,6 +124,7 @@ namespace Chef.DbAccess
             Expression<Func<T, object>> selector = null,
             Expression<Func<T, object>> groupingColumns = null,
             Expression<Func<Grouping<T>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -127,6 +135,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, object>> selector = null,
             Expression<Func<T, TSecond, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -138,6 +147,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, object>> selector = null,
             Expression<Func<T, TSecond, TThird, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -150,6 +160,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -163,6 +174,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -177,6 +189,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
@@ -192,6 +205,7 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> selector = null,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> groupingColumns = null,
             Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> groupingSelector = null,
+            bool? distinct = false,
             int? skipped = null,
             int? taken = null);
 
