@@ -102,6 +102,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                           .Select(x => new { x.Name, x.Age })
                           .QueryAsync();
 
+            // 使用 Distinct() 方法 SELECT 不重複的 Member 名字
+            members = await memberDataAccess
+                          .Where(x => x.Id > 0)
+                          .Distinct(x => new { x.Name })
+                          .QueryAsync();
+
             // 使用 Skip() + Take() 方法跳過 20 筆取 10 筆資料，可以用做分頁查詢。
             members = await memberDataAccess
                           .OrderBy(x => x.Id)
