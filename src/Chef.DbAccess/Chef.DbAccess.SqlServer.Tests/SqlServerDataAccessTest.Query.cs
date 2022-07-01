@@ -68,6 +68,21 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_QueryAsync_with_InnerJoin_Two_Tables_OneToMany_with_Distinct_use_QueryObjet()
+        {
+            var memberDataAccess = DataAccessFactory.Create<User>();
+
+            var result = await memberDataAccess.InnerJoin(c => c.Manager, (n, o) => n.ManagerId == o.Id)
+                             .Where((c, e) => e.Id == 1)
+                             .Distinct((x, y) => new { x.ManagerId, y.Id, y.Name })
+                             .QueryAsync();
+
+            result.Count.Should().Be(1);
+            result[0].Manager.Id.Should().Be(1);
+            result[0].Manager.Name.Should().Be("Johnny");
+        }
+
+        [TestMethod]
         public async Task Test_QueryAsync_with_InnerJoin_Two_Tables_OneToMany_with_Deduplicate_use_QueryObject()
         {
             var memberDataAccess = DataAccessFactory.Create<User>();
