@@ -11,8 +11,6 @@ namespace Chef.DbAccess.SqlServer
             this.builder = new StringBuilder();
         }
 
-        private string Sql => this.builder.ToString();
-
         public static SqlBuilder operator +(SqlBuilder sqlBuilder, string sql)
         {
             sqlBuilder.Append(sql);

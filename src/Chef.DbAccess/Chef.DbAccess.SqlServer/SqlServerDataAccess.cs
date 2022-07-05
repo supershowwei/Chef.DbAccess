@@ -9,7 +9,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Chef.DbAccess.SqlServer.Extensions;
@@ -75,6 +74,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             using (var db = new SqlConnection(this.connectionString))
             {
                 var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
@@ -85,6 +86,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             TResult result;
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -111,6 +114,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             using (var db = new SqlConnection(this.connectionString))
             {
                 var result = await db.QueryAsync<TResult>(sql, param);
@@ -121,6 +126,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             IEnumerable<TResult> result;
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -155,12 +162,17 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+            resultSql += $"\r\n--{resultSql.MD5()}\r\n";
+
             using (var db = new SqlConnection(this.connectionString))
             {
                 await db.OpenAsync();
 
                 if (!string.IsNullOrEmpty(preSql))
                 {
+                    preSql += $"\r\n--{preSql.MD5()}\r\n";
+
                     await db.ExecuteAsync(preSql, preParam);
                 }
 
@@ -170,6 +182,8 @@ namespace Chef.DbAccess.SqlServer
 
                 if (!string.IsNullOrEmpty(postSql))
                 {
+                    postSql += $"\r\n--{postSql.MD5()}\r\n";
+
                     await db.ExecuteAsync(postSql, postParam);
                 }
 
@@ -187,6 +201,9 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+            resultSql += $"\r\n--{resultSql.MD5()}\r\n";
+
             IEnumerable<TResult> result;
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -198,6 +215,8 @@ namespace Chef.DbAccess.SqlServer
                     {
                         if (!string.IsNullOrEmpty(preSql))
                         {
+                            preSql += $"\r\n--{preSql.MD5()}\r\n";
+
                             await db.ExecuteAsync(preSql, preParam, transaction: tx);
                         }
                         
@@ -216,6 +235,8 @@ namespace Chef.DbAccess.SqlServer
                     {
                         if (!string.IsNullOrEmpty(postSql))
                         {
+                            postSql += $"\r\n--{postSql.MD5()}\r\n";
+
                             await db.ExecuteAsync(postSql, postParam);
                         }
                     }
@@ -227,6 +248,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteCommandAsync(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             using (var db = new SqlConnection(this.connectionString))
             {
                 var result = await db.ExecuteAsync(sql, param);
@@ -237,6 +260,8 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)
         {
+            sql += $"\r\n--{sql.MD5()}\r\n";
+
             int result;
             using (var db = new SqlConnection(this.connectionString))
             {
