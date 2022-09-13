@@ -53,13 +53,6 @@ namespace Chef.DbAccess.SqlServer
 
         public Action<string, IDictionary<string, object>> OutputSql { get; set; }
 
-        public virtual Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateExistsStatement(predicate);
-
-            return this.ExecuteQueryOneAsync<bool>(sql, parameters);
-        }
-
         public virtual Task<int> ExecuteAsync(string sql, object param)
         {
             return this.ExecuteCommandAsync(sql, param);
@@ -2012,6 +2005,289 @@ SELECT
             var parameters = new Dictionary<string, object>();
 
             var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond>((Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin, Expression<Func<T, TSecond, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond, TThird>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            Expression<Func<T, TSecond, TThird, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond, TThird, TFourth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond, TThird, TFourth, TFifth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
+
+            if (!string.IsNullOrEmpty(searchCondition))
+            {
+                sql += @"
+WHERE ";
+                sql += searchCondition;
+            }
+
+            sql += @") THEN 1
+        ELSE 0
+    END AS BIT);";
+
+            if (!this.IsDirtyRead) sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateExistsStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6),
+                              GenerateAlias(typeof(TSeventh), 7)
+                          };
+
+            SqlBuilder sql = $@"
+SELECT
+    CAST(CASE
+        WHEN
+            EXISTS (SELECT
+                    1
+                FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item3, seventhJoin.Item4, aliases, parameters);
+
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(aliases, parameters);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
