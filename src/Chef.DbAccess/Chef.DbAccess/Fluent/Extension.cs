@@ -275,6 +275,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.Predicate);
         }
 
+        public static Task<int> DeleteAsync<T>(this QueryObject<T> me)
+        {
+            return me.DataAccess.DeleteAsync(me.Predicate);
+        }
+
         public static Task<int> InsertAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.InsertAsync(me.Setter);
@@ -378,11 +383,6 @@ namespace Chef.DbAccess.Fluent
         public static Task<List<T>> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
             return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values, output);
-        }
-
-        public static Task<int> DeleteAsync<T>(this QueryObject<T> me)
-        {
-            return me.DataAccess.DeleteAsync(me.Predicate);
         }
 
         #endregion
@@ -555,6 +555,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.Predicate);
         }
 
+        public static Task<int> DeleteAsync<T, TSecond>(this QueryObject<T, TSecond> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.Predicate);
+        }
+
         #endregion
 
         #region QueryObject<T, TSecond, TThird>Extension
@@ -723,6 +728,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<bool> ExistsAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.Predicate);
+        }
+
+        public static Task<int> DeleteAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.Predicate);
         }
 
         #endregion
@@ -895,6 +905,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
         }
 
+        public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
+        }
+
         #endregion
 
         #region QueryObject<T, TSecond, TThird, TFourth, TFifth>Extension
@@ -1063,6 +1078,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<bool> ExistsAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
+        }
+
+        public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
         }
 
         #endregion
@@ -1235,6 +1255,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
         }
 
+        public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
+        }
+
         #endregion
 
         #region QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>Extension
@@ -1371,6 +1396,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<bool> ExistsAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
+        }
+
+        public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
         }
 
         #endregion
