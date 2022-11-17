@@ -72,6 +72,95 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_DeleteAsync_with_Join_Two_Tables()
+        {
+            var userDataAccess = DataAccessFactory.Create<User>();
+
+            await userDataAccess.Set(
+                    () => new User
+                          {
+                              Id = 55,
+                              Name = "555",
+                              Age = 55,
+                              Phone = "0955555555",
+                              Address = "五五五五五",
+                              DepartmentId = -1,
+                              ManagerId = 3
+                          })
+                .InsertAsync();
+
+            await userDataAccess.Set(
+                    () => new User
+                          {
+                              Id = 66,
+                              Name = "666",
+                              Age = 66,
+                              Phone = "0966666666",
+                              Address = "六六六六六六",
+                              DepartmentId = -1,
+                              ManagerId = 3
+                          })
+                .InsertAsync();
+
+            var users = await userDataAccess.Where(x => x.Id >= 55).Select(x => new { x.Id }).QueryAsync();
+
+            users.Count.Should().Be(2);
+
+            await userDataAccess.InnerJoin(x => x.Manager, (x, y) => x.ManagerId == y.Id).Where((x, y) => y.Id == 3).DeleteAsync();
+
+            users = await userDataAccess.Where(x => x.Id >= 55).Select(x => new { x.Id }).QueryAsync();
+
+            users.Count.Should().Be(0);
+        }
+
+        [TestMethod]
+        public async Task Test_DeleteAsync_with_Join_Three_Tables()
+        {
+            var userDataAccess = DataAccessFactory.Create<User>();
+
+            await userDataAccess.Set(
+                    () => new User
+                          {
+                              Id = 55,
+                              Name = "555",
+                              Age = 55,
+                              Phone = "0955555555",
+                              Address = "五五五五五",
+                              DepartmentId = 2,
+                              ManagerId = 3
+                          })
+                .InsertAsync();
+
+            await userDataAccess.Set(
+                    () => new User
+                          {
+                              Id = 66,
+                              Name = "666",
+                              Age = 66,
+                              Phone = "0966666666",
+                              Address = "六六六六六六",
+                              DepartmentId = 2,
+                              ManagerId = 4
+                          })
+                .InsertAsync();
+
+            var users = await userDataAccess.Where(x => x.Id >= 55).Select(x => new { x.Id }).QueryAsync();
+
+            users.Count.Should().Be(2);
+
+            await userDataAccess.InnerJoin(x => x.Department, (x, y) => x.DepartmentId == y.DepId)
+                .InnerJoin((x, y) => x.Manager, (x, y, z) => x.ManagerId == z.Id)
+                .Where((x, y, z) => y.DepId == 2 && z.Id == 3)
+                .DeleteAsync();
+
+            users = await userDataAccess.Where(x => x.Id >= 55).Select(x => new { x.Id }).QueryAsync();
+
+            users.Count.Should().Be(1);
+
+            await userDataAccess.Where(x => x.Id >= 55).DeleteAsync();
+        }
+
+        [TestMethod]
         public async Task Test_TransactionScope_Query_and_Update()
         {
             var clubId = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000);

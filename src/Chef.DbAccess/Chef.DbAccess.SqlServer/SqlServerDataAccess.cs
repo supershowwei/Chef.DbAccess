@@ -58,13 +58,6 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, param);
         }
 
-        public virtual Task<int> DeleteAsync(Expression<Func<T, bool>> predicate)
-        {
-            var (sql, parameters) = this.GenerateDeleteStatement(predicate);
-
-            return this.ExecuteCommandAsync(sql, parameters);
-        }
-
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
         {
             sql += $"\r\n--{sql.MD5()}\r\n";
@@ -3099,6 +3092,210 @@ WHERE ";
             return (sql, parameters);
         }
 
+        private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate)
+        {
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]
+WHERE ";
+            var parameters = new Dictionary<string, object>();
+
+            sql += predicate.ToSearchCondition(this.alias, parameters, null);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            Expression<Func<T, TSecond, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            Expression<Func<T, TSecond, TThird, bool>> predicate)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird, TFourth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4)
+                          };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird, TFourth, TFifth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5)
+                          };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6)
+                          };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6),
+                              GenerateAlias(typeof(TSeventh), 7)
+                          };
+
+            SqlBuilder sql = $@"
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+
+            var parameters = new Dictionary<string, object>();
+
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item3, seventhJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += predicate.ToSearchCondition(aliases, parameters);
+            sql += ";";
+
+            this.OutputSql?.Invoke(sql, parameters);
+
+            return (sql, parameters);
+        }
+
         private string GenerateInsertStatement(Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null, IDictionary<string, object> parameters = null)
         {
             var requiredColumns = RequiredColumns.GetOrAdd(
@@ -3570,18 +3767,6 @@ DROP TABLE [{tmpTable}]";
             this.OutputSql?.Invoke(sql, null);
 
             return (sql, tableType, tableVariable);
-        }
-
-        private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate)
-        {
-            SqlBuilder sql = $@"
-DELETE FROM [{this.tableName}]
-WHERE ";
-            sql += predicate.ToSearchCondition(out var parameters);
-
-            this.OutputSql?.Invoke(sql, null);
-
-            return (sql, parameters);
         }
 
         private string GenerateJoinStatement<TRight>(LambdaExpression condition, JoinType joinType, string[] aliases, IDictionary<string, object> parameters)
