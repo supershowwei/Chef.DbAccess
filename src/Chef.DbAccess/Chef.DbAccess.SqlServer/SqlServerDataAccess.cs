@@ -3124,6 +3124,8 @@ WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
 
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
+
             this.OutputSql?.Invoke(sql, parameters);
 
             return (sql, parameters);
@@ -3147,6 +3149,8 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, parameters);
 
@@ -3176,6 +3180,8 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, parameters);
 
@@ -3211,6 +3217,8 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, parameters);
 
@@ -3249,6 +3257,8 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, parameters);
 
@@ -3290,6 +3300,8 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, parameters);
 
