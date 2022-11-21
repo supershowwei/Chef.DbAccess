@@ -60,7 +60,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -76,7 +76,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -119,7 +119,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -172,7 +172,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -235,7 +235,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -308,7 +308,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -391,7 +391,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -474,7 +474,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             TResult result;
             using (var db = new SqlConnection(this.connectionString))
@@ -502,7 +502,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -518,7 +518,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -559,7 +559,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -610,7 +610,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -671,7 +671,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -742,7 +742,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -823,7 +823,7 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
@@ -904,7 +904,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             IEnumerable<TResult> result;
             using (var db = new SqlConnection(this.connectionString))
@@ -940,8 +940,8 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
-            resultSql += $"\r\n--{resultSql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
+            resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
 
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -949,7 +949,7 @@ namespace Chef.DbAccess.SqlServer
 
                 if (!string.IsNullOrEmpty(preSql))
                 {
-                    preSql += $"\r\n--{preSql.MD5()}\r\n";
+                    preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
 
                     await db.ExecuteAsync(preSql, preParam);
                 }
@@ -960,7 +960,7 @@ namespace Chef.DbAccess.SqlServer
 
                 if (!string.IsNullOrEmpty(postSql))
                 {
-                    postSql += $"\r\n--{postSql.MD5()}\r\n";
+                    postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
 
                     await db.ExecuteAsync(postSql, postParam);
                 }
@@ -979,8 +979,8 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
-            resultSql += $"\r\n--{resultSql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
+            resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
 
             IEnumerable<TResult> result;
             using (var db = new SqlConnection(this.connectionString))
@@ -993,7 +993,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         if (!string.IsNullOrEmpty(preSql))
                         {
-                            preSql += $"\r\n--{preSql.MD5()}\r\n";
+                            preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
 
                             await db.ExecuteAsync(preSql, preParam, transaction: tx);
                         }
@@ -1013,7 +1013,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         if (!string.IsNullOrEmpty(postSql))
                         {
-                            postSql += $"\r\n--{postSql.MD5()}\r\n";
+                            postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
 
                             await db.ExecuteAsync(postSql, postParam);
                         }
@@ -1026,7 +1026,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteCommandAsync(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             using (var db = new SqlConnection(this.connectionString))
             {
@@ -1038,7 +1038,7 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)
         {
-            sql += $"\r\n--{sql.MD5()}\r\n";
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
             int result;
             using (var db = new SqlConnection(this.connectionString))
