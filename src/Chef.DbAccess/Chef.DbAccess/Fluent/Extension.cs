@@ -598,6 +598,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter);
         }
 
+        public static Task<int> UpdateAsync<T, TSecond>(this QueryObject<T, TSecond> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter, values);
+        }
+
         #endregion
 
         #region QueryObject<T, TSecond, TThird>Extension

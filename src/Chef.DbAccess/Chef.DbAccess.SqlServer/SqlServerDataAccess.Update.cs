@@ -33,6 +33,17 @@ namespace Chef.DbAccess.SqlServer
             return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
+        public virtual Task<int> UpdateAsync<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoinTemplate,
+            Expression<Func<T, TSecond, bool>> predicateTemplate,
+            Expression<Func<T>> setterTemplate,
+            IEnumerable<T> values)
+        {
+            var (sql, _) = this.GenerateUpdateStatement(secondJoinTemplate, predicateTemplate, setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
+        }
+
         public virtual Task<int> BulkUpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, tableType, tableVariable) = this.GenerateBulkUpdateStatement(predicateTemplate, setterTemplate, values);
