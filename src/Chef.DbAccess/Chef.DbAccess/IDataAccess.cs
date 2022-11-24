@@ -319,6 +319,11 @@ namespace Chef.DbAccess
 
         Task<int> UpdateAsync(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter);
 
+        Task<int> UpdateAsync<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            Expression<Func<T, TSecond, bool>> predicate,
+            Expression<Func<T>> setter);
+
         Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values);
 
         Task<int> BulkUpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values);

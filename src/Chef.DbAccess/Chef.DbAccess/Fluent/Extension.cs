@@ -471,6 +471,39 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
+        public static QueryObject<T, TSecond> Set<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond> Set<T, TSecond, TValue>(this QueryObject<T, TSecond> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static QueryObject<T, TSecond> OrderBy<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T, TSecond, object>> ordering)
         {
             me.OrderExpressions = new List<(Expression<Func<T, TSecond, object>>, Sortord)> { (ordering, Sortord.Ascending) };
@@ -558,6 +591,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> DeleteAsync<T, TSecond>(this QueryObject<T, TSecond> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond>(this QueryObject<T, TSecond> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter);
         }
 
         #endregion

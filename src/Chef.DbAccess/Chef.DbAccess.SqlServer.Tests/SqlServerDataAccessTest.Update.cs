@@ -84,6 +84,31 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpdateAsync_Join_Two_Tables_use_QueryObject()
+        {
+            var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubName = "歐陽邦瑋" + suffix;
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .Where((x, y) => y.Id.Equals(15))
+                .Set(() => new Club { Name = clubName })
+                .UpdateAsync();
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .Where((x, y) => y.Id.Equals(15))
+                .Set(x => x.Name, clubName)
+                .UpdateAsync();
+
+            var club = await clubDataAccess.QueryOneAsync(x => x.Id == 15, null, x => new { x.Id, x.Name });
+
+            club.Id.Should().Be(15);
+            club.Name.Should().Be("歐陽邦瑋" + suffix);
+        }
+
+        [TestMethod]
         public async Task Test_UpdateAsync_use_Dynamic_Setter()
         {
             var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();

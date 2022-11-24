@@ -332,6 +332,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return ToSearchCondition(me, new string[] { }, parameters);
         }
 
+        public static string ToSearchCondition<T, TSecond>(this Expression<Func<T, TSecond, bool>> me, string[] aliases)
+        {
+            return ToSearchCondition(me, aliases, null);
+        }
+
         public static string ToSearchCondition<T, TSecond>(this Expression<Func<T, TSecond, bool>> me, string[] aliases, IDictionary<string, object> parameters)
         {
             var aliasMap = GenerateAliasMap(me.Parameters, aliases);

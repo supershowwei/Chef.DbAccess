@@ -54,6 +54,8 @@ namespace Chef.DbAccess
 
         public Expression<Func<Grouping<T, TSecond>, T>> GroupingSelector { get; set; }
 
+        public Expression<Func<T>> Setter { get; set; }
+
         public bool Distinct { get; set; }
 
         public int? Skipped { get; set; }

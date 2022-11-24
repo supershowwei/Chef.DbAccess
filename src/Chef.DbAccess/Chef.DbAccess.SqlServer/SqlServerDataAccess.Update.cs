@@ -16,6 +16,16 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
+        public virtual Task<int> UpdateAsync<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            Expression<Func<T, TSecond, bool>> predicate,
+            Expression<Func<T>> setter)
+        {
+            var (sql, parameters) = this.GenerateUpdateStatement(secondJoin, predicate, setter, true);
+
+            return this.ExecuteCommandAsync(sql, parameters);
+        }
+
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (sql, _) = this.GenerateUpdateStatement(predicateTemplate, setterTemplate, false);

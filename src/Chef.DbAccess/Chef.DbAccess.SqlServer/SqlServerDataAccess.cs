@@ -3584,13 +3584,44 @@ DROP TABLE [{tmpTable}]";
             IDictionary<string, object> parameters = null;
 
             SqlBuilder sql = $@"
-UPDATE [{this.tableName}]
+UPDATE [{this.alias}]
 SET ";
-            sql += outParameters ? setter.ToSetStatements(out parameters) : setter.ToSetStatements();
+            sql += outParameters ? setter.ToSetStatements(this.alias, out parameters) : setter.ToSetStatements(this.alias);
+            sql += $@"
+FROM [{this.tableName}] [{this.alias}]";
             sql += @"
 WHERE ";
-            sql += outParameters ? predicate.ToSearchCondition(parameters) : predicate.ToSearchCondition();
+            sql += outParameters ? predicate.ToSearchCondition(this.alias, parameters, null) : predicate.ToSearchCondition(this.alias);
             sql += ";";
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateUpdateStatement<TSecond>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            Expression<Func<T, TSecond, bool>> predicate,
+            Expression<Func<T>> setter,
+            bool outParameters)
+        {
+            var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
+
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE [{this.alias}]
+SET ";
+            sql += outParameters ? setter.ToSetStatements(this.alias, out parameters) : setter.ToSetStatements(this.alias);
+            sql += $@"
+FROM [{this.tableName}] [{this.alias}]";
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(aliases, parameters) : predicate.ToSearchCondition(aliases);
+            sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
 
             this.OutputSql?.Invoke(sql, null);
 

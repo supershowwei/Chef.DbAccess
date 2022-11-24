@@ -238,6 +238,8 @@ namespace Chef.DbAccess.SqlServer.Tests
 
         public DateTime? RunningTime { get; set; }
 
+        public Club Self { get; set; }
+
         [NotMapped]
         public string IgnoreColumn { get; set; }
     }
