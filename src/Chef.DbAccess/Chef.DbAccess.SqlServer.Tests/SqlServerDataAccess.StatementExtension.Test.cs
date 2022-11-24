@@ -416,6 +416,19 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_Or_Empty_Contains()
+        {
+            var myIDs = new List<int>();
+
+            Expression<Func<Member, bool>> predicate = x => x.LastName == "999" && myIDs.Contains(x.Id);
+
+            predicate.Invoking(x => x.ToSearchCondition(out var parameters))
+                .Should()
+                .Throw<ArgumentException>()
+                .WithMessage("'array' can not be empty.");
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_Or_Not_Contains()
         {
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" || !new[] { 1, 2, 3 }.Contains(x.Id);

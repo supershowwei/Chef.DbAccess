@@ -1107,8 +1107,12 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     var array = ExtractArray(methodCallExpr.Object ?? methodCallExpr.Arguments[0]);
 
+                    var any = false;
+
                     foreach (var item in array)
                     {
+                        any = true;
+
                         if (parameters == null) throw new ArgumentException($"'{nameof(parameters)}' can not be null.");
 
                         SetParameter(argumentExpr.Member, item, columnAttribute, parameters, parameterNames, out var parameterName);
@@ -1118,6 +1122,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
                                 ? $"[{columnName}] <> {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} AND "
                                 : $"[{columnName}] = {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)} OR ",
                             alias);
+                    }
+
+                    if (!any)
+                    {
+                        throw new ArgumentException($"'{nameof(array)}' can not be empty.");
                     }
 
                     if (isNot)
