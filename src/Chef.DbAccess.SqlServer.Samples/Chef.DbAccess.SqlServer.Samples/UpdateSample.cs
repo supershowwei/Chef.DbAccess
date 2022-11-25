@@ -26,6 +26,14 @@ namespace Chef.DbAccess.SqlServer.Samples
                 .Where(x => x.Id == 1)
                 .UpdateAsync();
 
+            // 動態 UPDATE Department Name 有 "業務" 字樣的 Member Age, Phone 欄位
+            await memberDataAccess
+                .InnerJoin(x => x.Department, (x, y) => x.DepartmentId == y.Id)
+                .Set(x => x.Age, 20)
+                .Set(x => x.Phone, "02-87871234")
+                .Where((x, y) => y.Name.Contains("業務"))
+                .UpdateAsync();
+
             // UPDATE 多筆 Member 的 Age, Phone 欄位
             await memberDataAccess
                 .Set(() => new Member { Age = default(int), Phone = default(string) })

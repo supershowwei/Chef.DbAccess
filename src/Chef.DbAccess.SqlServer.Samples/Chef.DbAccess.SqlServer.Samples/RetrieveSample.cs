@@ -87,6 +87,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                                    .Where(x => x.Id == 1)
                                    .ExistsAsync();
 
+            // 回傳 Name 有 "業務" 字樣的 Department 是否有 Member 存在？
+            memberExists = await memberDataAccess
+                               .InnerJoin(x => x.Department, (x, y) => x.DepartmentId == y.Id)
+                               .Where((x, y) => y.Name.Contains("業務"))
+                               .ExistsAsync();
+
             // 使用 And() 方法 SELECT 多筆 Age = 18 AND Name LIKE '%y' 的 Member，並傳回 Name, Age 欄位。
             members = await memberDataAccess
                           .Where(x => x.Age == 18)
