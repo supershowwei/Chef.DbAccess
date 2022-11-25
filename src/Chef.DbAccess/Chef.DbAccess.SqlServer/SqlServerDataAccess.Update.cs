@@ -44,7 +44,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
             Expression<Func<T>> setter)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateUpdateStatement(secondJoin, thirdJoin, fourthJoin, predicate, setter, true);
+
+            return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync<TSecond, TThird, TFourth, TFifth>(
@@ -121,7 +123,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T>> setterTemplate,
             IEnumerable<T> values)
         {
-            throw new NotImplementedException();
+            var (sql, _) = this.GenerateUpdateStatement(secondJoinTemplate, thirdJoinTemplate, fourthJoinTemplate, predicateTemplate, setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual Task<int> UpdateAsync<TSecond, TThird, TFourth, TFifth>(
