@@ -437,6 +437,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return ToSearchCondition(me, new string[] { }, parameters);
         }
 
+        public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> me, string[] aliases)
+        {
+            return ToSearchCondition(me, aliases, null);
+        }
+
         public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> me, string[] aliases, IDictionary<string, object> parameters)
         {
             var aliasMap = GenerateAliasMap(me.Parameters, aliases);
@@ -467,6 +472,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return ToSearchCondition(me, new string[] { }, parameters);
         }
 
+        public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth, TSixth>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> me, string[] aliases)
+        {
+            return ToSearchCondition(me, aliases, null);
+        }
+
         public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth, TSixth>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> me, string[] aliases, IDictionary<string, object> parameters)
         {
             var aliasMap = GenerateAliasMap(me.Parameters, aliases);
@@ -495,6 +505,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
         public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> me, IDictionary<string, object> parameters)
         {
             return ToSearchCondition(me, new string[] { }, parameters);
+        }
+
+        public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> me, string[] aliases)
+        {
+            return ToSearchCondition(me, aliases, null);
         }
 
         public static string ToSearchCondition<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> me, string[] aliases, IDictionary<string, object> parameters)

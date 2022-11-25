@@ -57,7 +57,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
             Expression<Func<T>> setter)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateUpdateStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate, setter, true);
+
+            return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -69,7 +71,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
             Expression<Func<T>> setter)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateUpdateStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate, setter, true);
+
+            return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -82,7 +86,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
             Expression<Func<T>> setter)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateUpdateStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate, setter, true);
+
+            return this.ExecuteCommandAsync(sql, parameters);
         }
 
         public virtual Task<int> UpdateAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
@@ -137,7 +143,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T>> setterTemplate,
             IEnumerable<T> values)
         {
-            throw new NotImplementedException();
+            var (sql, _) = this.GenerateUpdateStatement(secondJoinTemplate, thirdJoinTemplate, fourthJoinTemplate, fifthJoinTemplate, predicateTemplate, setterTemplate, false);
+
+            return Transaction.Current != null ? this.ExecuteCommandAsync(sql, values) : this.ExecuteTransactionalCommandAsync(sql, values);
         }
 
         public virtual Task<int> UpdateAsync<TSecond, TThird, TFourth, TFifth, TSixth>(

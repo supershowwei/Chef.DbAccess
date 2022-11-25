@@ -3695,6 +3695,141 @@ WHERE ";
             return (sql, parameters);
         }
 
+        private (string, IDictionary<string, object>) GenerateUpdateStatement<TSecond, TThird, TFourth, TFifth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
+            Expression<Func<T>> setter,
+            bool outParameters)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5)
+                          };
+
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE [{this.alias}]
+SET ";
+            sql += outParameters ? setter.ToSetStatements(this.alias, out parameters) : setter.ToSetStatements(this.alias);
+            sql += $@"
+FROM [{this.tableName}] [{this.alias}]";
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(aliases, parameters) : predicate.ToSearchCondition(aliases);
+            sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateUpdateStatement<TSecond, TThird, TFourth, TFifth, TSixth>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
+            Expression<Func<T>> setter,
+            bool outParameters)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6)
+                          };
+
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE [{this.alias}]
+SET ";
+            sql += outParameters ? setter.ToSetStatements(this.alias, out parameters) : setter.ToSetStatements(this.alias);
+            sql += $@"
+FROM [{this.tableName}] [{this.alias}]";
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(aliases, parameters) : predicate.ToSearchCondition(aliases);
+            sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
+        private (string, IDictionary<string, object>) GenerateUpdateStatement<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+            (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
+            (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
+            (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
+            Expression<Func<T>> setter,
+            bool outParameters)
+        {
+            var aliases = new[]
+                          {
+                              this.alias,
+                              GenerateAlias(typeof(TSecond), 2),
+                              GenerateAlias(typeof(TThird), 3),
+                              GenerateAlias(typeof(TFourth), 4),
+                              GenerateAlias(typeof(TFifth), 5),
+                              GenerateAlias(typeof(TSixth), 6),
+                              GenerateAlias(typeof(TSeventh), 7)
+                          };
+
+            IDictionary<string, object> parameters = null;
+
+            SqlBuilder sql = $@"
+UPDATE [{this.alias}]
+SET ";
+            sql += outParameters ? setter.ToSetStatements(this.alias, out parameters) : setter.ToSetStatements(this.alias);
+            sql += $@"
+FROM [{this.tableName}] [{this.alias}]";
+            sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFourth>(fourthJoin.Item3, fourthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TFifth>(fifthJoin.Item3, fifthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSixth>(sixthJoin.Item3, sixthJoin.Item4, aliases, parameters);
+            sql += this.GenerateJoinStatement<TSeventh>(seventhJoin.Item3, seventhJoin.Item4, aliases, parameters);
+            sql += @"
+WHERE ";
+            sql += outParameters ? predicate.ToSearchCondition(aliases, parameters) : predicate.ToSearchCondition(aliases);
+            sql += ";";
+
+            sql.Replace(" WITH (NOLOCK)", string.Empty);
+
+            this.OutputSql?.Invoke(sql, null);
+
+            return (sql, parameters);
+        }
+
         private (string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, null);
