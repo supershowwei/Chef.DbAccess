@@ -598,11 +598,6 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter);
         }
 
-        public static Task<int> UpdateAsync<T, TSecond>(this QueryObject<T, TSecond> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter, values);
-        }
-
         #endregion
 
         #region QueryObject<T, TSecond, TThird>Extension
@@ -814,11 +809,6 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> UpdateAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.Setter);
-        }
-
-        public static Task<int> UpdateAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -1034,11 +1024,6 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.Setter);
         }
 
-        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.Setter, values);
-        }
-
         #endregion
 
         #region QueryObject<T, TSecond, TThird, TFourth, TFifth>Extension
@@ -1250,11 +1235,6 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.Setter);
-        }
-
-        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -1470,11 +1450,6 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.Setter);
         }
 
-        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.Setter, values);
-        }
-
         #endregion
 
         #region QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>Extension
@@ -1654,11 +1629,6 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.Setter);
-        }
-
-        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, IEnumerable<T> values)
-        {
-            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
