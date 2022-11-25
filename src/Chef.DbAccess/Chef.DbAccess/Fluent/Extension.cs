@@ -158,39 +158,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static QueryObject<T> Set<T>(this QueryObject<T> me, Expression<Func<T>> setter)
-        {
-            me.Setter = setter;
-
-            return me;
-        }
-        
-        public static QueryObject<T> Set<T, TValue>(this QueryObject<T> me, Expression<Func<T, TValue>> setter, TValue value)
-        {
-            if (me.Setter == null)
-            {
-                var memberInit = Expression.MemberInit(
-                    Expression.New(typeof(T)),
-                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
-
-                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
-
-                me.Setter = setterExpr;
-            }
-            else
-            {
-                var memberInit = me.Setter.Body as MemberInitExpression;
-
-                memberInit = memberInit.Update(
-                    memberInit.NewExpression,
-                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
-
-                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
-            }
-
-            return me;
-        }
-
         public static QueryObject<T> OrderBy<T>(this QueryObject<T> me, Expression<Func<T, object>> ordering)
         {
             me.OrderExpressions = new List<(Expression<Func<T, object>>, Sortord)> { (ordering, Sortord.Ascending) };
@@ -273,6 +240,39 @@ namespace Chef.DbAccess.Fluent
         public static Task<bool> ExistsAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.ExistsAsync(me.Predicate);
+        }
+
+        public static QueryObject<T> Set<T>(this QueryObject<T> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T> Set<T, TValue>(this QueryObject<T> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
         }
 
         public static Task<int> DeleteAsync<T>(this QueryObject<T> me)
@@ -471,39 +471,6 @@ namespace Chef.DbAccess.Fluent
             return me;
         }
 
-        public static QueryObject<T, TSecond> Set<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T>> setter)
-        {
-            me.Setter = setter;
-
-            return me;
-        }
-
-        public static QueryObject<T, TSecond> Set<T, TSecond, TValue>(this QueryObject<T, TSecond> me, Expression<Func<T, TValue>> setter, TValue value)
-        {
-            if (me.Setter == null)
-            {
-                var memberInit = Expression.MemberInit(
-                    Expression.New(typeof(T)),
-                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
-
-                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
-
-                me.Setter = setterExpr;
-            }
-            else
-            {
-                var memberInit = me.Setter.Body as MemberInitExpression;
-
-                memberInit = memberInit.Update(
-                    memberInit.NewExpression,
-                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
-
-                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
-            }
-
-            return me;
-        }
-
         public static QueryObject<T, TSecond> OrderBy<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T, TSecond, object>> ordering)
         {
             me.OrderExpressions = new List<(Expression<Func<T, TSecond, object>>, Sortord)> { (ordering, Sortord.Ascending) };
@@ -586,6 +553,39 @@ namespace Chef.DbAccess.Fluent
         public static Task<bool> ExistsAsync<T, TSecond>(this QueryObject<T, TSecond> me)
         {
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.Predicate);
+        }
+
+        public static QueryObject<T, TSecond> Set<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond> Set<T, TSecond, TValue>(this QueryObject<T, TSecond> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
         }
 
         public static Task<int> DeleteAsync<T, TSecond>(this QueryObject<T, TSecond> me)
@@ -773,9 +773,52 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.Predicate);
         }
 
+        public static QueryObject<T, TSecond, TThird> Set<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond, TThird> Set<T, TSecond, TThird, TValue>(this QueryObject<T, TSecond, TThird> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static Task<int> DeleteAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.Setter);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -948,9 +991,52 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
         }
 
+        public static QueryObject<T, TSecond, TThird, TFourth> Set<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth> Set<T, TSecond, TThird, TFourth, TValue>(this QueryObject<T, TSecond, TThird, TFourth> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.Setter);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -1123,9 +1209,52 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
         }
 
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth> Set<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth> Set<T, TSecond, TThird, TFourth, TFifth, TValue>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.Setter);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -1298,9 +1427,52 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
         }
 
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> Set<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> Set<T, TSecond, TThird, TFourth, TFifth, TSixth, TValue>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.Setter);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion
@@ -1441,9 +1613,52 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.ExistsAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
         }
 
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> Set<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, Expression<Func<T>> setter)
+        {
+            me.Setter = setter;
+
+            return me;
+        }
+
+        public static QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> Set<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TValue>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, Expression<Func<T, TValue>> setter, TValue value)
+        {
+            if (me.Setter == null)
+            {
+                var memberInit = Expression.MemberInit(
+                    Expression.New(typeof(T)),
+                    Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))));
+
+                var setterExpr = Expression.Lambda(memberInit) as Expression<Func<T>>;
+
+                me.Setter = setterExpr;
+            }
+            else
+            {
+                var memberInit = me.Setter.Body as MemberInitExpression;
+
+                memberInit = memberInit.Update(
+                    memberInit.NewExpression,
+                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+
+                me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
+            }
+
+            return me;
+        }
+
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.Setter);
+        }
+
+        public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, IEnumerable<T> values)
+        {
+            return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, me.Setter, values);
         }
 
         #endregion

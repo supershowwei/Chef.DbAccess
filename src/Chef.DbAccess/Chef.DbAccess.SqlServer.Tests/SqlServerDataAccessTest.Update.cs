@@ -109,6 +109,33 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpdateAsync_Join_Three_Tables_use_QueryObject()
+        {
+            var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var clubName = "歐陽邦瑋" + suffix;
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .InnerJoin((x, y) => y.Self, (x, y, z) => y.Id == z.Id)
+                .Where((x, y, z) => z.Id.Equals(15))
+                .Set(() => new Club { Name = clubName })
+                .UpdateAsync();
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .InnerJoin((x, y) => y.Self, (x, y, z) => y.Id == z.Id)
+                .Where((x, y, z) => z.Id.Equals(15))
+                .Set(x => x.Name, clubName)
+                .UpdateAsync();
+
+            var club = await clubDataAccess.QueryOneAsync(x => x.Id == 15, null, x => new { x.Id, x.Name });
+
+            club.Id.Should().Be(15);
+            club.Name.Should().Be("歐陽邦瑋" + suffix);
+        }
+
+        [TestMethod]
         public async Task Test_UpdateAsync_use_Dynamic_Setter()
         {
             var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();
@@ -212,6 +239,39 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
                 .Where((x, y) => y.Id == default)
+                .Set(x => x.Name, default)
+                .UpdateAsync(clubs);
+
+            var actual = await clubDataAccess.QueryAsync(x => new[] { 15, 16, 19 }.Contains(x.Id), selector: x => new { x.Id, x.Name });
+
+            actual.Single(x => x.Id.Equals(15)).Name.Should().Be("歐陽邦瑋" + suffix);
+            actual.Single(x => x.Id.Equals(16)).Name.Should().Be("羅怡君" + suffix);
+            actual.Single(x => x.Id.Equals(19)).Name.Should().Be("楊翊貴" + suffix);
+        }
+
+        [TestMethod]
+        public async Task Test_UpdateAsync_Multiply_Join_Three_Tables_use_QueryObject()
+        {
+            var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();
+
+            var clubs = new List<Club>
+                        {
+                            new Club { Id = 15, Name = "歐陽邦瑋" + suffix },
+                            new Club { Id = 16, Name = "羅怡君" + suffix },
+                            new Club { Id = 19, Name = "楊翊貴" + suffix }
+                        };
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .InnerJoin((x, y) => y.Self, (x, y, z) => y.Id == z.Id)
+                .Where((x, y, z) => z.Id == default)
+                .Set(() => new Club { Name = default })
+                .UpdateAsync(clubs);
+
+            await clubDataAccess.InnerJoin(x => x.Self, (x, y) => x.Id == y.Id)
+                .InnerJoin((x, y) => y.Self, (x, y, z) => y.Id == z.Id)
+                .Where((x, y, z) => z.Id == default)
                 .Set(x => x.Name, default)
                 .UpdateAsync(clubs);
 

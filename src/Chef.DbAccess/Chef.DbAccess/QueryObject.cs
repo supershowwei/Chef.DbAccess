@@ -89,6 +89,8 @@ namespace Chef.DbAccess
 
         public Expression<Func<Grouping<T, TSecond, TThird>, T>> GroupingSelector { get; set; }
 
+        public Expression<Func<T>> Setter { get; set; }
+
         public bool Distinct { get; set; }
 
         public int? Skipped { get; set; }
@@ -125,6 +127,8 @@ namespace Chef.DbAccess
         public Expression<Func<T, TSecond, TThird, TFourth, object>> GroupingColumns { get; set; }
 
         public Expression<Func<Grouping<T, TSecond, TThird, TFourth>, T>> GroupingSelector { get; set; }
+
+        public Expression<Func<T>> Setter { get; set; }
 
         public bool Distinct { get; set; }
 
@@ -166,6 +170,8 @@ namespace Chef.DbAccess
         public Expression<Func<T, TSecond, TThird, TFourth, TFifth, object>> GroupingColumns { get; set; }
 
         public Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth>, T>> GroupingSelector { get; set; }
+
+        public Expression<Func<T>> Setter { get; set; }
 
         public bool Distinct { get; set; }
 
@@ -211,6 +217,8 @@ namespace Chef.DbAccess
         public Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, object>> GroupingColumns { get; set; }
 
         public Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth>, T>> GroupingSelector { get; set; }
+
+        public Expression<Func<T>> Setter { get; set; }
 
         public bool Distinct { get; set; }
 
@@ -260,6 +268,8 @@ namespace Chef.DbAccess
         public Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, object>> GroupingColumns { get; set; }
 
         public Expression<Func<Grouping<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>, T>> GroupingSelector { get; set; }
+
+        public Expression<Func<T>> Setter { get; set; }
 
         public bool Distinct { get; set; }
 
