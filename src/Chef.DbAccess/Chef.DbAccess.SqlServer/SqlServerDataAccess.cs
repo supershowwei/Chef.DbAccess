@@ -3092,12 +3092,35 @@ WHERE ";
             return (sql, parameters);
         }
 
-        private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate)
+        private (string, IDictionary<string, object>) GenerateDeleteStatement(Expression<Func<T, bool>> predicate, Expression<Func<T, object>> output = null)
         {
-            SqlBuilder sql = $@"
+            SqlBuilder sql;
+
+            var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+WHERE ";
+            }
+            else
+            {
+                sql = $@"
 DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]
 WHERE ";
-            var parameters = new Dictionary<string, object>();
+            }
 
             sql += predicate.ToSearchCondition(this.alias, parameters, null);
             sql += ";";
