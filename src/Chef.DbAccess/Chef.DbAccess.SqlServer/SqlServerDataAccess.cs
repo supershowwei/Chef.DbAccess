@@ -3111,19 +3111,32 @@ SELECT
 FROM [{this.tableName}] WITH (NOLOCK)
 WHERE 1 = 0;
 
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]
+DELETE [{this.alias}]
 OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]
 WHERE ";
             }
             else
             {
                 sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]
 WHERE ";
             }
 
             sql += predicate.ToSearchCondition(this.alias, parameters, null);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             this.OutputSql?.Invoke(sql, null);
 
@@ -3132,20 +3145,55 @@ WHERE ";
 
         private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
-            Expression<Func<T, TSecond, bool>> predicate)
+            Expression<Func<T, TSecond, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2) };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += @"
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -3157,14 +3205,38 @@ WHERE ";
         private (string, IDictionary<string, object>) GenerateDeleteStatement<TSecond, TThird>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
-            Expression<Func<T, TSecond, TThird, bool>> predicate)
+            Expression<Func<T, TSecond, TThird, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[] { this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3) };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
@@ -3172,6 +3244,17 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -3184,17 +3267,41 @@ WHERE ";
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate)
+            Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[]
                           {
                               this.alias, GenerateAlias(typeof(TSecond), 2), GenerateAlias(typeof(TThird), 3), GenerateAlias(typeof(TFourth), 4)
                           };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
@@ -3203,6 +3310,17 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -3216,7 +3334,8 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate)
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[]
                           {
@@ -3227,10 +3346,33 @@ WHERE ";
                               GenerateAlias(typeof(TFifth), 5)
                           };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
@@ -3240,6 +3382,17 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -3254,7 +3407,8 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate)
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[]
                           {
@@ -3266,10 +3420,33 @@ WHERE ";
                               GenerateAlias(typeof(TSixth), 6)
                           };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
@@ -3280,6 +3457,17 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 
@@ -3295,7 +3483,8 @@ WHERE ";
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
-            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate)
+            Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
+            Expression<Func<T, object>> output = null)
         {
             var aliases = new[]
                           {
@@ -3308,10 +3497,33 @@ WHERE ";
                               GenerateAlias(typeof(TSeventh), 7)
                           };
 
-            SqlBuilder sql = $@"
-DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
+            SqlBuilder sql;
 
             var parameters = new Dictionary<string, object>();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+
+            if (output != null)
+            {
+                var outputSelectList = output.ToOutputSelectList();
+                var deletedColumnList = output.ToColumnList().Replace("[", "[DELETED].[");
+
+                sql = $@"
+SELECT
+    {outputSelectList} INTO [{tmpTable}]
+FROM [{this.tableName}] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [{this.alias}]
+OUTPUT {deletedColumnList} INTO [{tmpTable}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
+            else
+            {
+                sql = $@"
+DELETE [{this.alias}]
+FROM [{this.tableName}] [{this.alias}]";
+            }
 
             sql += this.GenerateJoinStatement<TSecond>(secondJoin.Item3, secondJoin.Item4, aliases, parameters);
             sql += this.GenerateJoinStatement<TThird>(thirdJoin.Item3, thirdJoin.Item4, aliases, parameters);
@@ -3323,6 +3535,17 @@ DELETE [{this.alias}] FROM [{this.tableName}] [{this.alias}]";
 WHERE ";
             sql += predicate.ToSearchCondition(aliases, parameters);
             sql += ";";
+
+            if (output != null)
+            {
+                sql += $@"
+
+SELECT
+    *
+FROM [{tmpTable}]
+
+DROP TABLE [{tmpTable}]";
+            }
 
             sql.Replace(" WITH (NOLOCK)", string.Empty);
 

@@ -14,9 +14,11 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> DeleteAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond>((Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin, Expression<Func<T, TSecond, bool>> predicate)
@@ -26,9 +28,11 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond>((Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin, Expression<Func<T, TSecond, bool>> predicate, Expression<Func<T, object>> output)
+        public virtual Task<List<T>> DeleteAsync<TSecond>((Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin, Expression<Func<T, TSecond, bool>> predicate, Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond, TThird>(
@@ -41,13 +45,15 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond, TThird>(
+        public virtual Task<List<T>> DeleteAsync<TSecond, TThird>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate,
             Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, thirdJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond, TThird, TFourth>(
@@ -61,14 +67,16 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond, TThird, TFourth>(
+        public virtual Task<List<T>> DeleteAsync<TSecond, TThird, TFourth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate,
             Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, thirdJoin, fourthJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond, TThird, TFourth, TFifth>(
@@ -83,7 +91,7 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth>(
+        public virtual Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -91,7 +99,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate,
             Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
@@ -107,7 +117,7 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
+        public virtual Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -116,7 +126,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate,
             Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
 
         public virtual Task<int> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
@@ -133,7 +145,7 @@ namespace Chef.DbAccess.SqlServer
             return this.ExecuteCommandAsync(sql, parameters);
         }
 
-        public virtual Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+        public virtual Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -143,7 +155,9 @@ namespace Chef.DbAccess.SqlServer
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
             Expression<Func<T, object>> output)
         {
-            throw new NotImplementedException();
+            var (sql, parameters) = this.GenerateDeleteStatement(secondJoin, thirdJoin, fourthJoin, fifthJoin, sixthJoin, seventhJoin, predicate, output);
+
+            return this.ExecuteQueryAsync<T>(sql, parameters);
         }
     }
 }

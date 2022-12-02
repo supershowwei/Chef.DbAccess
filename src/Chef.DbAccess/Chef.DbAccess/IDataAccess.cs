@@ -382,13 +382,13 @@ namespace Chef.DbAccess
 
         Task<int> DeleteAsync(Expression<Func<T, bool>> predicate);
 
-        Task<T> DeleteAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, object>> output);
+        Task<List<T>> DeleteAsync(Expression<Func<T, bool>> predicate, Expression<Func<T, object>> output);
 
         Task<int> DeleteAsync<TSecond>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond>(
+        Task<List<T>> DeleteAsync<TSecond>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             Expression<Func<T, TSecond, bool>> predicate,
             Expression<Func<T, object>> output);
@@ -398,7 +398,7 @@ namespace Chef.DbAccess
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond, TThird>(
+        Task<List<T>> DeleteAsync<TSecond, TThird>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             Expression<Func<T, TSecond, TThird, bool>> predicate,
@@ -410,7 +410,7 @@ namespace Chef.DbAccess
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond, TThird, TFourth>(
+        Task<List<T>> DeleteAsync<TSecond, TThird, TFourth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -424,7 +424,7 @@ namespace Chef.DbAccess
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth>>, Expression<Func<T, TSecond, TThird, TFourth, List<TFifth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>>, JoinType) fifthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth>(
+        Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -440,7 +440,7 @@ namespace Chef.DbAccess
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, List<TSixth>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>>, JoinType) sixthJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
+        Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,
@@ -458,7 +458,7 @@ namespace Chef.DbAccess
             (Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, List<TSeventh>>>, Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>>, JoinType) seventhJoin,
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate);
 
-        Task<T> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
+        Task<List<T>> DeleteAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(
             (Expression<Func<T, TSecond>>, Expression<Func<T, List<TSecond>>>, Expression<Func<T, TSecond, bool>>, JoinType) secondJoin,
             (Expression<Func<T, TSecond, TThird>>, Expression<Func<T, TSecond, List<TThird>>>, Expression<Func<T, TSecond, TThird, bool>>, JoinType) thirdJoin,
             (Expression<Func<T, TSecond, TThird, TFourth>>, Expression<Func<T, TSecond, TThird, List<TFourth>>>, Expression<Func<T, TSecond, TThird, TFourth, bool>>, JoinType) fourthJoin,

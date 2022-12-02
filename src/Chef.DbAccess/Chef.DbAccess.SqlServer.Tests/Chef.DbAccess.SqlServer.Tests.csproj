@@ -73,6 +73,7 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SqlServerDataAccess.StatementExtension.Test.cs" />
+    <Compile Include="SqlServerDataAccessTest.Delete.cs" />
     <Compile Include="SqlServerDataAccessTest.cs" />
     <Compile Include="SqlServerDataAccessTest.Insert.cs" />
     <Compile Include="SqlServerDataAccessTest.Query.cs" />
