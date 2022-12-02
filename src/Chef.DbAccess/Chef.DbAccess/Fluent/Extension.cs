@@ -280,6 +280,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.DeleteAsync(me.Predicate);
         }
 
+        public static Task<T> DeleteAsync<T>(this QueryObject<T> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.Predicate, output);
+        }
+
         public static Task<int> InsertAsync<T>(this QueryObject<T> me)
         {
             return me.DataAccess.InsertAsync(me.Setter);
@@ -593,6 +598,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.Predicate);
         }
 
+        public static Task<T> DeleteAsync<T, TSecond>(this QueryObject<T, TSecond> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.Predicate, output);
+        }
+
         public static Task<int> UpdateAsync<T, TSecond>(this QueryObject<T, TSecond> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.Predicate, me.Setter);
@@ -804,6 +814,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> DeleteAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.Predicate);
+        }
+
+        public static Task<T> DeleteAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.Predicate, output);
         }
 
         public static Task<int> UpdateAsync<T, TSecond, TThird>(this QueryObject<T, TSecond, TThird> me)
@@ -1019,6 +1034,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate);
         }
 
+        public static Task<T> DeleteAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, output);
+        }
+
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth>(this QueryObject<T, TSecond, TThird, TFourth> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.Predicate, me.Setter);
@@ -1230,6 +1250,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate);
+        }
+
+        public static Task<T> DeleteAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.Predicate, output);
         }
 
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth> me)
@@ -1445,6 +1470,11 @@ namespace Chef.DbAccess.Fluent
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate);
         }
 
+        public static Task<T> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, output);
+        }
+
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth> me)
         {
             return me.DataAccess.UpdateAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.Predicate, me.Setter);
@@ -1624,6 +1654,11 @@ namespace Chef.DbAccess.Fluent
         public static Task<int> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
         {
             return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate);
+        }
+
+        public static Task<T> DeleteAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me, Expression<Func<T, object>> output)
+        {
+            return me.DataAccess.DeleteAsync(me.SecondJoin, me.ThirdJoin, me.FourthJoin, me.FifthJoin, me.SixthJoin, me.SeventhJoin, me.Predicate, output);
         }
 
         public static Task<int> UpdateAsync<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh>(this QueryObject<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> me)
