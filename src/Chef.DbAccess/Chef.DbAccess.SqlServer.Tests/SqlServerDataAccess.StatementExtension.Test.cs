@@ -647,7 +647,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var innerJoinSearchCodition = innerJoinPredicate.ToInnerJoin<Video>(new[] { "m", "v" }, null, null, null);
 
-            innerJoinSearchCodition.Should().Be("INNER JOIN Video [v] WITH (NOLOCK) ON [m].[Id] = [v].[ID]");
+            innerJoinSearchCodition.Should().Be("INNER JOIN [Video] [v] WITH (NOLOCK) ON [m].[Id] = [v].[ID]");
         }
 
         [TestMethod]
@@ -662,7 +662,7 @@ namespace Chef.DbAccess.SqlServer.Tests
                 null,
                 new Dictionary<string, object>());
 
-            innerJoinSearchCodition.Should().Be("INNER JOIN Video [v] WITH (NOLOCK) ON ((([m].[Id] = [v].[ID]) AND ([m].[Id] > {=Id_0})) AND ([v].[ID] > {=Id_1})) AND (([m].[IsDelete] IS NULL) OR ([m].[IsDelete] = {=IsDelete_1}))");
+            innerJoinSearchCodition.Should().Be("INNER JOIN [Video] [v] WITH (NOLOCK) ON ((([m].[Id] = [v].[ID]) AND ([m].[Id] > {=Id_0})) AND ([v].[ID] > {=Id_1})) AND (([m].[IsDelete] IS NULL) OR ([m].[IsDelete] = {=IsDelete_1}))");
         }
 
         [TestMethod]
@@ -682,7 +682,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var innerJoinSearchCodition = innerJoinPredicate.ToInnerJoin<Video>(new[] { "m", "v" }, null, null, null);
 
-            innerJoinSearchCodition.Should().Be("INNER JOIN Video [v] WITH (NOLOCK) ON ([m].[Id] = [v].[ID]) AND ([m].[Id] = [v].[PackageID])");
+            innerJoinSearchCodition.Should().Be("INNER JOIN [Video] [v] WITH (NOLOCK) ON ([m].[Id] = [v].[ID]) AND ([m].[Id] = [v].[PackageID])");
         }
 
         [TestMethod]
@@ -692,7 +692,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var leftJoinSearchCodition = leftJoinPredicate.ToLeftJoin<Video>(new[] { "m", "v" }, null, null, null);
 
-            leftJoinSearchCodition.Should().Be("LEFT JOIN Video [v] WITH (NOLOCK) ON [m].[Id] = [v].[ID]");
+            leftJoinSearchCodition.Should().Be("LEFT JOIN [Video] [v] WITH (NOLOCK) ON [m].[Id] = [v].[ID]");
         }
 
         [TestMethod]
@@ -702,7 +702,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var leftJoinSearchCodition = leftJoinPredicate.ToLeftJoin<Video>(new[] { "m", "v" }, null, null, null);
 
-            leftJoinSearchCodition.Should().Be("LEFT JOIN Video [v] WITH (NOLOCK) ON ([m].[Id] = [v].[ID]) AND ([m].[Id] = [v].[PackageID])");
+            leftJoinSearchCodition.Should().Be("LEFT JOIN [Video] [v] WITH (NOLOCK) ON ([m].[Id] = [v].[ID]) AND ([m].[Id] = [v].[PackageID])");
         }
 
         [TestMethod]

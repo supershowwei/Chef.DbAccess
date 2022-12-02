@@ -543,7 +543,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
             }
             else
             {
-                sb.Append($"INNER JOIN {rightTable}");
+                sb.Append($"INNER JOIN [{rightTable}]");
             }
 
             if (!string.IsNullOrEmpty(rightTableAlias)) sb.Append($" {rightTableAlias}");
@@ -575,7 +575,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
             }
             else
             {
-                sb.Append($"LEFT JOIN {rightTable}");
+                sb.Append($"LEFT JOIN [{rightTable}]");
             }
 
             if (!string.IsNullOrEmpty(rightTableAlias)) sb.Append($" {rightTableAlias}");
