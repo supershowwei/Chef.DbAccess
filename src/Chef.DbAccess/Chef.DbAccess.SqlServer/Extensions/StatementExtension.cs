@@ -1259,11 +1259,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
         {
             switch (typeName.ToUpperInvariant())
             {
-                case "VARCHAR": return new DbString { Value = value, IsAnsi = true, Length = length };
-                case "CHAR": return new DbString { Value = value, IsFixedLength = true, IsAnsi = true, Length = length };
-                case "NCHAR": return new DbString { Value = value, IsFixedLength = true, Length = length };
+                case "VARCHAR": return new DbString { Value = value, Length = length, IsFixedLength = false, IsAnsi = true };
+                case "CHAR": return new DbString { Value = value, Length = length, IsFixedLength = true, IsAnsi = true };
+                case "NCHAR": return new DbString { Value = value, Length = length, IsFixedLength = true, IsAnsi = false };
                 case "NVARCHAR":
-                default: return new DbString { Value = value, Length = length };
+                default: return new DbString { Value = value, Length = length, IsFixedLength = false, IsAnsi = false };
             }
         }
 
