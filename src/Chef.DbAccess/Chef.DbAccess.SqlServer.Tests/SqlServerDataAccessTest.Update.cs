@@ -84,6 +84,19 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_UpdateAsync_use_QueryObject_with_Duplicate_Set()
+        {
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            await clubDataAccess.Where(x => x.Id.Equals(15)).Set(x => x.Name, "歐陽邦瑋99").Set(x => x.Name, "歐陽邦瑋123").UpdateAsync();
+
+            var club = await clubDataAccess.QueryOneAsync(x => x.Id == 15, null, x => new { x.Id, x.Name });
+
+            club.Id.Should().Be(15);
+            club.Name.Should().Be("歐陽邦瑋123");
+        }
+
+        [TestMethod]
         public async Task Test_UpdateAsync_Join_Two_Tables_use_QueryObject()
         {
             var suffix = new Random(Guid.NewGuid().GetHashCode()).Next(100, 1000).ToString();

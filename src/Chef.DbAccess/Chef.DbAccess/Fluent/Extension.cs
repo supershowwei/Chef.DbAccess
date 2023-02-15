@@ -272,9 +272,11 @@ namespace Chef.DbAccess.Fluent
             {
                 var memberInit = me.Setter.Body as MemberInitExpression;
 
+                var memberAssignment = Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue)));
+
                 memberInit = memberInit.Update(
                     memberInit.NewExpression,
-                    memberInit.Bindings.Concat(new[] { Expression.Bind(((MemberExpression)setter.Body).Member, Expression.Constant(value, typeof(TValue))) }));
+                    memberInit.Bindings.Where(x => x.Member.Name != memberAssignment.Member.Name).Concat(new[] { memberAssignment }));
 
                 me.Setter = me.Setter.Update(memberInit, me.Setter.Parameters);
             }
