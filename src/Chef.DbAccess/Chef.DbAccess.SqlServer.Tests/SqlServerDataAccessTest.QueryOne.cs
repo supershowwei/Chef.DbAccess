@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -780,6 +782,43 @@ namespace Chef.DbAccess.SqlServer.Tests
                 .Should()
                 .Throw<ArgumentException>()
                 .WithMessage("Must add connection string.");
+        }
+
+        [TestMethod]
+        public void Test_QueryOneAsync_with_Non_Existent_Prop_will_Throw_SqlException()
+        {
+            IDictionary<string, object> param = null;
+
+            DataAccessFactory.OnDbError += (ex, sql, args) =>
+                {
+                    param = (IDictionary<string, object>)args;
+
+                    param.Add("Factory OnDbError", string.Empty);
+                };
+
+            DataAccessFactory.Invoking(
+                    factory =>
+                        {
+                            var userDataAccess = factory.Create<User>();
+
+                            userDataAccess.OnDbError += (ex, sql, args) =>
+                                {
+                                    param = (IDictionary<string, object>)args;
+
+                                    param.Add("DataAccess OnDbError", string.Empty);
+                                };
+
+                            var user = userDataAccess.Where(x => x.Id == 1)
+                                .Select(x => new { x.Id, x.NonExistentProp })
+                                .QueryOneAsync()
+                                .Result;
+                        })
+                .Should()
+                .Throw<SqlException>()
+                .WithMessage("Invalid column name 'NonExistentProp'.");
+
+            param.Should().ContainKey("Factory OnDbError");
+            param.Should().ContainKey("DataAccess OnDbError");
         }
     }
 }

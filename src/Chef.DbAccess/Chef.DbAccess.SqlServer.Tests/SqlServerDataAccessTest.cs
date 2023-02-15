@@ -222,6 +222,8 @@ namespace Chef.DbAccess.SqlServer.Tests
 
         public int SubordinateId { get; set; }
 
+        public string NonExistentProp { get; set; }
+
         public User Subordinate { get; set; }
 
         public List<User> Subordinates { get; set; }

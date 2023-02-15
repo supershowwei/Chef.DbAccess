@@ -21,6 +21,8 @@ namespace Chef.DbAccess.SqlServer
 
         public static SqlServerDataAccessFactory Instance => Lazy.Value;
 
+        public Action<Exception, string, object> OnDbError { get; set; }
+
         public IDataAccess<T> Create<T>()
         {
             var connectionStringAttributes = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true);
@@ -41,7 +43,7 @@ namespace Chef.DbAccess.SqlServer
                                        ? ConnectionStrings[connectionStringAttribute.ConnectionString]
                                        : connectionStringAttribute.ConnectionString;
 
-            return new SqlServerDataAccess<T>(connectionString);
+            return new SqlServerDataAccess<T>(connectionString) { OnDbError = this.OnDbError };
         }
 
         public IDataAccess<T> Create<T>(string nameOrConnectionString)
@@ -54,10 +56,10 @@ namespace Chef.DbAccess.SqlServer
                                            ? ConnectionStrings[connectionStringAttribute.ConnectionString]
                                            : connectionStringAttribute.ConnectionString;
 
-                return new SqlServerDataAccess<T>(connectionString);
+                return new SqlServerDataAccess<T>(connectionString) { OnDbError = this.OnDbError };
             }
 
-            return new SqlServerDataAccess<T>(nameOrConnectionString);
+            return new SqlServerDataAccess<T>(nameOrConnectionString) { OnDbError = this.OnDbError };
         }
 
         public void AddConnectionString(string name, string value)

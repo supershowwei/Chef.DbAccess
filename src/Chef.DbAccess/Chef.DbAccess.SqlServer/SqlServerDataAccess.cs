@@ -51,7 +51,9 @@ namespace Chef.DbAccess.SqlServer
 
         public bool IsDirtyRead { get; set; }
 
-        public Action<string, IDictionary<string, object>> OutputSql { get; set; }
+        public Action<string, object> OutputSql { get; set; }
+
+        public Action<Exception, string, object> OnDbError { get; set; }
 
         public virtual Task<int> ExecuteAsync(string sql, object param)
         {
@@ -62,11 +64,20 @@ namespace Chef.DbAccess.SqlServer
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
 
-                return result;
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -81,35 +92,44 @@ namespace Chef.DbAccess.SqlServer
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TResult>(
-                        sql,
-                        (first, second) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
-                            {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TResult>(
+                            sql,
+                            (first, second) =>
+                                {
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                    var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
 
-                            secondSetter(outFirst, outSecond);
+                                    secondSetter(outFirst, outSecond);
 
-                            return outFirst;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                    return outFirst;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TResult>(
@@ -125,43 +145,52 @@ namespace Chef.DbAccess.SqlServer
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
-                        sql,
-                        (first, second, third) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
-                            {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
+                            sql,
+                            (first, second, third) =>
+                                {
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                    var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
 
-                            var outThird = default(TThird);
+                                    var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                    {
+                                        thirdDict.Add(third, outThird = third);
+                                    }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
+                                    secondSetter(outFirst, outSecond);
+                                    thirdSetter(outFirst, outSecond, outThird);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                    return first;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TResult>(
@@ -179,51 +208,60 @@ namespace Chef.DbAccess.SqlServer
             var thirdDict = new Dictionary<TThird, TThird>();
             var fourthDict = new Dictionary<TFourth, TFourth>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
-                        sql,
-                        (first, second, third, fourth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
-                            {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
+                            sql,
+                            (first, second, third, fourth) =>
+                                {
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                    var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
 
-                            var outThird = default(TThird);
+                                    var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                    {
+                                        thirdDict.Add(third, outThird = third);
+                                    }
 
-                            var outFourth = default(TFourth);
+                                    var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                    if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                    {
+                                        fourthDict.Add(fourth, outFourth = fourth);
+                                    }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                    secondSetter(outFirst, outSecond);
+                                    thirdSetter(outFirst, outSecond, outThird);
+                                    fourthSetter(outFirst, outSecond, outThird, outFourth);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                    return first;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TResult>(
@@ -243,59 +281,68 @@ namespace Chef.DbAccess.SqlServer
             var fourthDict = new Dictionary<TFourth, TFourth>();
             var fifthDict = new Dictionary<TFifth, TFifth>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth) =>
                             {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                                if (!firstDict.TryGetValue(first, out var outFirst))
+                                {
+                                    firstDict.Add(first, outFirst = first);
+                                }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                {
+                                    secondDict.Add(second, outSecond = second);
+                                }
 
-                            var outThird = default(TThird);
+                                var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                {
+                                    thirdDict.Add(third, outThird = third);
+                                }
 
-                            var outFourth = default(TFourth);
+                                var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
 
-                            var outFifth = default(TFifth);
+                                var outFifth = default(TFifth);
 
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                                secondSetter(outFirst, outSecond);
+                                thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                return first;
+                            },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
@@ -317,67 +364,76 @@ namespace Chef.DbAccess.SqlServer
             var fifthDict = new Dictionary<TFifth, TFifth>();
             var sixthDict = new Dictionary<TSixth, TSixth>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth, sixth) =>
                             {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                                if (!firstDict.TryGetValue(first, out var outFirst))
+                                {
+                                    firstDict.Add(first, outFirst = first);
+                                }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                {
+                                    secondDict.Add(second, outSecond = second);
+                                }
 
-                            var outThird = default(TThird);
+                                var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                {
+                                    thirdDict.Add(third, outThird = third);
+                                }
 
-                            var outFourth = default(TFourth);
+                                var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
 
-                            var outFifth = default(TFifth);
+                                var outFifth = default(TFifth);
 
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
 
-                            var outSixth = default(TSixth);
+                                var outSixth = default(TSixth);
 
-                            if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                            {
-                                sixthDict.Add(sixth, outSixth = sixth);
-                            }
+                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                                {
+                                    sixthDict.Add(sixth, outSixth = sixth);
+                                }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                            sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                                secondSetter(outFirst, outSecond);
+                                thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                return first;
+                            },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
@@ -401,102 +457,120 @@ namespace Chef.DbAccess.SqlServer
             var sixthDict = new Dictionary<TSixth, TSixth>();
             var seventhDict = new Dictionary<TSeventh, TSeventh>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth, seventh) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth, sixth, seventh) =>
                             {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                                if (!firstDict.TryGetValue(first, out var outFirst))
+                                {
+                                    firstDict.Add(first, outFirst = first);
+                                }
 
-                            if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
 
-                            var outSecond = default(TSecond);
+                                var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                {
+                                    secondDict.Add(second, outSecond = second);
+                                }
 
-                            var outThird = default(TThird);
+                                var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                {
+                                    thirdDict.Add(third, outThird = third);
+                                }
 
-                            var outFourth = default(TFourth);
+                                var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
 
-                            var outFifth = default(TFifth);
+                                var outFifth = default(TFifth);
 
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
 
-                            var outSixth = default(TSixth);
+                                var outSixth = default(TSixth);
 
-                            if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                            {
-                                sixthDict.Add(sixth, outSixth = sixth);
-                            }
+                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                                {
+                                    sixthDict.Add(sixth, outSixth = sixth);
+                                }
 
-                            var outSeventh = default(TSeventh);
+                                var outSeventh = default(TSeventh);
 
-                            if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
-                            {
-                                seventhDict.Add(seventh, outSeventh = seventh);
-                            }
+                                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
+                                {
+                                    seventhDict.Add(seventh, outSeventh = seventh);
+                                }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                            sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-                            seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
+                                secondSetter(outFirst, outSecond);
+                                thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                return first;
+                            },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.FirstOrDefault();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.FirstOrDefault();
+                throw;
+            }
         }
 
         protected virtual async Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            TResult result;
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                await db.OpenAsync();
-
-                using (var tx = db.BeginTransaction())
+                TResult result;
+                using (var db = new SqlConnection(this.connectionString))
                 {
-                    try
-                    {
-                        result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
+                    await db.OpenAsync();
 
-                        tx.Commit();
-                    }
-                    catch
+                    using (var tx = db.BeginTransaction())
                     {
-                        tx.Rollback();
-                        throw;
-                    }
+                        try
+                        {
+                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
 
-                    return result;
+                            tx.Commit();
+                        }
+                        catch
+                        {
+                            tx.Rollback();
+                            throw;
+                        }
+
+                        return result;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -504,11 +578,20 @@ namespace Chef.DbAccess.SqlServer
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                var result = await db.QueryAsync<TResult>(sql, param);
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    var result = await db.QueryAsync<TResult>(sql, param);
 
-                return result.ToList();
+                    return result.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -523,33 +606,42 @@ namespace Chef.DbAccess.SqlServer
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TResult>(
-                        sql,
-                        (first, second) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TResult>(
+                            sql,
+                            (first, second) =>
                                 {
-                                    firstDict.Add(first, outFirst = first);
-                                }
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
 
-                                var outSecond = default(TSecond);
+                                    var outSecond = default(TSecond);
 
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
 
-                                secondSetter(outFirst, outSecond);
+                                    secondSetter(outFirst, outSecond);
 
-                                return first;
-                            },
-                        parameters,
-                        splitOn: splitOn);
+                                    return first;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.ToList();
+                throw;
+            }
         }
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TResult>(
@@ -565,11 +657,145 @@ namespace Chef.DbAccess.SqlServer
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
-                        sql,
-                        (first, second, third) =>
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
+                            sql,
+                            (first, second, third) =>
+                                {
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
+
+                                    var outSecond = default(TSecond);
+
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
+
+                                    var outThird = default(TThird);
+
+                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                    {
+                                        thirdDict.Add(third, outThird = third);
+                                    }
+
+                                    secondSetter(outFirst, outSecond);
+                                    thirdSetter(outFirst, outSecond, outThird);
+
+                                    return first;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
+
+                throw;
+            }
+        }
+
+        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            object parameters,
+            string splitOn)
+        {
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
+
+            var firstDict = new Dictionary<TResult, TResult>();
+            var secondDict = new Dictionary<TSecond, TSecond>();
+            var thirdDict = new Dictionary<TThird, TThird>();
+            var fourthDict = new Dictionary<TFourth, TFourth>();
+
+            try
+            {
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
+                            sql,
+                            (first, second, third, fourth) =>
+                                {
+                                    if (!firstDict.TryGetValue(first, out var outFirst))
+                                    {
+                                        firstDict.Add(first, outFirst = first);
+                                    }
+
+                                    var outSecond = default(TSecond);
+
+                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                    {
+                                        secondDict.Add(second, outSecond = second);
+                                    }
+
+                                    var outThird = default(TThird);
+
+                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                    {
+                                        thirdDict.Add(third, outThird = third);
+                                    }
+
+                                    var outFourth = default(TFourth);
+
+                                    if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                    {
+                                        fourthDict.Add(fourth, outFourth = fourth);
+                                    }
+
+                                    secondSetter(outFirst, outSecond);
+                                    thirdSetter(outFirst, outSecond, outThird);
+                                    fourthSetter(outFirst, outSecond, outThird, outFourth);
+
+                                    return first;
+                                },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
+
+                throw;
+            }
+        }
+
+        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            object parameters,
+            string splitOn)
+        {
+            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
+
+            var firstDict = new Dictionary<TResult, TResult>();
+            var secondDict = new Dictionary<TSecond, TSecond>();
+            var thirdDict = new Dictionary<TThird, TThird>();
+            var fourthDict = new Dictionary<TFourth, TFourth>();
+            var fifthDict = new Dictionary<TFifth, TFifth>();
+
+            try
+            {
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth) =>
                             {
                                 if (!firstDict.TryGetValue(first, out var outFirst))
                                 {
@@ -590,146 +816,39 @@ namespace Chef.DbAccess.SqlServer
                                     thirdDict.Add(third, outThird = third);
                                 }
 
+                                var outFourth = default(TFourth);
+
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
+
+                                var outFifth = default(TFifth);
+
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
+
                                 secondSetter(outFirst, outSecond);
                                 thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
 
                                 return first;
                             },
-                        parameters,
-                        splitOn: splitOn);
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
             }
-
-            return firstDict.Values.ToList();
-        }
-
-        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TResult>(
-            string sql,
-            Action<TResult, TSecond> secondSetter,
-            Action<TResult, TSecond, TThird> thirdSetter,
-            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
-            object parameters,
-            string splitOn)
-        {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
-            var firstDict = new Dictionary<TResult, TResult>();
-            var secondDict = new Dictionary<TSecond, TSecond>();
-            var thirdDict = new Dictionary<TThird, TThird>();
-            var fourthDict = new Dictionary<TFourth, TFourth>();
-
-            using (var db = new SqlConnection(this.connectionString))
+            catch (Exception ex)
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
-                        sql,
-                        (first, second, third, fourth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
-                            {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-                            var outSecond = default(TSecond);
-
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
-
-                            var outThird = default(TThird);
-
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
-
-                            var outFourth = default(TFourth);
-
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
-
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                throw;
             }
-
-            return firstDict.Values.ToList();
-        }
-
-        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TResult>(
-            string sql,
-            Action<TResult, TSecond> secondSetter,
-            Action<TResult, TSecond, TThird> thirdSetter,
-            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
-            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
-            object parameters,
-            string splitOn)
-        {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
-            var firstDict = new Dictionary<TResult, TResult>();
-            var secondDict = new Dictionary<TSecond, TSecond>();
-            var thirdDict = new Dictionary<TThird, TThird>();
-            var fourthDict = new Dictionary<TFourth, TFourth>();
-            var fifthDict = new Dictionary<TFifth, TFifth>();
-
-            using (var db = new SqlConnection(this.connectionString))
-            {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
-                            {
-                                firstDict.Add(first, outFirst = first);
-                            }
-
-                            var outSecond = default(TSecond);
-
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
-
-                            var outThird = default(TThird);
-
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
-
-                            var outFourth = default(TFourth);
-
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
-
-                            var outFifth = default(TFifth);
-
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
-
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
-            }
-
-            return firstDict.Values.ToList();
         }
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
@@ -751,65 +870,74 @@ namespace Chef.DbAccess.SqlServer
             var fifthDict = new Dictionary<TFifth, TFifth>();
             var sixthDict = new Dictionary<TSixth, TSixth>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth, sixth) =>
                             {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                                if (!firstDict.TryGetValue(first, out var outFirst))
+                                {
+                                    firstDict.Add(first, outFirst = first);
+                                }
 
-                            var outSecond = default(TSecond);
+                                var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                {
+                                    secondDict.Add(second, outSecond = second);
+                                }
 
-                            var outThird = default(TThird);
+                                var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                {
+                                    thirdDict.Add(third, outThird = third);
+                                }
 
-                            var outFourth = default(TFourth);
+                                var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
 
-                            var outFifth = default(TFifth);
+                                var outFifth = default(TFifth);
 
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
 
-                            var outSixth = default(TSixth);
+                                var outSixth = default(TSixth);
 
-                            if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                            {
-                                sixthDict.Add(sixth, outSixth = sixth);
-                            }
+                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                                {
+                                    sixthDict.Add(sixth, outSixth = sixth);
+                                }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                            sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                                secondSetter(outFirst, outSecond);
+                                thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                return first;
+                            },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.ToList();
+                throw;
+            }
         }
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
@@ -833,100 +961,118 @@ namespace Chef.DbAccess.SqlServer
             var sixthDict = new Dictionary<TSixth, TSixth>();
             var seventhDict = new Dictionary<TSeventh, TSeventh>();
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
-                        sql,
-                        (first, second, third, fourth, fifth, sixth, seventh) =>
-                        {
-                            if (!firstDict.TryGetValue(first, out var outFirst))
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
+                            sql,
+                            (first, second, third, fourth, fifth, sixth, seventh) =>
                             {
-                                firstDict.Add(first, outFirst = first);
-                            }
+                                if (!firstDict.TryGetValue(first, out var outFirst))
+                                {
+                                    firstDict.Add(first, outFirst = first);
+                                }
 
-                            var outSecond = default(TSecond);
+                                var outSecond = default(TSecond);
 
-                            if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                            {
-                                secondDict.Add(second, outSecond = second);
-                            }
+                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                                {
+                                    secondDict.Add(second, outSecond = second);
+                                }
 
-                            var outThird = default(TThird);
+                                var outThird = default(TThird);
 
-                            if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                            {
-                                thirdDict.Add(third, outThird = third);
-                            }
+                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                                {
+                                    thirdDict.Add(third, outThird = third);
+                                }
 
-                            var outFourth = default(TFourth);
+                                var outFourth = default(TFourth);
 
-                            if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                            {
-                                fourthDict.Add(fourth, outFourth = fourth);
-                            }
+                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                                {
+                                    fourthDict.Add(fourth, outFourth = fourth);
+                                }
 
-                            var outFifth = default(TFifth);
+                                var outFifth = default(TFifth);
 
-                            if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                            {
-                                fifthDict.Add(fifth, outFifth = fifth);
-                            }
+                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                                {
+                                    fifthDict.Add(fifth, outFifth = fifth);
+                                }
 
-                            var outSixth = default(TSixth);
+                                var outSixth = default(TSixth);
 
-                            if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                            {
-                                sixthDict.Add(sixth, outSixth = sixth);
-                            }
+                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                                {
+                                    sixthDict.Add(sixth, outSixth = sixth);
+                                }
 
-                            var outSeventh = default(TSeventh);
+                                var outSeventh = default(TSeventh);
 
-                            if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
-                            {
-                                seventhDict.Add(seventh, outSeventh = seventh);
-                            }
+                                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
+                                {
+                                    seventhDict.Add(seventh, outSeventh = seventh);
+                                }
 
-                            secondSetter(outFirst, outSecond);
-                            thirdSetter(outFirst, outSecond, outThird);
-                            fourthSetter(outFirst, outSecond, outThird, outFourth);
-                            fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                            sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-                            seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
+                                secondSetter(outFirst, outSecond);
+                                thirdSetter(outFirst, outSecond, outThird);
+                                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
 
-                            return first;
-                        },
-                        parameters,
-                        splitOn: splitOn);
+                                return first;
+                            },
+                            parameters,
+                            splitOn: splitOn);
+                }
+
+                return firstDict.Values.ToList();
             }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, parameters);
 
-            return firstDict.Values.ToList();
+                throw;
+            }
         }
 
         protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            IEnumerable<TResult> result;
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                await db.OpenAsync();
-
-                using (var tx = db.BeginTransaction())
+                IEnumerable<TResult> result;
+                using (var db = new SqlConnection(this.connectionString))
                 {
-                    try
-                    {
-                        result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
+                    await db.OpenAsync();
 
-                        tx.Commit();
-                    }
-                    catch
+                    using (var tx = db.BeginTransaction())
                     {
-                        tx.Rollback();
-                        throw;
-                    }
+                        try
+                        {
+                            result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
 
-                    return result.ToList();
+                            tx.Commit();
+                        }
+                        catch
+                        {
+                            tx.Rollback();
+                            throw;
+                        }
+
+                        return result.ToList();
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -943,29 +1089,38 @@ namespace Chef.DbAccess.SqlServer
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
             resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                await db.OpenAsync();
-
-                if (!string.IsNullOrEmpty(preSql))
+                using (var db = new SqlConnection(this.connectionString))
                 {
-                    preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
+                    await db.OpenAsync();
 
-                    await db.ExecuteAsync(preSql, preParam);
+                    if (!string.IsNullOrEmpty(preSql))
+                    {
+                        preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
+
+                        await db.ExecuteAsync(preSql, preParam);
+                    }
+
+                    await db.ExecuteAsync(sql, param);
+
+                    var result = await db.QueryAsync<TResult>(resultSql, resultParam);
+
+                    if (!string.IsNullOrEmpty(postSql))
+                    {
+                        postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
+
+                        await db.ExecuteAsync(postSql, postParam);
+                    }
+
+                    return result.ToList();
                 }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
 
-                await db.ExecuteAsync(sql, param);
-
-                var result = await db.QueryAsync<TResult>(resultSql, resultParam);
-
-                if (!string.IsNullOrEmpty(postSql))
-                {
-                    postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
-
-                    await db.ExecuteAsync(postSql, postParam);
-                }
-
-                return result.ToList();
+                throw;
             }
         }
 
@@ -982,45 +1137,54 @@ namespace Chef.DbAccess.SqlServer
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
             resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
 
-            IEnumerable<TResult> result;
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                await db.OpenAsync();
-
-                using (var tx = db.BeginTransaction())
+                IEnumerable<TResult> result;
+                using (var db = new SqlConnection(this.connectionString))
                 {
-                    try
+                    await db.OpenAsync();
+
+                    using (var tx = db.BeginTransaction())
                     {
-                        if (!string.IsNullOrEmpty(preSql))
+                        try
                         {
-                            preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
+                            if (!string.IsNullOrEmpty(preSql))
+                            {
+                                preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
 
-                            await db.ExecuteAsync(preSql, preParam, transaction: tx);
+                                await db.ExecuteAsync(preSql, preParam, transaction: tx);
+                            }
+
+                            await db.ExecuteAsync(sql, param, transaction: tx);
+
+                            result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
+
+                            tx.Commit();
                         }
-                        
-                        await db.ExecuteAsync(sql, param, transaction: tx);
-
-                        result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                    finally
-                    {
-                        if (!string.IsNullOrEmpty(postSql))
+                        catch
                         {
-                            postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
-
-                            await db.ExecuteAsync(postSql, postParam);
+                            tx.Rollback();
+                            throw;
                         }
-                    }
+                        finally
+                        {
+                            if (!string.IsNullOrEmpty(postSql))
+                            {
+                                postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
 
-                    return result.ToList();
+                                await db.ExecuteAsync(postSql, postParam);
+                            }
+                        }
+
+                        return result.ToList();
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -1028,11 +1192,20 @@ namespace Chef.DbAccess.SqlServer
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                var result = await db.ExecuteAsync(sql, param);
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    var result = await db.ExecuteAsync(sql, param);
 
-                return result;
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
             }
         }
 
@@ -1040,28 +1213,37 @@ namespace Chef.DbAccess.SqlServer
         {
             sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
 
-            int result;
-            using (var db = new SqlConnection(this.connectionString))
+            try
             {
-                await db.OpenAsync();
-
-                using (var tx = db.BeginTransaction())
+                int result;
+                using (var db = new SqlConnection(this.connectionString))
                 {
-                    try
-                    {
-                        result = await db.ExecuteAsync(sql, param, transaction: tx);
+                    await db.OpenAsync();
 
-                        tx.Commit();
-                    }
-                    catch
+                    using (var tx = db.BeginTransaction())
                     {
-                        tx.Rollback();
-                        throw;
+                        try
+                        {
+                            result = await db.ExecuteAsync(sql, param, transaction: tx);
+
+                            tx.Commit();
+                        }
+                        catch
+                        {
+                            tx.Rollback();
+                            throw;
+                        }
                     }
                 }
-            }
 
-            return result;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
+            }
         }
 
         private static string GenerateAlias(Type type, int suffixNo)

@@ -21,7 +21,9 @@ namespace Chef.DbAccess
     {
         bool IsDirtyRead { get; set; }
 
-        Action<string, IDictionary<string, object>> OutputSql { get; set; }
+        Action<string, object> OutputSql { get; set; }
+
+        Action<Exception, string, object> OnDbError { get; set; }
 
         Task<T> QueryOneAsync(string sql, object param);
 
