@@ -39,11 +39,14 @@ namespace Chef.DbAccess.SqlServer
         private readonly string tableName;
         private readonly string alias;
 
-        public SqlServerDataAccess(string connectionString)
+        public SqlServerDataAccess(string tableName, string connectionString)
         {
             this.connectionString = connectionString;
 
-            this.tableName = typeof(T).GetCustomAttribute<TableAttribute>()?.Name ?? typeof(T).Name;
+            this.tableName = !string.IsNullOrEmpty(tableName)
+                                 ? tableName
+                                 : typeof(T).GetCustomAttribute<TableAttribute>()?.Name ?? typeof(T).Name;
+
             this.alias = GenerateAlias(typeof(T), 1);
 
             this.IsDirtyRead = true;

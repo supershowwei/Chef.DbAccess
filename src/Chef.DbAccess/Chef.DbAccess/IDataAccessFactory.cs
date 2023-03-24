@@ -9,7 +9,9 @@ namespace Chef.DbAccess
 
         IDataAccess<T> Create<T>();
 
-        IDataAccess<T> Create<T>(string nameOrConnectionString);
+        IDataAccess<T> Create<T>(string tableName);
+
+        IDataAccess<T> Create<T>(string tableName, string nameOrConnectionString);
 
         void AddConnectionString(string name, string value);
     }

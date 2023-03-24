@@ -207,7 +207,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public async Task Test_QueryOneAsync_with_InnerJoin_Two_Tables_and_Cross_Database_use_QueryObject()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>("Advertisement");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>(null, "Advertisement");
 
             var result = await advertisementSettingDataAccess.InnerJoin(x => x.Owner, (x, y) => x.OwnerId == y.Id)
                              .Where((x, y) => x.Type == "1000x90首頁下")
@@ -718,7 +718,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public async Task Test_QueryOneAsync_with_AS_Keyword_Alias()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>("Advertisement");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>(null, "Advertisement");
 
             var result = await advertisementSettingDataAccess.Where(x => x.Type == "1000x90首頁下").Select(x => new { x.Id }).QueryOneAsync();
 
@@ -728,7 +728,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public async Task Test_QueryOneAsync_assign_ConnectionString_Name()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>("Advertisement2");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>(null, "Advertisement2");
 
             var result = await advertisementSettingDataAccess.Where(x => x.Type == "1000x90首頁下").Select(x => new { x.Id }).QueryOneAsync();
 
@@ -738,7 +738,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public async Task Test_QueryOneAsync_with_Multiple_ConnectionStringAttributes()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<DerivedAdvertisementSetting>("Advertisement");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<DerivedAdvertisementSetting>(null, "Advertisement");
 
             var result = await advertisementSettingDataAccess.Where(x => x.Type == "1000x90首頁下").Select(x => new { x.Id }).QueryOneAsync();
 
@@ -748,7 +748,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public async Task Test_QueryOneAsync_with_assign_ConnectionString_Name_from_DerivedClass()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<DerivedAdvertisementSetting>("Advertisement3");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<DerivedAdvertisementSetting>(null, "Advertisement3");
 
             var result = await advertisementSettingDataAccess.Where(x => x.Type == "1000x90首頁下").Select(x => new { x.Id }).QueryOneAsync();
 

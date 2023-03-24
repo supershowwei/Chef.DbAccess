@@ -547,7 +547,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestMethod]
         public void Test_BulkInsert_without_UserDefinedTable_will_Throw_ArgumentException()
         {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>("Advertisement");
+            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>(null, "Advertisement");
 
             advertisementSettingDataAccess
                 .Invoking(

@@ -25,41 +25,53 @@ namespace Chef.DbAccess.SqlServer
 
         public IDataAccess<T> Create<T>()
         {
-            var connectionStringAttributes = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true);
-
-            if (connectionStringAttributes.Any() && connectionStringAttributes.Count() > 1)
-            {
-                throw new ArgumentException("Must indicate connection string.");
-            }
-
-            var connectionStringAttribute = connectionStringAttributes.SingleOrDefault();
-
-            if (connectionStringAttribute == null)
-            {
-                throw new ArgumentException("Must add connection string.");
-            }
-
-            var connectionString = ConnectionStrings.ContainsKey(connectionStringAttribute.ConnectionString)
-                                       ? ConnectionStrings[connectionStringAttribute.ConnectionString]
-                                       : connectionStringAttribute.ConnectionString;
-
-            return new SqlServerDataAccess<T>(connectionString) { OnDbError = this.OnDbError };
+            return this.Create<T>(null, null);
         }
 
-        public IDataAccess<T> Create<T>(string nameOrConnectionString)
+        public IDataAccess<T> Create<T>(string tableName)
         {
-            var connectionStringAttribute = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true).SingleOrDefault(x => x.ConnectionString == nameOrConnectionString);
+            return this.Create<T>(tableName, null);
+        }
+
+        public IDataAccess<T> Create<T>(string tableName, string nameOrConnectionString)
+        {
+            var connectionStringAttributes = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true);
+
+            ConnectionStringAttribute connectionStringAttribute;
+
+            if (string.IsNullOrEmpty(nameOrConnectionString))
+            {
+                if (!connectionStringAttributes.Any())
+                {
+                    throw new ArgumentException("Must add connection string.");
+                }
+
+                if (connectionStringAttributes.Count() > 1)
+                {
+                    throw new ArgumentException("Must indicate connection string.");
+                }
+
+                connectionStringAttribute = connectionStringAttributes.Single();
+            }
+            else
+            {
+                connectionStringAttribute = connectionStringAttributes.SingleOrDefault(x => x.ConnectionString == nameOrConnectionString);
+            }
+
+            string connectionString;
 
             if (connectionStringAttribute != null)
             {
-                var connectionString = ConnectionStrings.ContainsKey(connectionStringAttribute.ConnectionString)
+                connectionString = ConnectionStrings.ContainsKey(connectionStringAttribute.ConnectionString)
                                            ? ConnectionStrings[connectionStringAttribute.ConnectionString]
                                            : connectionStringAttribute.ConnectionString;
-
-                return new SqlServerDataAccess<T>(connectionString) { OnDbError = this.OnDbError };
+            }
+            else
+            {
+                connectionString = nameOrConnectionString;
             }
 
-            return new SqlServerDataAccess<T>(nameOrConnectionString) { OnDbError = this.OnDbError };
+            return new SqlServerDataAccess<T>(tableName, connectionString) { OnDbError = this.OnDbError };
         }
 
         public void AddConnectionString(string name, string value)
