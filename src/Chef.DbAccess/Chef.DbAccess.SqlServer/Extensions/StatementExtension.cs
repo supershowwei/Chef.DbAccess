@@ -1117,6 +1117,32 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         sb.AliasAppend($"[{columnName}] {(isNot ? "NOT LIKE" : "LIKE")} '%' + {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
                     }
                 }
+                else if (methodFullName.EndsWith(".Includes"))
+                {
+                    //(CONTAINS(([b].[ArticleTitle]), @Keyword)
+                    var memberExpr = (MemberExpression)methodCallExpr.Object;
+
+                    if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
+                    {
+                        throw new ArgumentException("Member can not applied [NotMapped].");
+                    }
+
+                    var parameterExpr = (ParameterExpression)memberExpr.Expression;
+
+                    var alias = aliasMap[parameterExpr.Name];
+                    var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
+                    var parameterName = memberExpr.Member.Name;
+                    var columnName = columnAttribute?.Name ?? parameterName;
+                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
+
+                    if (parameters != null)
+                    {
+                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, parameterNames, out parameterName);
+                    }
+
+                    sb.Append($"{(isNot ? "NOT CONTAINS(" : "CONTAINS(")}");
+                    sb.AliasAppend($"[{columnName}], {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)})", alias);
+                }
                 else if (methodFullName.EndsWith(".Contains"))
                 {
                     var argumentExpr = methodCallExpr.Object == null
