@@ -8,6 +8,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Chef.DbAccess.SqlServer.Extensions;
+using Chef.DbAccess.Syntax;
 using Dapper;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -89,6 +90,18 @@ namespace Chef.DbAccess.SqlServer.Tests
             searchCondition.Should().Be("[Id] < {=Id_0}");
             parameters["Id_0"].Should().Be(1);
         }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_Includes()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.FirstName.Includes("abc");
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("CONTAINS([first_name], @FirstName_0)");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("abc");
+        }
+
 
         [TestMethod]
         public void Test_ToSearchCondition_Single_Boolean_will_be_a_Clause()

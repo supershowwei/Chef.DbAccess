@@ -1119,8 +1119,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 }
                 else if (methodFullName.EndsWith(".Includes"))
                 {
-                    //(CONTAINS(([b].[ArticleTitle]), @Keyword)
-                    var memberExpr = (MemberExpression)methodCallExpr.Object;
+                    var memberExpr = (MemberExpression)methodCallExpr.Arguments[0];
 
                     if (Attribute.IsDefined(memberExpr.Member, typeof(NotMappedAttribute)))
                     {
@@ -1137,7 +1136,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                     if (parameters != null)
                     {
-                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[0]), columnAttribute, parameters, parameterNames, out parameterName);
+                        SetParameter(memberExpr.Member, ExtractConstant(methodCallExpr.Arguments[1]), columnAttribute, parameters, parameterNames, out parameterName);
                     }
 
                     sb.Append($"{(isNot ? "NOT CONTAINS(" : "CONTAINS(")}");
