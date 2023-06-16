@@ -71,7 +71,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
+                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param ?? Parameters.Instance.Empty);
 
                     return result;
                 }
@@ -121,7 +121,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return outFirst;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -182,7 +182,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -253,7 +253,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -334,7 +334,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -425,7 +425,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -526,7 +526,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -555,7 +555,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
+                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param ?? Parameters.Instance.Empty, transaction: tx);
 
                             tx.Commit();
                         }
@@ -585,7 +585,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QueryAsync<TResult>(sql, param);
+                    var result = await db.QueryAsync<TResult>(sql, param ?? Parameters.Instance.Empty);
 
                     return result.ToList();
                 }
@@ -633,7 +633,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -692,7 +692,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -761,7 +761,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -840,7 +840,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -929,7 +929,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -1028,7 +1028,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters,
+                            parameters ?? Parameters.Instance.Empty,
                             splitOn: splitOn);
                 }
 
@@ -1057,7 +1057,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
+                            result = await db.QueryAsync<TResult>(sql, param ?? Parameters.Instance.Empty, transaction: tx);
 
                             tx.Commit();
                         }
@@ -1107,7 +1107,7 @@ namespace Chef.DbAccess.SqlServer
 
                     await db.ExecuteAsync(sql, param);
 
-                    var result = await db.QueryAsync<TResult>(resultSql, resultParam);
+                    var result = await db.QueryAsync<TResult>(resultSql, resultParam ?? Parameters.Instance.Empty);
 
                     if (!string.IsNullOrEmpty(postSql))
                     {
@@ -1160,7 +1160,7 @@ namespace Chef.DbAccess.SqlServer
 
                             await db.ExecuteAsync(sql, param, transaction: tx);
 
-                            result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
+                            result = await db.QueryAsync<TResult>(resultSql, resultParam ?? Parameters.Instance.Empty, transaction: tx);
 
                             tx.Commit();
                         }
