@@ -31,13 +31,15 @@ namespace Chef.DbAccess.SqlServer
 
     public partial class SqlServerDataAccess<T> : SqlServerDataAccess, IDataAccess<T>
     {
+        private static readonly Regex ParamRegex = new Regex(@"@\w+|\{=\w+\}", RegexOptions.Compiled);
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> RequiredColumns = new ConcurrentDictionary<Type, PropertyInfo[]>();
         private static readonly ConcurrentDictionary<string, Delegate> Setters = new ConcurrentDictionary<string, Delegate>();
-        private static readonly Regex ServerRegex = new Regex(@"(Server|Data Source)=[\s]*([^;]+)[\s]*;", RegexOptions.IgnoreCase);
-        private static readonly Regex DatabaseRegex = new Regex(@"(Database|Initial Catalog)=[\s]*([^;]+)[\s]*;", RegexOptions.IgnoreCase);
+        private static readonly Regex ServerRegex = new Regex(@"(Server|Data Source)=[\s]*([^;]+)[\s]*;", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex DatabaseRegex = new Regex(@"(Database|Initial Catalog)=[\s]*([^;]+)[\s]*;", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private readonly string connectionString;
         private readonly string tableName;
         private readonly string alias;
+        
 
         public SqlServerDataAccess(string tableName, string connectionString)
         {
@@ -65,13 +67,11 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param ?? Parameters.Instance.Empty);
+                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
 
                     return result;
                 }
@@ -90,13 +90,22 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
 
             try
             {
+                // DEBUG: 
+                if (ParamRegex.Match(sql).Success)
+                {
+                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
+
+                    if (parameters is IDictionary<string, object> { Count: 0 })
+                    {
+                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
+                    }
+                }
+
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     _ = await db.QueryAsync<TResult, TSecond, TResult>(
@@ -121,7 +130,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return outFirst;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -142,14 +151,23 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
 
             try
             {
+                // DEBUG: 
+                if (ParamRegex.Match(sql).Success)
+                {
+                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
+
+                    if (parameters is IDictionary<string, object> { Count: 0 })
+                    {
+                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
+                    }
+                }
+
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
@@ -182,7 +200,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -204,8 +222,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -253,7 +269,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -276,8 +292,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -334,7 +348,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -358,8 +372,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -425,7 +437,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -450,8 +462,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -526,7 +536,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -542,8 +552,6 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 TResult result;
@@ -555,7 +563,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param ?? Parameters.Instance.Empty, transaction: tx);
+                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
 
                             tx.Commit();
                         }
@@ -579,13 +587,11 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QueryAsync<TResult>(sql, param ?? Parameters.Instance.Empty);
+                    var result = await db.QueryAsync<TResult>(sql, param);
 
                     return result.ToList();
                 }
@@ -604,13 +610,22 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
 
             try
             {
+                // DEBUG: 
+                if (ParamRegex.Match(sql).Success)
+                {
+                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
+
+                    if (parameters is IDictionary<string, object> { Count: 0 })
+                    {
+                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
+                    }
+                }
+
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     _ = await db.QueryAsync<TResult, TSecond, TResult>(
@@ -633,7 +648,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -654,14 +669,23 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
 
             try
             {
+                // DEBUG: 
+                if (ParamRegex.Match(sql).Success)
+                {
+                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
+
+                    if (parameters is IDictionary<string, object> { Count: 0 })
+                    {
+                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
+                    }
+                }
+                
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
@@ -692,7 +716,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -714,8 +738,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -761,7 +783,7 @@ namespace Chef.DbAccess.SqlServer
 
                                     return first;
                                 },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -784,8 +806,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -840,7 +860,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -864,8 +884,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -929,7 +947,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -954,8 +972,6 @@ namespace Chef.DbAccess.SqlServer
             object parameters,
             string splitOn)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             var firstDict = new Dictionary<TResult, TResult>();
             var secondDict = new Dictionary<TSecond, TSecond>();
             var thirdDict = new Dictionary<TThird, TThird>();
@@ -1028,7 +1044,7 @@ namespace Chef.DbAccess.SqlServer
 
                                 return first;
                             },
-                            parameters ?? Parameters.Instance.Empty,
+                            parameters,
                             splitOn: splitOn);
                 }
 
@@ -1044,8 +1060,6 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 IEnumerable<TResult> result;
@@ -1057,7 +1071,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QueryAsync<TResult>(sql, param ?? Parameters.Instance.Empty, transaction: tx);
+                            result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
 
                             tx.Commit();
                         }
@@ -1089,9 +1103,6 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-            resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
-
             try
             {
                 using (var db = new SqlConnection(this.connectionString))
@@ -1100,19 +1111,15 @@ namespace Chef.DbAccess.SqlServer
 
                     if (!string.IsNullOrEmpty(preSql))
                     {
-                        preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
-
                         await db.ExecuteAsync(preSql, preParam);
                     }
 
                     await db.ExecuteAsync(sql, param);
 
-                    var result = await db.QueryAsync<TResult>(resultSql, resultParam ?? Parameters.Instance.Empty);
+                    var result = await db.QueryAsync<TResult>(resultSql, resultParam);
 
                     if (!string.IsNullOrEmpty(postSql))
                     {
-                        postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
-
                         await db.ExecuteAsync(postSql, postParam);
                     }
 
@@ -1137,9 +1144,6 @@ namespace Chef.DbAccess.SqlServer
             string postSql = null,
             object postParam = null)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-            resultSql = string.Concat(resultSql, "\r\n--", resultSql.MD5(), "\r\n");
-
             try
             {
                 IEnumerable<TResult> result;
@@ -1153,14 +1157,12 @@ namespace Chef.DbAccess.SqlServer
                         {
                             if (!string.IsNullOrEmpty(preSql))
                             {
-                                preSql = string.Concat(preSql, "\r\n--", preSql.MD5(), "\r\n");
-
                                 await db.ExecuteAsync(preSql, preParam, transaction: tx);
                             }
 
                             await db.ExecuteAsync(sql, param, transaction: tx);
 
-                            result = await db.QueryAsync<TResult>(resultSql, resultParam ?? Parameters.Instance.Empty, transaction: tx);
+                            result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
 
                             tx.Commit();
                         }
@@ -1173,8 +1175,6 @@ namespace Chef.DbAccess.SqlServer
                         {
                             if (!string.IsNullOrEmpty(postSql))
                             {
-                                postSql = string.Concat(postSql, "\r\n--", postSql.MD5(), "\r\n");
-
                                 await db.ExecuteAsync(postSql, postParam);
                             }
                         }
@@ -1193,8 +1193,6 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteCommandAsync(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 using (var db = new SqlConnection(this.connectionString))
@@ -1214,8 +1212,6 @@ namespace Chef.DbAccess.SqlServer
 
         protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)
         {
-            sql = string.Concat(sql, "\r\n--", sql.MD5(), "\r\n");
-
             try
             {
                 int result;

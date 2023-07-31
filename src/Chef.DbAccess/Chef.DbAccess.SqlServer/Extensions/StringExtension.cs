@@ -20,12 +20,5 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             return false;
         }
-
-        public static string MD5(this string me)
-        {
-            var hash = BitConverter.ToString(System.Security.Cryptography.MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(me)));
-
-            return hash.Replace("-", string.Empty);
-        }
     }
 }
