@@ -71,7 +71,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param);
+                    var result = await db.TryQuerySingleOrDefaultAsync<TResult>(sql, param);
 
                     return result;
                 }
@@ -95,43 +95,9 @@ namespace Chef.DbAccess.SqlServer
 
             try
             {
-                // DEBUG: 
-                if (ParamRegex.Match(sql).Success)
-                {
-                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
-
-                    if (parameters is IDictionary<string, object> { Count: 0 })
-                    {
-                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
-                    }
-                }
-
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TResult>(
-                            sql,
-                            (first, second) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-
-                                    return outFirst;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -141,6 +107,27 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                secondSetter(outFirst, outSecond);
+
+                return outFirst;
             }
         }
 
@@ -157,51 +144,9 @@ namespace Chef.DbAccess.SqlServer
 
             try
             {
-                // DEBUG: 
-                if (ParamRegex.Match(sql).Success)
-                {
-                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
-
-                    if (parameters is IDictionary<string, object> { Count: 0 })
-                    {
-                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
-                    }
-                }
-
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
-                            sql,
-                            (first, second, third) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    var outThird = default(TThird);
-
-                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                    {
-                                        thirdDict.Add(third, outThird = third);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-                                    thirdSetter(outFirst, outSecond, outThird);
-
-                                    return first;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -211,6 +156,35 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+
+                return first;
             }
         }
 
@@ -231,46 +205,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
-                            sql,
-                            (first, second, third, fourth) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    var outThird = default(TThird);
-
-                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                    {
-                                        thirdDict.Add(third, outThird = third);
-                                    }
-
-                                    var outFourth = default(TFourth);
-
-                                    if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                    {
-                                        fourthDict.Add(fourth, outFourth = fourth);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-                                    thirdSetter(outFirst, outSecond, outThird);
-                                    fourthSetter(outFirst, outSecond, outThird, outFourth);
-
-                                    return first;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -280,6 +215,43 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+
+                return first;
             }
         }
 
@@ -302,54 +274,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -359,6 +284,51 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+
+                return first;
             }
         }
 
@@ -383,62 +353,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth, sixth) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                var outSixth = default(TSixth);
-
-                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                                {
-                                    sixthDict.Add(sixth, outSixth = sixth);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -448,6 +363,59 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth, TSixth sixth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                var outSixth = default(TSixth);
+
+                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                {
+                    sixthDict.Add(sixth, outSixth = sixth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+
+                return first;
             }
         }
 
@@ -474,70 +442,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth, sixth, seventh) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                var outSixth = default(TSixth);
-
-                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                                {
-                                    sixthDict.Add(sixth, outSixth = sixth);
-                                }
-
-                                var outSeventh = default(TSeventh);
-
-                                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
-                                {
-                                    seventhDict.Add(seventh, outSeventh = seventh);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-                                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.FirstOrDefault();
@@ -547,6 +452,67 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth, TSixth sixth, TSeventh seventh)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                if (firstDict.Count > 1) throw new InvalidOperationException("查詢結果超過一筆");
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                var outSixth = default(TSixth);
+
+                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                {
+                    sixthDict.Add(sixth, outSixth = sixth);
+                }
+
+                var outSeventh = default(TSeventh);
+
+                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
+                {
+                    seventhDict.Add(seventh, outSeventh = seventh);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
+
+                return first;
             }
         }
 
@@ -563,7 +529,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
+                            result = await db.TryQuerySingleOrDefaultAsync<TResult>(sql, param, transaction: tx);
 
                             tx.Commit();
                         }
@@ -591,7 +557,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.QueryAsync<TResult>(sql, param);
+                    var result = await db.TryQueryAsync<TResult>(sql, param);
 
                     return result.ToList();
                 }
@@ -615,41 +581,9 @@ namespace Chef.DbAccess.SqlServer
 
             try
             {
-                // DEBUG: 
-                if (ParamRegex.Match(sql).Success)
-                {
-                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
-
-                    if (parameters is IDictionary<string, object> { Count: 0 })
-                    {
-                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
-                    }
-                }
-
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TResult>(
-                            sql,
-                            (first, second) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-
-                                    return first;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -659,6 +593,25 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                secondSetter(outFirst, outSecond);
+
+                return first;
             }
         }
 
@@ -675,49 +628,9 @@ namespace Chef.DbAccess.SqlServer
 
             try
             {
-                // DEBUG: 
-                if (ParamRegex.Match(sql).Success)
-                {
-                    if (parameters == null) throw new Exception($"'{nameof(parameters)}' is null.\r\n===\r\n{sql}\r\n===");
-
-                    if (parameters is IDictionary<string, object> { Count: 0 })
-                    {
-                        throw new Exception($"'{nameof(parameters)}' is empty.\r\n===\r\n{sql}\r\n===");
-                    }
-                }
-                
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TResult>(
-                            sql,
-                            (first, second, third) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    var outThird = default(TThird);
-
-                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                    {
-                                        thirdDict.Add(third, outThird = third);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-                                    thirdSetter(outFirst, outSecond, outThird);
-
-                                    return first;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -727,6 +640,33 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+
+                return first;
             }
         }
 
@@ -747,44 +687,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TResult>(
-                            sql,
-                            (first, second, third, fourth) =>
-                                {
-                                    if (!firstDict.TryGetValue(first, out var outFirst))
-                                    {
-                                        firstDict.Add(first, outFirst = first);
-                                    }
-
-                                    var outSecond = default(TSecond);
-
-                                    if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                    {
-                                        secondDict.Add(second, outSecond = second);
-                                    }
-
-                                    var outThird = default(TThird);
-
-                                    if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                    {
-                                        thirdDict.Add(third, outThird = third);
-                                    }
-
-                                    var outFourth = default(TFourth);
-
-                                    if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                    {
-                                        fourthDict.Add(fourth, outFourth = fourth);
-                                    }
-
-                                    secondSetter(outFirst, outSecond);
-                                    thirdSetter(outFirst, outSecond, outThird);
-                                    fourthSetter(outFirst, outSecond, outThird, outFourth);
-
-                                    return first;
-                                },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -794,6 +697,41 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+
+                return first;
             }
         }
 
@@ -816,52 +754,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -871,6 +764,49 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+
+                return first;
             }
         }
 
@@ -895,60 +831,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth, sixth) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                var outSixth = default(TSixth);
-
-                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                                {
-                                    sixthDict.Add(sixth, outSixth = sixth);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -958,6 +841,57 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth, TSixth sixth)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                var outSixth = default(TSixth);
+
+                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                {
+                    sixthDict.Add(sixth, outSixth = sixth);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+
+                return first;
             }
         }
 
@@ -984,68 +918,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    _ = await db.QueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
-                            sql,
-                            (first, second, third, fourth, fifth, sixth, seventh) =>
-                            {
-                                if (!firstDict.TryGetValue(first, out var outFirst))
-                                {
-                                    firstDict.Add(first, outFirst = first);
-                                }
-
-                                var outSecond = default(TSecond);
-
-                                if (second != null && !secondDict.TryGetValue(second, out outSecond))
-                                {
-                                    secondDict.Add(second, outSecond = second);
-                                }
-
-                                var outThird = default(TThird);
-
-                                if (third != null && !thirdDict.TryGetValue(third, out outThird))
-                                {
-                                    thirdDict.Add(third, outThird = third);
-                                }
-
-                                var outFourth = default(TFourth);
-
-                                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
-                                {
-                                    fourthDict.Add(fourth, outFourth = fourth);
-                                }
-
-                                var outFifth = default(TFifth);
-
-                                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
-                                {
-                                    fifthDict.Add(fifth, outFifth = fifth);
-                                }
-
-                                var outSixth = default(TSixth);
-
-                                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
-                                {
-                                    sixthDict.Add(sixth, outSixth = sixth);
-                                }
-
-                                var outSeventh = default(TSeventh);
-
-                                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
-                                {
-                                    seventhDict.Add(seventh, outSeventh = seventh);
-                                }
-
-                                secondSetter(outFirst, outSecond);
-                                thirdSetter(outFirst, outSecond, outThird);
-                                fourthSetter(outFirst, outSecond, outThird, outFourth);
-                                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
-                                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
-                                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
-
-                                return first;
-                            },
-                            parameters,
-                            splitOn: splitOn);
+                    _ = await db.TryQueryAsync<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(sql, Map, parameters, splitOn: splitOn);
                 }
 
                 return firstDict.Values.ToList();
@@ -1055,6 +928,65 @@ namespace Chef.DbAccess.SqlServer
                 this.OnDbError?.Invoke(ex, sql, parameters);
 
                 throw;
+            }
+
+            TResult Map(TResult first, TSecond second, TThird third, TFourth fourth, TFifth fifth, TSixth sixth, TSeventh seventh)
+            {
+                if (!firstDict.TryGetValue(first, out var outFirst))
+                {
+                    firstDict.Add(first, outFirst = first);
+                }
+
+                var outSecond = default(TSecond);
+
+                if (second != null && !secondDict.TryGetValue(second, out outSecond))
+                {
+                    secondDict.Add(second, outSecond = second);
+                }
+
+                var outThird = default(TThird);
+
+                if (third != null && !thirdDict.TryGetValue(third, out outThird))
+                {
+                    thirdDict.Add(third, outThird = third);
+                }
+
+                var outFourth = default(TFourth);
+
+                if (fourth != null && !fourthDict.TryGetValue(fourth, out outFourth))
+                {
+                    fourthDict.Add(fourth, outFourth = fourth);
+                }
+
+                var outFifth = default(TFifth);
+
+                if (fifth != null && !fifthDict.TryGetValue(fifth, out outFifth))
+                {
+                    fifthDict.Add(fifth, outFifth = fifth);
+                }
+
+                var outSixth = default(TSixth);
+
+                if (sixth != null && !sixthDict.TryGetValue(sixth, out outSixth))
+                {
+                    sixthDict.Add(sixth, outSixth = sixth);
+                }
+
+                var outSeventh = default(TSeventh);
+
+                if (seventh != null && !seventhDict.TryGetValue(seventh, out outSeventh))
+                {
+                    seventhDict.Add(seventh, outSeventh = seventh);
+                }
+
+                secondSetter(outFirst, outSecond);
+                thirdSetter(outFirst, outSecond, outThird);
+                fourthSetter(outFirst, outSecond, outThird, outFourth);
+                fifthSetter(outFirst, outSecond, outThird, outFourth, outFifth);
+                sixthSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth);
+                seventhSetter(outFirst, outSecond, outThird, outFourth, outFifth, outSixth, outSeventh);
+
+                return first;
             }
         }
 
@@ -1071,7 +1003,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.QueryAsync<TResult>(sql, param, transaction: tx);
+                            result = await db.TryQueryAsync<TResult>(sql, param, transaction: tx);
 
                             tx.Commit();
                         }
@@ -1111,16 +1043,16 @@ namespace Chef.DbAccess.SqlServer
 
                     if (!string.IsNullOrEmpty(preSql))
                     {
-                        await db.ExecuteAsync(preSql, preParam);
+                        await db.TryExecuteAsync(preSql, preParam);
                     }
 
-                    await db.ExecuteAsync(sql, param);
+                    await db.TryExecuteAsync(sql, param);
 
-                    var result = await db.QueryAsync<TResult>(resultSql, resultParam);
+                    var result = await db.TryQueryAsync<TResult>(resultSql, resultParam);
 
                     if (!string.IsNullOrEmpty(postSql))
                     {
-                        await db.ExecuteAsync(postSql, postParam);
+                        await db.TryExecuteAsync(postSql, postParam);
                     }
 
                     return result.ToList();
@@ -1157,12 +1089,12 @@ namespace Chef.DbAccess.SqlServer
                         {
                             if (!string.IsNullOrEmpty(preSql))
                             {
-                                await db.ExecuteAsync(preSql, preParam, transaction: tx);
+                                await db.TryExecuteAsync(preSql, preParam, transaction: tx);
                             }
 
-                            await db.ExecuteAsync(sql, param, transaction: tx);
+                            await db.TryExecuteAsync(sql, param, transaction: tx);
 
-                            result = await db.QueryAsync<TResult>(resultSql, resultParam, transaction: tx);
+                            result = await db.TryQueryAsync<TResult>(resultSql, resultParam, transaction: tx);
 
                             tx.Commit();
                         }
@@ -1175,7 +1107,7 @@ namespace Chef.DbAccess.SqlServer
                         {
                             if (!string.IsNullOrEmpty(postSql))
                             {
-                                await db.ExecuteAsync(postSql, postParam);
+                                await db.TryExecuteAsync(postSql, postParam);
                             }
                         }
 
@@ -1197,7 +1129,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 using (var db = new SqlConnection(this.connectionString))
                 {
-                    var result = await db.ExecuteAsync(sql, param);
+                    var result = await db.TryExecuteAsync(sql, param);
 
                     return result;
                 }
@@ -1223,7 +1155,7 @@ namespace Chef.DbAccess.SqlServer
                     {
                         try
                         {
-                            result = await db.ExecuteAsync(sql, param, transaction: tx);
+                            result = await db.TryExecuteAsync(sql, param, transaction: tx);
 
                             tx.Commit();
                         }
