@@ -848,6 +848,16 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSelectList_use_Star_will_Skip_NotMapped()
+        {
+            Expression<Func<Video, object>> select = x => new { x };
+
+            var selectList = select.ToSelectList();
+
+            selectList.Should().Be("[ID] AS [Id], [PackageID] AS [PackageId]");
+        }
+
+        [TestMethod]
         public void Test_ToSetStatements_Simple()
         {
             Expression<Func<Member>> setters = () => new Member { FirstName = "abab", LastName = "baba" };
@@ -1213,6 +1223,9 @@ namespace Chef.DbAccess.SqlServer.Tests
 
         [Column("PackageID")]
         public int PackageId { get; set; }
+
+        [NotMapped]
+        public string IgnoredColumn { get; set; }
     }
 
     internal class StoredValue

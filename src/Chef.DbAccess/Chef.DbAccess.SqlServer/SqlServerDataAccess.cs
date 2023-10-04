@@ -31,7 +31,6 @@ namespace Chef.DbAccess.SqlServer
 
     public partial class SqlServerDataAccess<T> : SqlServerDataAccess, IDataAccess<T>
     {
-        private static readonly Regex ParamRegex = new Regex(@"@\w+|\{=\w+\}", RegexOptions.Compiled);
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> RequiredColumns = new ConcurrentDictionary<Type, PropertyInfo[]>();
         private static readonly ConcurrentDictionary<string, Delegate> Setters = new ConcurrentDictionary<string, Delegate>();
         private static readonly Regex ServerRegex = new Regex(@"(Server|Data Source)=[\s]*([^;]+)[\s]*;", RegexOptions.IgnoreCase | RegexOptions.Compiled);
