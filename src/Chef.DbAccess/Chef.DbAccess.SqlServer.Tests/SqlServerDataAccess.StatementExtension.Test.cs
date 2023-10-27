@@ -435,10 +435,10 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" && myIDs.Contains(x.Id);
 
-            predicate.Invoking(x => x.ToSearchCondition(out var parameters))
-                .Should()
-                .Throw<ArgumentException>()
-                .WithMessage("'array' can not be empty.");
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([last_name] = @LastName_0) AND (1 = 0)");
+            parameters["LastName_0"].Should().Be("999");
         }
 
         [TestMethod]

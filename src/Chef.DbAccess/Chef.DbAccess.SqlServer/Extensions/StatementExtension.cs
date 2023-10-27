@@ -1179,18 +1179,20 @@ namespace Chef.DbAccess.SqlServer.Extensions
                             alias);
                     }
 
-                    if (!any)
+                    if (any)
                     {
-                        throw new ArgumentException($"'{nameof(array)}' can not be empty.");
-                    }
-
-                    if (isNot)
-                    {
-                        sb.Remove(sb.Length - 5, 5);
+                        if (isNot)
+                        {
+                            sb.Remove(sb.Length - 5, 5);
+                        }
+                        else
+                        {
+                            sb.Remove(sb.Length - 4, 4);
+                        }
                     }
                     else
                     {
-                        sb.Remove(sb.Length - 4, 4);
+                        sb.AliasAppend("1 = 0", alias);
                     }
                 }
             }
