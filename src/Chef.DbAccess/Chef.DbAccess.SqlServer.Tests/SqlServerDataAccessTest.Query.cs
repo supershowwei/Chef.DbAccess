@@ -613,6 +613,18 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_QueryAsync_use_Empty_List_Contains()
+        {
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            var ids = new List<int>();
+
+            var clubs = await clubDataAccess.Where(x => ids.Contains(x.Id)).Select(x => new { x.Name }).QueryAsync();
+
+            clubs.Count.Should().Be(0);
+        }
+
+        [TestMethod]
         public async Task Test_QueryAsync_with_use_Pagination_QueryObject()
         {
             var clubDataAccess = DataAccessFactory.Create<Club>();

@@ -442,6 +442,19 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_Or_Empty_Contains_use_Alias()
+        {
+            var myIDs = new List<int>();
+
+            Expression<Func<Member, bool>> predicate = x => x.LastName == "999" && myIDs.Contains(x.Id);
+
+            var searchCondition = predicate.ToSearchCondition("abc", out var parameters);
+
+            searchCondition.Should().Be("([abc].[last_name] = @LastName_0) AND (1 = 0)");
+            parameters["LastName_0"].Should().Be("999");
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_Or_Not_Contains()
         {
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" || !new[] { 1, 2, 3 }.Contains(x.Id);

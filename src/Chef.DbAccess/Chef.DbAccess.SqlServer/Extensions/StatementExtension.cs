@@ -1192,7 +1192,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     }
                     else
                     {
-                        sb.AliasAppend("1 = 0", alias);
+                        sb.Append("1 = 0");
                     }
                 }
             }
