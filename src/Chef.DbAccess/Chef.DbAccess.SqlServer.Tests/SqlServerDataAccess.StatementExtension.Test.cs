@@ -98,7 +98,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id < 1;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[Id] < {=Id_0}");
             parameters["Id_0"].Should().Be(1);
@@ -109,7 +109,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id < 1 && (x.Id & 1) > 0;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] < {=Id_0}) AND (([Id] & {=Id_1}) > {=Id_2})");
             parameters["Id_0"].Should().Be(1);
@@ -122,7 +122,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id < 1 && (x.Id | 1) > 0;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] < {=Id_0}) AND (([Id] | {=Id_1}) > {=Id_2})");
             parameters["Id_0"].Should().Be(1);
@@ -135,7 +135,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => (x.Id & 1) > 0;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] & {=Id_0}) > {=Id_1}");
             parameters["Id_0"].Should().Be(1);
@@ -147,7 +147,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.FirstName.Includes("abc");
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("CONTAINS([first_name], @FirstName_0)");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("abc");
@@ -159,7 +159,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.IsActive;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[IsActive] = {=IsActive_0}");
             parameters["IsActive_0"].Should().Be(true);
@@ -170,7 +170,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => !x.IsActive;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[IsActive] = {=IsActive_0}");
             parameters["IsActive_0"].Should().Be(false);
@@ -203,7 +203,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.IgnoredColumn == "testabc";
 
-            predicate.Invoking(x => x.ToSearchCondition(out var parameters))
+            predicate.Invoking(x => x.ToSearchCondition(out IDictionary<string, object> parameters))
                 .Should()
                 .Throw<ArgumentException>()
                 .WithMessage("Member can not applied [NotMapped].");
@@ -214,7 +214,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.FirstName == "GoodJob";
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] = @FirstName_0");
             parameters["FirstName_0"].GetType().Should().Be<DbString>();
@@ -229,7 +229,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id == int.MaxValue;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[Id] = {=Id_0}");
             parameters["Id_0"].Should().Be(int.MaxValue);
@@ -240,7 +240,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.FirstName == string.Empty;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] = @FirstName_0");
             ((DbString)parameters["FirstName_0"]).Value.Should().BeEmpty();
@@ -251,7 +251,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.FirstName == null;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] IS NULL");
         }
@@ -261,7 +261,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id.Equals(1);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[Id] = {=Id_0}");
             parameters["Id_0"].Should().Be(1);
@@ -272,7 +272,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => !x.Id.Equals(1);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[Id] <> {=Id_0}");
             parameters["Id_0"].Should().Be(1);
@@ -283,7 +283,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id == 1 && x.FirstName == "GoodJob";
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] = {=Id_0}) AND ([first_name] = @FirstName_0)");
             parameters["Id_0"].Should().Be(1);
@@ -302,7 +302,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var predicate = predicate1.Update(Expression.AndAlso(predicate1.Body, predicate2.Body), predicate1.Parameters);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] = {=Id_0}) AND ([first_name] = @FirstName_0)");
             parameters["Id_0"].Should().Be(1);
@@ -314,7 +314,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.Id.Equals(1) && x.FirstName.Equals("GoodJob");
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] = {=Id_0}) AND ([first_name] = @FirstName_0)");
             parameters["Id_0"].Should().Be(1);
@@ -328,7 +328,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.Id <= queryParameter.Id && x.FirstName == queryParameter.Name;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([Id] <= {=Id_0}) AND ([first_name] = @FirstName_0)");
             parameters["Id_0"].Should().Be(1);
@@ -343,7 +343,7 @@ namespace Chef.DbAccess.SqlServer.Tests
             Expression<Func<Member, bool>> predicate = x =>
                 x.Id <= queryParameter.Id && x.FirstName == queryParameter.Name || x.LastName == queryParameter.Address.Value;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("(([Id] <= {=Id_0}) AND ([first_name] = @FirstName_0)) OR ([last_name] = @LastName_0)");
             parameters["Id_0"].Should().Be(2);
@@ -356,7 +356,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.LastName == "JobGood" || (x.Id > 1 && x.FirstName == "GoodJob");
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] = @LastName_0) OR (([Id] > {=Id_0}) AND ([first_name] = @FirstName_0))");
             parameters["Id_0"].Should().Be(1);
@@ -382,7 +382,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.FirstName == "111" || x.FirstName == "222";
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([first_name] = @FirstName_0) OR ([first_name] = @FirstName_1)");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("111");
@@ -395,7 +395,7 @@ namespace Chef.DbAccess.SqlServer.Tests
             Expression<Func<Member, bool>> predicate1 = x => x.LastName == "GoodJob";
             Expression<Func<Member, bool>> predicate2 = x => x.LastName == "JobGood";
 
-            var searchCondition1 = predicate1.ToSearchCondition(out var parameters);
+            var searchCondition1 = predicate1.ToSearchCondition(out IDictionary<string, object> parameters);
             var searchCondition2 = predicate2.ToSearchCondition(parameters);
 
             searchCondition1.Should().Be("[last_name] = @LastName_0");
@@ -409,7 +409,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => new[] { "1", "2", "3" }.Contains(x.FirstName);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] = @FirstName_0 OR [first_name] = @FirstName_1 OR [first_name] = @FirstName_2");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
@@ -424,7 +424,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => arr.Contains(x.FirstName);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] = @FirstName_0 OR [first_name] = @FirstName_1 OR [first_name] = @FirstName_2");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
@@ -439,7 +439,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => !arr.Contains(x.FirstName);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[first_name] <> @FirstName_0 AND [first_name] <> @FirstName_1 AND [first_name] <> @FirstName_2");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
@@ -454,7 +454,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => arr.Contains(x.FirstName) && new[] { 1, 2, 3 }.Contains(x.Id);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([first_name] = @FirstName_0 OR [first_name] = @FirstName_1 OR [first_name] = @FirstName_2) AND ([Id] = {=Id_0} OR [Id] = {=Id_1} OR [Id] = {=Id_2})");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
@@ -470,7 +470,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" || new[] { 1, 2, 3 }.Contains(x.Id);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] = @LastName_0) OR ([Id] = {=Id_0} OR [Id] = {=Id_1} OR [Id] = {=Id_2})");
             parameters["LastName_0"].Should().Be("999");
@@ -486,7 +486,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" && myIDs.Contains(x.Id);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] = @LastName_0) AND (1 = 0)");
             parameters["LastName_0"].Should().Be("999");
@@ -510,7 +510,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<Member, bool>> predicate = x => x.LastName == "999" || !new[] { 1, 2, 3 }.Contains(x.Id);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] = @LastName_0) OR ([Id] <> {=Id_0} AND [Id] <> {=Id_1} AND [Id] <> {=Id_2})");
             parameters["LastName_0"].Should().Be("999");
@@ -526,7 +526,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName.Contains("888") || x.FirstName.Contains(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] LIKE '%' + @LastName_0 + '%') OR ([first_name] LIKE '%' + @FirstName_0 + '%')");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("777");
@@ -540,7 +540,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => !x.LastName.Contains("888") || !x.FirstName.Contains(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] NOT LIKE '%' + @LastName_0 + '%') OR ([first_name] NOT LIKE '%' + @FirstName_0 + '%')");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("777");
@@ -554,7 +554,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName.StartsWith("777") || x.FirstName.StartsWith(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] LIKE @LastName_0 + '%') OR ([first_name] LIKE @FirstName_0 + '%')");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("666");
@@ -568,7 +568,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName.StartsWith("777") || !x.FirstName.StartsWith(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] LIKE @LastName_0 + '%') OR ([first_name] NOT LIKE @FirstName_0 + '%')");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("666");
@@ -582,7 +582,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => x.LastName.EndsWith("666") || x.FirstName.EndsWith(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] LIKE '%' + @LastName_0) OR ([first_name] LIKE '%' + @FirstName_0)");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("555");
@@ -596,7 +596,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Member, bool>> predicate = x => !x.LastName.EndsWith("666") || x.FirstName.EndsWith(keyword);
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("([last_name] NOT LIKE '%' + @LastName_0) OR ([first_name] LIKE '%' + @FirstName_0)");
             ((DbString)parameters["FirstName_0"]).Value.Should().Be("555");
@@ -698,7 +698,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             Expression<Func<OrderViewItem, bool>> predicate = x => x.PackageId == 48;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[PackageId] = {=PackageId_0}");
             parameters["PackageId_0"].Should().Be(48);
@@ -711,7 +711,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             Expression<Func<Video, bool>> predicate = x => x.PackageId == storedValue.OrderViewItem.PackageId;
 
-            var searchCondition = predicate.ToSearchCondition(out var parameters);
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
 
             searchCondition.Should().Be("[PackageID] = {=PackageId_0}");
             parameters["PackageId_0"].Should().Be(48);

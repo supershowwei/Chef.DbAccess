@@ -108,15 +108,15 @@ namespace Chef.DbAccess.SqlServer
         {
             if (nonexistence != null)
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, nonexistence: nonexistence);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, nonexistence: nonexistence);
 
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
             else
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values);
 
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
         }
 
@@ -124,15 +124,15 @@ namespace Chef.DbAccess.SqlServer
         {
             if (nonexistence != null)
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output, nonexistence);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output, nonexistence);
 
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
             else
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(values, output);
 
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
         }
 
@@ -140,15 +140,15 @@ namespace Chef.DbAccess.SqlServer
         {
             if (nonexistence != null)
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, nonexistence: nonexistence);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, nonexistence: nonexistence);
 
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
             else
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values);
 
-                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
         }
 
@@ -156,15 +156,15 @@ namespace Chef.DbAccess.SqlServer
         {
             if (nonexistence != null)
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output, nonexistence);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output, nonexistence);
 
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
             else
             {
-                var (sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
+                var (preSql, sql, tableType, tableVariable) = this.GenerateBulkInsertStatement(setterTemplate, values, output);
 
-                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                return this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, preSql: preSql);
             }
         }
     }

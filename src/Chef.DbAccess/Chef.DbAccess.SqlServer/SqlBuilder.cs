@@ -32,6 +32,16 @@ namespace Chef.DbAccess.SqlServer
             return sqlBuilder.ToString();
         }
 
+        public void AppendLine()
+        {
+            this.builder.AppendLine();
+        }
+
+        public void AppendLine(string sql)
+        {
+            this.builder.AppendLine(sql);
+        }
+
         public void Append(string sql)
         {
             this.builder.Append(sql);

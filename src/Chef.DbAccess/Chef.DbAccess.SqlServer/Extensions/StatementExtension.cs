@@ -273,17 +273,24 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me)
         {
-            return ToSearchCondition(me, string.Empty, null, null);
+            return ToSearchCondition(me, string.Empty, null, null, null);
+        }
+
+        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, out List<PropertyInfo> involvedMembers)
+        {
+            involvedMembers = new List<PropertyInfo>();
+
+            return ToSearchCondition(me, string.Empty, null, null, involvedMembers);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias)
         {
-            return ToSearchCondition(me, alias, null, null);
+            return ToSearchCondition(me, alias, null, null, null);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, string> parameterNames)
         {
-            return ToSearchCondition(me, alias, null, parameterNames);
+            return ToSearchCondition(me, alias, null, parameterNames, null);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, out IDictionary<string, object> parameters)
@@ -295,21 +302,21 @@ namespace Chef.DbAccess.SqlServer.Extensions
         {
             parameters = new Dictionary<string, object>();
 
-            return ToSearchCondition(me, alias, parameters, null);
+            return ToSearchCondition(me, alias, parameters, null, null);
         }
 
         public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, IDictionary<string, object> parameters)
         {
-            return ToSearchCondition(me, string.Empty, parameters, null);
+            return ToSearchCondition(me, string.Empty, parameters, null, null);
         }
 
-        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames)
+        public static string ToSearchCondition<T>(this Expression<Func<T, bool>> me, string alias, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames, List<PropertyInfo> involvedMembers)
         {
             var aliasMap = GenerateAliasMap(me.Parameters, new[] { alias });
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, parameterNames);
+            ParseCondition(me.Body, aliasMap, sb, parameters, parameterNames, involvedMembers);
 
             return sb.ToString();
         }
@@ -344,7 +351,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -379,7 +386,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -414,7 +421,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -449,7 +456,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -484,7 +491,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -519,7 +526,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             var sb = new StringBuilder();
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -551,7 +558,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -583,7 +590,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
             sb.Append(" WITH (NOLOCK) ON ");
 
-            ParseCondition(me.Body, aliasMap, sb, parameters, null);
+            ParseCondition(me.Body, aliasMap, sb, parameters, null, null);
 
             return sb.ToString();
         }
@@ -688,6 +695,117 @@ namespace Chef.DbAccess.SqlServer.Extensions
             valueList = valueListBuilder.ToString();
 
             return columnListBuilder.ToString();
+        }
+
+        public static string ToColumnDefinitions(this PropertyInfo[] me, out List<UserDefinedField> fields)
+        {
+            if (me == null || me.Length == 0) throw new ArgumentException($"'{nameof(me)}' can not be null or empty.");
+
+            fields = new List<UserDefinedField>();
+
+            var columnDefinitionsBuilder = new StringBuilder();
+
+            foreach (var propertyInfo in me)
+            {
+                if (Attribute.IsDefined(propertyInfo, typeof(NotMappedAttribute)))
+                {
+                    throw new ArgumentException("Member can not applied [NotMapped].");
+                }
+
+                var columnAttribute = propertyInfo.GetCustomAttribute<ColumnAttribute>();
+                var parameterName = propertyInfo.Name;
+                var columnName = columnAttribute?.Name ?? parameterName;
+                var parameterType = propertyInfo.PropertyType;
+
+                columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
+                fields.Add(new UserDefinedField(propertyInfo, new DataColumn(columnName, parameterType)));
+            }
+
+            columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
+
+            return columnDefinitionsBuilder.ToString();
+        }
+
+        public static string ToColumnDefinitions<T>(this Expression<Func<T>> me, out List<UserDefinedField> fields)
+        {
+            if (!(me.Body is MemberInitExpression memberInitExpr)) throw new ArgumentException("Must be member initializer.");
+
+            fields = new List<UserDefinedField>();
+
+            var columnDefinitionsBuilder = new StringBuilder();
+
+            foreach (var binding in memberInitExpr.Bindings)
+            {
+                if (!(binding is MemberAssignment memberAssignment)) throw new ArgumentException("Must be member assignment.");
+
+                if (Attribute.IsDefined(memberAssignment.Member, typeof(NotMappedAttribute)))
+                {
+                    throw new ArgumentException("Member can not applied [NotMapped].");
+                }
+
+                var columnAttribute = memberAssignment.Member.GetCustomAttribute<ColumnAttribute>();
+                var parameterName = memberAssignment.Member.Name;
+                var columnName = columnAttribute?.Name ?? parameterName;
+                var parameter = (PropertyInfo)memberAssignment.Member;
+                var parameterType = parameter.PropertyType;
+
+                columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
+                fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
+            }
+
+            columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
+
+            return columnDefinitionsBuilder.ToString();
+        }
+
+        public static string ToColumnDefinitions<T>(this Expression<Func<T>> me, IEnumerable<PropertyInfo> additionalMembers, out List<UserDefinedField> fields)
+        {
+            if (!(me.Body is MemberInitExpression memberInitExpr)) throw new ArgumentException("Must be member initializer.");
+
+            fields = new List<UserDefinedField>();
+
+            var columnDefinitionsBuilder = new StringBuilder();
+
+            foreach (var binding in memberInitExpr.Bindings)
+            {
+                if (!(binding is MemberAssignment memberAssignment)) throw new ArgumentException("Must be member assignment.");
+
+                if (Attribute.IsDefined(memberAssignment.Member, typeof(NotMappedAttribute)))
+                {
+                    throw new ArgumentException("Member can not applied [NotMapped].");
+                }
+
+                var columnAttribute = memberAssignment.Member.GetCustomAttribute<ColumnAttribute>();
+                var parameterName = memberAssignment.Member.Name;
+                var columnName = columnAttribute?.Name ?? parameterName;
+                var parameter = (PropertyInfo)memberAssignment.Member;
+                var parameterType = parameter.PropertyType;
+
+                columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
+                fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
+
+                additionalMembers = additionalMembers.Where(x => x.PropertyType.FullName != parameterType.FullName);
+            }
+
+            foreach (var additionalMember in additionalMembers)
+            {
+                if (Attribute.IsDefined(additionalMember, typeof(NotMappedAttribute)))
+                {
+                    throw new ArgumentException("Member can not applied [NotMapped].");
+                }
+
+                var columnAttribute = additionalMember.GetCustomAttribute<ColumnAttribute>();
+                var parameterName = additionalMember.Name;
+                var columnName = columnAttribute?.Name ?? parameterName;
+                var parameterType = additionalMember.PropertyType;
+
+                columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
+                fields.Add(new UserDefinedField(additionalMember, new DataColumn(columnName, parameterType)));
+            }
+
+            columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
+
+            return columnDefinitionsBuilder.ToString();
         }
 
         public static string ToSetStatements<T>(this Expression<Func<T>> me)
@@ -945,7 +1063,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
             return aliasMap;
         }
 
-        private static void ParseCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames)
+        private static void ParseCondition(Expression expr, IDictionary<string, string> aliasMap, StringBuilder sb, IDictionary<string, object> parameters, IDictionary<string, string> parameterNames, List<PropertyInfo> involvedMembers)
         {
             var isNot = false;
 
@@ -961,7 +1079,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     sb.Append("(");
 
-                    ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames);
+                    ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames, involvedMembers);
 
                     switch (binaryExpr.NodeType)
                     {
@@ -974,7 +1092,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                             break;
                     }
 
-                    ParseCondition(binaryExpr.Right, aliasMap, sb, parameters, parameterNames);
+                    ParseCondition(binaryExpr.Right, aliasMap, sb, parameters, parameterNames, involvedMembers);
 
                     sb.Append(")");
                 }
@@ -995,7 +1113,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     {
                         sb.Append("(");
 
-                        ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames);
+                        ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames, involvedMembers);
 
                         sb.Append(")");
 
@@ -1034,13 +1152,19 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = left.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = left.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = ((PropertyInfo)left.Member).PropertyType;
+                    var leftMember = (PropertyInfo)left.Member;
+                    var parameterType = leftMember.PropertyType;
+
+                    involvedMembers?.Add(leftMember);
 
                     if (argumentExpr is MemberExpression rightMemberExpr && rightMemberExpr.Expression is ParameterExpression rightParameterExpr)
                     {
                         var rightAlias = aliasMap[rightParameterExpr.Name];
-                        var rightColumnAttribute = rightMemberExpr.Member.GetCustomAttribute<ColumnAttribute>();
+                        var rightExprMember = (PropertyInfo)rightMemberExpr.Member;
+                        var rightColumnAttribute = rightExprMember.GetCustomAttribute<ColumnAttribute>();
                         var rightColumnName = rightColumnAttribute?.Name ?? rightMemberExpr.Member.Name;
+
+                        involvedMembers?.Add(rightExprMember);
 
                         if (binaryLeft != binaryExpr)
                         {
@@ -1113,7 +1237,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = memberExpr.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
+                    var exprMember = (PropertyInfo)memberExpr.Member;
+                    var parameterType = exprMember.PropertyType;
+
+                    involvedMembers?.Add(exprMember);
 
                     if (parameters != null)
                     {
@@ -1137,7 +1264,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = memberExpr.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
+                    var exprMember = (PropertyInfo)memberExpr.Member;
+                    var parameterType = exprMember.PropertyType;
+
+                    involvedMembers?.Add(exprMember);
 
                     if (parameters != null)
                     {
@@ -1172,7 +1302,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var parameterName = memberExpr.Member.Name;
                     var columnName = columnAttribute?.Name ?? parameterName;
-                    var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
+                    var exprMember = (PropertyInfo)memberExpr.Member;
+                    var parameterType = exprMember.PropertyType;
+
+                    involvedMembers?.Add(exprMember);
 
                     if (parameters != null)
                     {
@@ -1198,7 +1331,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
                     var alias = aliasMap[parameterExpr.Name];
                     var columnAttribute = argumentExpr.Member.GetCustomAttribute<ColumnAttribute>();
                     var columnName = columnAttribute?.Name ?? argumentExpr.Member.Name;
-                    var parameterType = ((PropertyInfo)argumentExpr.Member).PropertyType;
+                    var argumentMember = (PropertyInfo)argumentExpr.Member;
+                    var parameterType = argumentMember.PropertyType;
+
+                    involvedMembers?.Add(argumentMember);
 
                     var array = ExtractArray(methodCallExpr.Object ?? methodCallExpr.Arguments[0]);
 
@@ -1242,7 +1378,10 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnAttribute = memberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                 var parameterName = memberExpr.Member.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
-                var parameterType = ((PropertyInfo)memberExpr.Member).PropertyType;
+                var exprMember = (PropertyInfo)memberExpr.Member;
+                var parameterType = exprMember.PropertyType;
+
+                involvedMembers?.Add(exprMember);
 
                 if (parameters != null && parameterType == typeof(bool))
                 {
@@ -1358,6 +1497,31 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 case ExpressionType.Or: return "|";
                 default: throw new ArgumentException("Invalid NodeType.");
             }
+        }
+
+        private static string MapSqlType(Type csharpType, ColumnAttribute columnAttribute)
+        {
+            if (columnAttribute != null && !string.IsNullOrEmpty(columnAttribute.TypeName))
+            {
+                if (columnAttribute.TypeName.Equals("varchar", StringComparison.OrdinalIgnoreCase)) return "VARCHAR(MAX)";
+            }
+
+            if (csharpType == typeof(string)) return "NVARCHAR(MAX)";
+            if (csharpType == typeof(int)) return "INT";
+            if (csharpType == typeof(long)) return "BIGINT";
+            if (csharpType == typeof(decimal)) return "DECIMAL(38, 18)";
+            if (csharpType == typeof(bool)) return "BIT";
+            if (csharpType == typeof(float)) return "REAL";
+            if (csharpType == typeof(double)) return "FLOAT";
+            if (csharpType == typeof(short)) return "SMALLINT";
+            if (csharpType == typeof(byte)) return "TINYINT";
+            if (csharpType == typeof(sbyte)) return "SMALLINT";
+            if (csharpType == typeof(ushort)) return "INT";
+            if (csharpType == typeof(uint)) return "BIGINT";
+            if (csharpType == typeof(ulong)) return "DECIMAL(20, 0)";
+            if (csharpType == typeof(char)) return "NCHAR(1)";
+
+            throw new ArgumentOutOfRangeException(nameof(csharpType));
         }
 
         private static IEnumerable<MemberExpression> GetMemberExpressions(Expression expr)

@@ -569,6 +569,43 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
+        protected virtual async Task<List<TResult>> ExecuteQueryAsync<TResult>(
+            string sql,
+            object param,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null)
+        {
+            try
+            {
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    await db.OpenAsync();
+
+                    if (!string.IsNullOrEmpty(preSql))
+                    {
+                        await db.TryExecuteAsync(preSql, preParam);
+                    }
+
+                    var result = await db.TryQueryAsync<TResult>(sql, param);
+
+                    if (!string.IsNullOrEmpty(postSql))
+                    {
+                        await db.TryExecuteAsync(postSql, postParam);
+                    }
+
+                    return result.ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
+            }
+        }
+
         protected virtual async Task<List<TResult>> ExecuteQueryAsync<TSecond, TResult>(
             string sql,
             Action<TResult, TSecond> secondSetter,
@@ -1129,6 +1166,43 @@ namespace Chef.DbAccess.SqlServer
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     var result = await db.TryExecuteAsync(sql, param);
+
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.OnDbError?.Invoke(ex, sql, param);
+
+                throw;
+            }
+        }
+
+        protected virtual async Task<int> ExecuteCommandAsync(
+            string sql,
+            object param,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null)
+        {
+            try
+            {
+                using (var db = new SqlConnection(this.connectionString))
+                {
+                    await db.OpenAsync();
+
+                    if (!string.IsNullOrEmpty(preSql))
+                    {
+                        await db.TryExecuteAsync(preSql, preParam);
+                    }
+
+                    var result = await db.TryExecuteAsync(sql, param);
+
+                    if (!string.IsNullOrEmpty(postSql))
+                    {
+                        await db.TryExecuteAsync(postSql, postParam);
+                    }
 
                     return result;
                 }
@@ -1896,7 +1970,7 @@ FROM [{tableName}] [{alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters, null);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(alias, parameters, null, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -2622,7 +2696,7 @@ FROM [{this.tableName}] [{this.alias}] WITH (NOLOCK)";
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -2901,7 +2975,7 @@ SELECT
 
             var parameters = new Dictionary<string, object>();
 
-            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null);
+            var searchCondition = predicate == null ? string.Empty : predicate.ToSearchCondition(this.alias, parameters, null, null);
 
             if (!string.IsNullOrEmpty(searchCondition))
             {
@@ -3210,7 +3284,7 @@ WHERE ";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3236,7 +3310,7 @@ FROM [{this.tableName}] [{this.alias}]
 WHERE ";
             }
 
-            sql += predicate.ToSearchCondition(this.alias, parameters, null);
+            sql += predicate.ToSearchCondition(this.alias, parameters, null, null);
             sql += ";";
 
             if (output != null)
@@ -3266,7 +3340,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3326,7 +3400,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3391,7 +3465,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3462,7 +3536,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3536,7 +3610,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3613,7 +3687,7 @@ DROP TABLE [{tmpTable}]";
 
             var parameters = new Dictionary<string, object>();
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3678,7 +3752,7 @@ DROP TABLE [{tmpTable}]";
 
             SqlBuilder sql;
             
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3702,7 +3776,7 @@ INSERT INTO [{this.tableName}]({columnList})";
 
             if (nonexistence != null)
             {
-                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, parameters, null);
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, parameters, null, null);
 
                 sql += $@"
     SELECT {valueList}
@@ -3742,7 +3816,7 @@ DROP TABLE [{tmpTable}];";
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3766,7 +3840,7 @@ INSERT INTO [{this.tableName}]({columnList})";
 
             if (nonexistence != null)
             {
-                var nonexistenceCondition = outParameters ? nonexistence.ToSearchCondition(this.alias, parameters, null) : nonexistence.ToSearchCondition(this.alias);
+                var nonexistenceCondition = outParameters ? nonexistence.ToSearchCondition(this.alias, parameters, null, null) : nonexistence.ToSearchCondition(this.alias);
 
                 sql += $@"
     SELECT {valueList}
@@ -3797,23 +3871,34 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
-            var userDefinedColumnNameMap = nonexistence != null ? new Dictionary<string, string>() : null;
-
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, userDefinedColumnNameMap);
-
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
                 type => type.GetProperties().Where(p => Attribute.IsDefined(p, typeof(RequiredAttribute))).ToArray());
 
             if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
 
+            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(requiredColumns, values, out var userDefinedFields);
+
+            var userDefinedFieldMap = default(Dictionary<string, string>);
+
+            if (nonexistence != null)
+            {
+                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.ColumnName);
+            }
+
             var columnList = requiredColumns.ToColumnList(out _);
+
+            var preSql = $@"
+CREATE TYPE {tableType} AS TABLE
+(
+    {columnDefinitions}
+)";
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3837,7 +3922,7 @@ INSERT INTO [{this.tableName}]({columnList})";
 
             if (nonexistence != null)
             {
-                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedColumnNameMap);
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedFieldMap);
 
                 sql += $@"
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
@@ -3854,6 +3939,10 @@ INSERT INTO [{this.tableName}]({columnList})";
     FROM @TableVariable tvp;";
             }
 
+            sql += $@"
+
+DROP TYPE {tableType}";
+
             if (output != null)
             {
                 sql += $@"
@@ -3867,20 +3956,31 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (sql, tableType, tableVariable);
+            return (preSql, sql, tableType, tableVariable);
         }
 
-        private (string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
-            var userDefinedColumnNameMap = nonexistence != null ? new Dictionary<string, string>() : null;
+            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(setterTemplate, values, out var userDefinedFields);
 
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, userDefinedColumnNameMap);
+            var userDefinedFieldMap = default(Dictionary<string, string>);
+
+            if (nonexistence != null)
+            {
+                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.ColumnName);
+            }
 
             var columnList = setterTemplate.ToColumnList(out _);
 
+            var preSql = $@"
+CREATE TYPE {tableType} AS TABLE
+(
+    {columnDefinitions}
+)";
+
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             if (output != null)
             {
@@ -3904,7 +4004,7 @@ INSERT INTO [{this.tableName}]({columnList})";
 
             if (nonexistence != null)
             {
-                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedColumnNameMap);
+                var nonexistenceCondition = nonexistence.ToSearchCondition(this.alias, userDefinedFieldMap);
 
                 sql += $@"
     SELECT {ColumnRegex.Replace(columnList, "tvp.$0")}
@@ -3921,6 +4021,10 @@ INSERT INTO [{this.tableName}]({columnList})";
     FROM @TableVariable tvp;";
             }
 
+            sql += $@"
+
+DROP TYPE {tableType}";
+
             if (output != null)
             {
                 sql += $@"
@@ -3934,7 +4038,7 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (sql, tableType, tableVariable);
+            return (preSql, sql, tableType, tableVariable);
         }
 
         private (string, IDictionary<string, object>) GenerateUpdateStatement(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, bool outParameters)
@@ -3949,7 +4053,7 @@ SET ";
 FROM [{this.tableName}] [{this.alias}]";
             sql += @"
 WHERE ";
-            sql += outParameters ? predicate.ToSearchCondition(this.alias, parameters, null) : predicate.ToSearchCondition(this.alias);
+            sql += outParameters ? predicate.ToSearchCondition(this.alias, parameters, null, null) : predicate.ToSearchCondition(this.alias);
             sql += ";";
 
             this.OutputSql?.Invoke(sql, null);
@@ -4190,17 +4294,28 @@ WHERE ";
 
         private (string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, null);
-
             var columnList = setterTemplate.ToColumnList(out _);
-            var searchCondition = predicateTemplate.ToSearchCondition();
+            var searchCondition = predicateTemplate.ToSearchCondition(out List<PropertyInfo> predicateMembers);
 
-            var sql = $@"
+            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
+
+            SqlBuilder sql = $@"
+CREATE TYPE {tableType} AS TABLE
+(
+    {columnDefinitions}
+)";
+            sql.AppendLine();
+
+            sql += $@"
 UPDATE [{this.tableName}]
 SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
 FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
     ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
+
+            sql += $@"
+
+DROP TYPE {tableType}";
 
             this.OutputSql?.Invoke(sql, null);
 
@@ -4217,7 +4332,7 @@ INNER JOIN @TableVariable tvp
 
             SqlBuilder sql;
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             var insertedColumnList = string.Empty;
 
@@ -4297,14 +4412,19 @@ DROP TABLE [{tmpTable}]";
             IEnumerable<T> values,
             Expression<Func<T, object>> output = null)
         {
-            var (tableType, tableVariable) = this.ConvertToTableValuedParameters(values, null);
-
             var columnList = setterTemplate.ToColumnList(out _);
-            var searchCondition = predicateTemplate.ToSearchCondition();
+            var searchCondition = predicateTemplate.ToSearchCondition(out List<PropertyInfo> predicateMembers);
 
-            SqlBuilder sql = string.Empty;
+            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
 
-            var tmpTable = output != null ? $"#_{Guid.NewGuid()}" : string.Empty;
+            SqlBuilder sql = $@"
+CREATE TYPE {tableType} AS TABLE
+(
+    {columnDefinitions}
+)";
+            sql.AppendLine();
+
+            var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
             var insertedColumnList = string.Empty;
 
@@ -4313,7 +4433,7 @@ DROP TABLE [{tmpTable}]";
                 var outputSelectList = output.ToOutputSelectList();
                 insertedColumnList = output.ToColumnList().Replace("[", "[INSERTED].[");
 
-                sql = $@"
+                sql += $@"
 SELECT
     {outputSelectList} INTO [{tmpTable}]
 FROM [{this.tableName}] WITH (NOLOCK)
@@ -4355,6 +4475,10 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
                 1
             FROM [{this.tableName}] t WITH (NOLOCK)
             WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
+
+            sql += $@"
+
+DROP TYPE {tableType}";
 
             if (output != null)
             {
@@ -4417,57 +4541,94 @@ DROP TABLE [{tmpTable}]";
             }
         }
 
-        private (string, DataTable) ConvertToTableValuedParameters(IEnumerable<T> values, IDictionary<string, string> userDefinedColumnNameMap)
+        private (string, string, DataTable) ConvertToTableValuedParameters(PropertyInfo[] requiredColumns, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
         {
-            var userDefinedAttribute = typeof(T).GetCustomAttribute<UserDefinedAttribute>(true);
+            var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
 
-            if (userDefinedAttribute == null) throw new ArgumentException("Must has UserDefinedAttribute.");
+            var columnDefinitions = requiredColumns.ToColumnDefinitions(out userDefinedFields);
 
-            var tableType = userDefinedAttribute.TableType;
-
-            var columns = SqlServerDataAccessFactory.Instance.GetUserDefinedTable(tableType);
-
-            if (string.IsNullOrEmpty(tableType) || columns == null)
+            if (!userDefinedFields.Any())
             {
-                throw new ArgumentException("Must configure user-defined table type.");
+                throw new ArgumentException("Must configure setter.");
             }
 
             var dataTable = new DataTable();
 
-            dataTable.Columns.AddRange(columns.ToArray());
-
-            var properties = typeof(T).GetProperties().ToDictionary(x => x.Name, x => x);
-
-            var propertyMap = new Dictionary<string, PropertyInfo>();
-
-            foreach (var dataColumn in columns)
-            {
-                if (!properties.TryGetValue(dataColumn.ColumnName, out var property))
-                {
-                    property = properties.Values.Single(p => p.GetCustomAttribute<ColumnAttribute>()?.Name == dataColumn.ColumnName);
-                }
-
-                propertyMap[dataColumn.ColumnName] = property;
-
-                if (userDefinedColumnNameMap != null)
-                {
-                    userDefinedColumnNameMap[property.Name] = dataColumn.ColumnName;
-                }
-            }
+            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
 
             foreach (var value in values)
             {
                 var dataRow = dataTable.NewRow();
 
-                foreach (var dataColumn in columns)
+                foreach (var userDefinedField in userDefinedFields)
                 {
-                    dataRow[dataColumn.ColumnName] = propertyMap[dataColumn.ColumnName].GetValue(value);
+                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
                 }
 
                 dataTable.Rows.Add(dataRow);
             }
 
-            return (tableType, dataTable);
+            return (tableType, columnDefinitions, dataTable);
+        }
+
+        private (string, string, DataTable) ConvertToTableValuedParameters(Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
+        {
+            var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
+
+            var columnDefinitions = setterTemplate.ToColumnDefinitions(out userDefinedFields);
+
+            if (!userDefinedFields.Any())
+            {
+                throw new ArgumentException("Must configure setter.");
+            }
+
+            var dataTable = new DataTable();
+
+            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
+
+            foreach (var value in values)
+            {
+                var dataRow = dataTable.NewRow();
+
+                foreach (var userDefinedField in userDefinedFields)
+                {
+                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
+                }
+
+                dataTable.Rows.Add(dataRow);
+            }
+
+            return (tableType, columnDefinitions, dataTable);
+        }
+
+        private (string, string, DataTable) ConvertToTableValuedParameters(List<PropertyInfo> predicateMembers, Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
+        {
+            var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
+
+            var columnDefinitions = setterTemplate.ToColumnDefinitions(predicateMembers, out userDefinedFields);
+
+            if (!userDefinedFields.Any())
+            {
+                throw new ArgumentException("Must configure setter.");
+            }
+
+            var dataTable = new DataTable();
+
+            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
+
+            foreach (var value in values)
+            {
+                var dataRow = dataTable.NewRow();
+
+                foreach (var userDefinedField in userDefinedFields)
+                {
+                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
+                }
+
+                dataTable.Rows.Add(dataRow);
+            }
+
+            return (tableType, columnDefinitions, dataTable);
         }
     }
 }

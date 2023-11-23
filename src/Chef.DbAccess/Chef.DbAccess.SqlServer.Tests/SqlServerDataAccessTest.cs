@@ -26,14 +26,6 @@ namespace Chef.DbAccess.SqlServer.Tests
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("WantGooConnection", @"Data Source=a.b.c.d;User ID=abc;Password=cba;Initial Catalog=AAA;Max Pool Size=50000");
             SqlServerDataAccessFactory.Instance.AddConnectionString("MallConnection", @"Data Source=d.c.b.a;User ID=abc;Password=cba;Initial Catalog=BBB;Max Pool Size=50000");
-
-            SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
-                "ClubType",
-                new Dictionary<string, System.Type> { ["ClubID"] = typeof(int), ["Name"] = typeof(string), ["IsActive"] = typeof(bool) });
-
-            SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
-                "IdentityTableType",
-                new Dictionary<string, System.Type> { ["Name"] = typeof(string) });
         }
 
         [TestMethod]
@@ -132,7 +124,6 @@ namespace Chef.DbAccess.SqlServer.Tests
     }
 
     [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True")]
-    [UserDefined(TableType = "ClubType")]
     internal class Club
     {
         [Column("ClubID")]
@@ -157,7 +148,6 @@ namespace Chef.DbAccess.SqlServer.Tests
     }
 
     [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True")]
-    [UserDefined(TableType = "IdentityTableType")]
     internal class IdentityTable
     {
         [Column("SeqNo")]
