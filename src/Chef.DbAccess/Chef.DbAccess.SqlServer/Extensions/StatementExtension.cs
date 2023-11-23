@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -986,9 +987,28 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         argumentExpr = unaryExpr.Operand; 
                     }
 
-                    if (!(binaryExpr.Left is MemberExpression left))
+                    var operatorType = binaryExpr.NodeType;
+
+                    BinaryExpression binaryLeft;
+
+                    if (binaryExpr.Left.NodeType == ExpressionType.And || binaryExpr.Left.NodeType == ExpressionType.Or)
                     {
-                        switch (binaryExpr.Left)
+                        sb.Append("(");
+
+                        ParseCondition(binaryExpr.Left, aliasMap, sb, parameters, parameterNames);
+
+                        sb.Append(")");
+
+                        binaryLeft = (BinaryExpression)binaryExpr.Left;
+                    }
+                    else
+                    {
+                        binaryLeft = binaryExpr;
+                    }
+
+                    if (!(binaryLeft.Left is MemberExpression left))
+                    {
+                        switch (binaryLeft.Left)
                         {
                             case UnaryExpression unaryExpr when (left = unaryExpr.Operand as MemberExpression) != null: break;
 
@@ -1022,7 +1042,15 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         var rightColumnAttribute = rightMemberExpr.Member.GetCustomAttribute<ColumnAttribute>();
                         var rightColumnName = rightColumnAttribute?.Name ?? rightMemberExpr.Member.Name;
 
-                        sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} ", alias);
+                        if (binaryLeft != binaryExpr)
+                        {
+                            sb.Append($" {MapOperator(operatorType)} ");
+                        }
+                        else
+                        {
+                            sb.AliasAppend($"[{columnName}] {MapOperator(operatorType)} ", alias);
+                        }
+
                         sb.AliasAppend($"[{rightColumnName}]", rightAlias);
                     }
                     else
@@ -1034,7 +1062,12 @@ namespace Chef.DbAccess.SqlServer.Extensions
 
                         if (parameters != null && parameters[parameterName] == null)
                         {
-                            switch (binaryExpr.NodeType)
+                            if (binaryLeft != binaryExpr)
+                            {
+                                throw new SyntaxErrorException("Invalid NULL syntax.");
+                            }
+
+                            switch (operatorType)
                             {
                                 case ExpressionType.Equal:
                                     sb.AliasAppend($"[{columnName}] IS NULL", alias);
@@ -1049,7 +1082,14 @@ namespace Chef.DbAccess.SqlServer.Extensions
                         }
                         else
                         {
-                            sb.AliasAppend($"[{columnName}] {MapOperator(binaryExpr.NodeType)} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
+                            if (binaryLeft != binaryExpr)
+                            {
+                                sb.Append($" {MapOperator(operatorType)} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}");
+                            }
+                            else
+                            {
+                                sb.AliasAppend($"[{columnName}] {MapOperator(operatorType)} {GenerateParameterStatement(parameterName, parameterType, parameters, parameterNames)}", alias);
+                            }
                         }
                     }
                 }
@@ -1314,6 +1354,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 case ExpressionType.GreaterThanOrEqual: return ">=";
                 case ExpressionType.LessThan: return "<";
                 case ExpressionType.LessThanOrEqual: return "<=";
+                case ExpressionType.And: return "&";
+                case ExpressionType.Or: return "|";
                 default: throw new ArgumentException("Invalid NodeType.");
             }
         }

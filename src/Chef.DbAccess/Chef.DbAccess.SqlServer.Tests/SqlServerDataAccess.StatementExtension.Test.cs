@@ -67,6 +67,19 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSearchCondition_in_Join_Two_Tables_with_And_Operator()
+        {
+            Expression<Func<Member, Video, bool>> predicate = (x, y) => x.Id < 1 && y.Id == 2 && (x.Id & y.Id) > 1;
+
+            var searchCondition = predicate.ToSearchCondition(new[] { "m", "v" }, out var parameters);
+
+            searchCondition.Should().Be("(([m].[Id] < {=Id_0}) AND ([v].[ID] = {=Id_1})) AND (([m].[Id] & [v].[ID]) > {=Id_2})");
+            parameters["Id_0"].Should().Be(1);
+            parameters["Id_1"].Should().Be(2);
+            parameters["Id_2"].Should().Be(1);
+        }
+
+        [TestMethod]
         public void Test_ToSearchCondition_in_Join_Three_Tables()
         {
             Expression<Func<Member, Video, Member, bool>> predicate = (x, y, z) => x.Id < 1 && y.Id == 2 && y.PackageId == 1 && z.Id == 2;
@@ -89,6 +102,44 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             searchCondition.Should().Be("[Id] < {=Id_0}");
             parameters["Id_0"].Should().Be(1);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_Simple_with_And_Operator()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.Id < 1 && (x.Id & 1) > 0;
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([Id] < {=Id_0}) AND (([Id] & {=Id_1}) > {=Id_2})");
+            parameters["Id_0"].Should().Be(1);
+            parameters["Id_1"].Should().Be(1);
+            parameters["Id_2"].Should().Be(0);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_Simple_with_Or_Operator()
+        {
+            Expression<Func<Member, bool>> predicate = x => x.Id < 1 && (x.Id | 1) > 0;
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([Id] < {=Id_0}) AND (([Id] | {=Id_1}) > {=Id_2})");
+            parameters["Id_0"].Should().Be(1);
+            parameters["Id_1"].Should().Be(1);
+            parameters["Id_2"].Should().Be(0);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_with_And_Operator()
+        {
+            Expression<Func<Member, bool>> predicate = x => (x.Id & 1) > 0;
+
+            var searchCondition = predicate.ToSearchCondition(out var parameters);
+
+            searchCondition.Should().Be("([Id] & {=Id_0}) > {=Id_1}");
+            parameters["Id_0"].Should().Be(1);
+            parameters["Id_1"].Should().Be(0);
         }
 
         [TestMethod]

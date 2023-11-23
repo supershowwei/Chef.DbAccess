@@ -366,7 +366,7 @@ namespace Chef.DbAccess.Fluent
 
         public static Task<int> BulkUpdateAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
-            return me.DataAccess.UpdateAsync(me.Predicate, me.Setter, values);
+            return me.DataAccess.BulkUpdateAsync(me.Predicate, me.Setter, values);
         }
 
         public static Task<int> UpsertAsync<T>(this QueryObject<T> me)
@@ -391,12 +391,12 @@ namespace Chef.DbAccess.Fluent
 
         public static Task<int> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values)
         {
-            return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values);
+            return me.DataAccess.BulkUpsertAsync(me.Predicate, me.Setter, values);
         }
 
         public static Task<List<T>> BulkUpsertAsync<T>(this QueryObject<T> me, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
-            return me.DataAccess.UpsertAsync(me.Predicate, me.Setter, values, output);
+            return me.DataAccess.BulkUpsertAsync(me.Predicate, me.Setter, values, output);
         }
 
         #endregion

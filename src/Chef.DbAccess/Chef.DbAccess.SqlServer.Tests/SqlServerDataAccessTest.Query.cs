@@ -51,6 +51,22 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public async Task Test_QueryAsync_with_InnerJoin_Two_Tables_use_QueryObjet_with_And_Operator()
+        {
+            var memberDataAccess = DataAccessFactory.Create<User>();
+
+            var result = await memberDataAccess.InnerJoin(x => x.Department, (x, y) => x.DepartmentId == y.DepId && (y.DepId & 1) > 0)
+                             .Select((x, y) => new { x.Id, y.DepId, x.Name, DepartmentName = y.Name })
+                             .QueryAsync();
+
+            result.Count.Should().Be(2);
+            result[0].Name.Should().Be("Johnny");
+            result[0].Department.DepId.Should().Be(3);
+            result[1].Name.Should().Be("ThreeM");
+            result[1].Department.DepId.Should().Be(1);
+        }
+
+        [TestMethod]
         public async Task Test_QueryAsync_with_InnerJoin_Two_Tables_OneToMany_use_QueryObjet()
         {
             var memberDataAccess = DataAccessFactory.Create<User>();
@@ -590,6 +606,24 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs[1].Id.Should().Be(0);
             clubs[0].Name.Should().Be("吳淑娟");
             clubs[1].Name.Should().Be("鄧偉成");
+        }
+
+        [TestMethod]
+        public async Task Test_QueryAsync_with_And_Operator()
+        {
+            var userDataAccess = DataAccessFactory.Create<User>();
+
+            var users = await userDataAccess.Where(x => (x.DepartmentId & x.ManagerId) == 0).Select(x => new { x.Id, x.Name }).QueryAsync();
+
+            users.Count.Should().Be(1);
+            users[0].Id.Should().Be(2);
+            users[0].Name.Should().Be("Amy");
+            
+            users = await userDataAccess.Where(x => (x.DepartmentId & x.ManagerId) > 0).Select(x => new { x.Id, x.Name }).QueryAsync();
+
+            users.Count.Should().Be(3);
+            users[0].Id.Should().Be(1);
+            users[0].Name.Should().Be("Johnny");
         }
 
         [TestMethod]
