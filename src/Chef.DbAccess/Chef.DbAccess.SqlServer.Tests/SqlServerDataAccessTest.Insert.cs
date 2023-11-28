@@ -387,8 +387,8 @@ namespace Chef.DbAccess.SqlServer.Tests
         {
             var clubIds = new[]
                           {
-                              new Random(Guid.NewGuid().GetHashCode()).Next(100, 500),
-                              new Random(Guid.NewGuid().GetHashCode()).Next(500, 1000)
+                              new Random(Guid.NewGuid().GetHashCode()).Next(2000, 3000),
+                              new Random(Guid.NewGuid().GetHashCode()).Next(3000, 4000)
                           };
 
             var clubDataAccess = DataAccessFactory.Create<Club>();
@@ -542,21 +542,6 @@ namespace Chef.DbAccess.SqlServer.Tests
             identityItems[1].Id.Should().BeGreaterThan(0);
             identityItems[0].Name.Should().Be("Johnny");
             identityItems[1].Name.Should().Be("Amy");
-        }
-
-        [TestMethod]
-        public void Test_BulkInsert_without_UserDefinedTable_will_Throw_ArgumentException()
-        {
-            var advertisementSettingDataAccess = DataAccessFactory.Create<AdvertisementSetting>(null, "Advertisement");
-
-            advertisementSettingDataAccess
-                .Invoking(
-                    async dataAccess => await advertisementSettingDataAccess.BulkInsertAsync(
-                                            () => new AdvertisementSetting { Id = default(Guid) },
-                                            new List<AdvertisementSetting>()))
-                .Should()
-                .Throw<ArgumentException>()
-                .WithMessage("Must has UserDefinedAttribute.");
         }
 
         [TestMethod]

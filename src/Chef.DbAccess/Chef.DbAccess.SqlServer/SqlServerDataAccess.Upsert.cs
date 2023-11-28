@@ -44,20 +44,20 @@ namespace Chef.DbAccess.SqlServer
 
         public virtual Task<int> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
+            var (declarationSql, retractionSql, sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values);
 
             return Transaction.Current != null
-                       ? this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
-                       : this.ExecuteTransactionalCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                       ? this.ExecuteCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, declarationSql: declarationSql, retractionSql: retractionSql)
+                       : this.ExecuteTransactionalCommandAsync(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, declarationSql: declarationSql, retractionSql: retractionSql);
         }
 
         public virtual Task<List<T>> BulkUpsertAsync(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output)
         {
-            var (sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values, output);
+            var (declarationSql, retractionSql, sql, tableType, tableVariable) = this.GenerateBulkUpsertStatement(predicateTemplate, setterTemplate, values, output);
 
             return Transaction.Current != null
-                       ? this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) })
-                       : this.ExecuteTransactionalQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) });
+                       ? this.ExecuteQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, declarationSql: declarationSql, retractionSql: retractionSql)
+                       : this.ExecuteTransactionalQueryAsync<T>(sql, new { TableVariable = tableVariable.AsTableValuedParameter(tableType) }, declarationSql: declarationSql, retractionSql: retractionSql);
         }
     }
 }

@@ -22,7 +22,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
-        public async Task Test_QueryAsync_with_GroupBY_and_OrderBy()
+        public async Task Test_QueryAsync_with_GroupBy_and_OrderBy()
         {
             var clubDataAccess = DataAccessFactory.Create<Club>();
 

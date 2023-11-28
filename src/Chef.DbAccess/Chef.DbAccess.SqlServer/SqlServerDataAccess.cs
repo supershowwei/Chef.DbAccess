@@ -20,7 +20,7 @@ namespace Chef.DbAccess.SqlServer
 {
     public abstract class SqlServerDataAccess
     {
-        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) [^\s]+ ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^#;,\s\}\]\)]+(_[\d]+)?\]?\}?)", RegexOptions.Compiled);
+        protected static readonly Regex ColumnValueRegex = new Regex(@"(\[[^\]]+\]) ([^\s]+) ([_0-9a-zA-Z]+\.)?([@\{\[]=?[^#;,\s\}\]\)]+(_[\d]+)?\]?\}?)", RegexOptions.Compiled);
         protected static readonly Regex ColumnRegex = new Regex(@"\[[^\]]+\]", RegexOptions.Compiled);
         protected static readonly Regex ParameterRegex = new Regex(@"@([^#;,\s\}\]\)]+)", RegexOptions.Compiled);
 
@@ -575,34 +575,49 @@ namespace Chef.DbAccess.SqlServer
             string preSql = null,
             object preParam = null,
             string postSql = null,
-            object postParam = null)
+            object postParam = null,
+            string declarationSql = null,
+            string retractionSql = null)
         {
+            var db = new SqlConnection(this.connectionString);
+
             try
             {
-                using (var db = new SqlConnection(this.connectionString))
+                await db.OpenAsync();
+
+                if (!string.IsNullOrEmpty(declarationSql))
                 {
-                    await db.OpenAsync();
-
-                    if (!string.IsNullOrEmpty(preSql))
-                    {
-                        await db.TryExecuteAsync(preSql, preParam);
-                    }
-
-                    var result = await db.TryQueryAsync<TResult>(sql, param);
-
-                    if (!string.IsNullOrEmpty(postSql))
-                    {
-                        await db.TryExecuteAsync(postSql, postParam);
-                    }
-
-                    return result.ToList();
+                    await db.TryExecuteAsync(declarationSql);
                 }
+
+                if (!string.IsNullOrEmpty(preSql))
+                {
+                    await db.TryExecuteAsync(preSql, preParam);
+                }
+
+                var result = await db.TryQueryAsync<TResult>(sql, param);
+
+                if (!string.IsNullOrEmpty(postSql))
+                {
+                    await db.TryExecuteAsync(postSql, postParam);
+                }
+
+                return result.ToList();
             }
             catch (Exception ex)
             {
                 this.OnDbError?.Invoke(ex, sql, param);
 
                 throw;
+            }
+            finally
+            {
+                if (!string.IsNullOrEmpty(retractionSql))
+                {
+                    await db.TryExecuteAsync(retractionSql);
+                }
+
+                db.Dispose();
             }
         }
 
@@ -1026,7 +1041,11 @@ namespace Chef.DbAccess.SqlServer
             }
         }
 
-        protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(string sql, object param)
+        protected virtual async Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(
+            string sql,
+            object param,
+            string declarationSql = null,
+            string retractionSql = null)
         {
             try
             {
@@ -1034,6 +1053,11 @@ namespace Chef.DbAccess.SqlServer
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     await db.OpenAsync();
+
+                    if (!string.IsNullOrEmpty(declarationSql))
+                    {
+                        await db.TryExecuteAsync(declarationSql);
+                    }
 
                     using (var tx = db.BeginTransaction())
                     {
@@ -1047,6 +1071,13 @@ namespace Chef.DbAccess.SqlServer
                         {
                             tx.Rollback();
                             throw;
+                        }
+                        finally
+                        {
+                            if (!string.IsNullOrEmpty(retractionSql))
+                            {
+                                await db.TryExecuteAsync(retractionSql);
+                            }
                         }
 
                         return result.ToList();
@@ -1184,28 +1215,34 @@ namespace Chef.DbAccess.SqlServer
             string preSql = null,
             object preParam = null,
             string postSql = null,
-            object postParam = null)
+            object postParam = null,
+            string declarationSql = null,
+            string retractionSql = null)
         {
+            var db = new SqlConnection(this.connectionString);
+
             try
             {
-                using (var db = new SqlConnection(this.connectionString))
+                await db.OpenAsync();
+
+                if (!string.IsNullOrEmpty(declarationSql))
                 {
-                    await db.OpenAsync();
-
-                    if (!string.IsNullOrEmpty(preSql))
-                    {
-                        await db.TryExecuteAsync(preSql, preParam);
-                    }
-
-                    var result = await db.TryExecuteAsync(sql, param);
-
-                    if (!string.IsNullOrEmpty(postSql))
-                    {
-                        await db.TryExecuteAsync(postSql, postParam);
-                    }
-
-                    return result;
+                    await db.TryExecuteAsync(declarationSql);
                 }
+
+                if (!string.IsNullOrEmpty(preSql))
+                {
+                    await db.TryExecuteAsync(preSql, preParam);
+                }
+
+                var result = await db.TryExecuteAsync(sql, param);
+
+                if (!string.IsNullOrEmpty(postSql))
+                {
+                    await db.TryExecuteAsync(postSql, postParam);
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -1213,9 +1250,22 @@ namespace Chef.DbAccess.SqlServer
 
                 throw;
             }
+            finally
+            {
+                if (!string.IsNullOrEmpty(retractionSql))
+                {
+                    await db.TryExecuteAsync(retractionSql);
+                }
+
+                db.Dispose();
+            }
         }
 
-        protected virtual async Task<int> ExecuteTransactionalCommandAsync(string sql, object param)
+        protected virtual async Task<int> ExecuteTransactionalCommandAsync(
+            string sql,
+            object param,
+            string declarationSql = null,
+            string retractionSql = null)
         {
             try
             {
@@ -1223,6 +1273,11 @@ namespace Chef.DbAccess.SqlServer
                 using (var db = new SqlConnection(this.connectionString))
                 {
                     await db.OpenAsync();
+
+                    if (!string.IsNullOrEmpty(declarationSql))
+                    {
+                        await db.TryExecuteAsync(declarationSql);
+                    }
 
                     using (var tx = db.BeginTransaction())
                     {
@@ -1236,6 +1291,13 @@ namespace Chef.DbAccess.SqlServer
                         {
                             tx.Rollback();
                             throw;
+                        }
+                        finally
+                        {
+                            if (!string.IsNullOrEmpty(retractionSql))
+                            {
+                                await db.TryExecuteAsync(retractionSql);
+                            }
                         }
                     }
                 }
@@ -1926,7 +1988,7 @@ namespace Chef.DbAccess.SqlServer
             {
                 if (columnList.ContainsKey(match.Groups[1].Value)) continue;
 
-                columnList.Add(match.Groups[1].Value, match.Groups[3].Value);
+                columnList.Add(match.Groups[1].Value, match.Groups[4].Value);
             }
 
             return (string.Join(", ", columnList.Keys), string.Join(", ", columnList.Values));
@@ -3871,7 +3933,7 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
@@ -3890,11 +3952,14 @@ DROP TABLE [{tmpTable}]";
 
             var columnList = requiredColumns.ToColumnList(out _);
 
-            var preSql = $@"
+            var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
 (
     {columnDefinitions}
 )";
+
+            var retractionSql = $@"
+DROP TYPE [{tableType}]";
 
             SqlBuilder sql;
 
@@ -3939,10 +4004,6 @@ INSERT INTO [{this.tableName}]({columnList})";
     FROM @TableVariable tvp;";
             }
 
-            sql += $@"
-
-DROP TYPE {tableType}";
-
             if (output != null)
             {
                 sql += $@"
@@ -3956,10 +4017,10 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (preSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, tableVariable);
         }
 
-        private (string, string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
             var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(setterTemplate, values, out var userDefinedFields);
 
@@ -3972,11 +4033,14 @@ DROP TABLE [{tmpTable}]";
 
             var columnList = setterTemplate.ToColumnList(out _);
 
-            var preSql = $@"
+            var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
 (
     {columnDefinitions}
 )";
+            
+            var retractionSql = $@"
+DROP TYPE [{tableType}]";
 
             SqlBuilder sql;
 
@@ -4021,10 +4085,6 @@ INSERT INTO [{this.tableName}]({columnList})";
     FROM @TableVariable tvp;";
             }
 
-            sql += $@"
-
-DROP TYPE {tableType}";
-
             if (output != null)
             {
                 sql += $@"
@@ -4038,7 +4098,7 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (preSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, tableVariable);
         }
 
         private (string, IDictionary<string, object>) GenerateUpdateStatement(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, bool outParameters)
@@ -4292,34 +4352,32 @@ WHERE ";
             return (sql, parameters);
         }
 
-        private (string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        private (string, string, string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition(out List<PropertyInfo> predicateMembers);
 
             var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
 
-            SqlBuilder sql = $@"
+            var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
 (
     {columnDefinitions}
 )";
-            sql.AppendLine();
 
-            sql += $@"
+            var retractionSql = $@"
+DROP TYPE [{tableType}]";
+
+            SqlBuilder sql = $@"
 UPDATE [{this.tableName}]
 SET {ColumnRegex.Replace(columnList, "$0 = tvp.$0")}
 FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
-    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")};";
-
-            sql += $@"
-
-DROP TYPE {tableType}";
+    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 $2 tvp.$1")};";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, tableVariable);
         }
 
         private (string, IDictionary<string, object>) GenerateUpsertStatement(
@@ -4406,7 +4464,7 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, DataTable) GenerateBulkUpsertStatement(
+        private (string, string, string, string, DataTable) GenerateBulkUpsertStatement(
             Expression<Func<T, bool>> predicateTemplate,
             Expression<Func<T>> setterTemplate,
             IEnumerable<T> values,
@@ -4417,12 +4475,16 @@ DROP TABLE [{tmpTable}]";
 
             var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
 
-            SqlBuilder sql = $@"
+            var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
 (
     {columnDefinitions}
 )";
-            sql.AppendLine();
+
+            var retractionSql = $@"
+DROP TYPE [{tableType}]";
+
+            SqlBuilder sql = string.Empty;
 
             var tmpTable = output != null ? $"#_{Guid.NewGuid().Purify()}" : string.Empty;
 
@@ -4454,7 +4516,7 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
             sql += $@"
 FROM [{this.tableName}] t
 INNER JOIN @TableVariable tvp
-    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")}";
+    ON {ColumnValueRegex.Replace(searchCondition, "t.$1 $2 tvp.$1")}";
 
             (columnList, _) = ResolveColumnList(sql);
 
@@ -4474,11 +4536,7 @@ OUTPUT {insertedColumnList} INTO [{tmpTable}]";
     WHERE NOT EXISTS (SELECT
                 1
             FROM [{this.tableName}] t WITH (NOLOCK)
-            WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 = tvp.$1")});";
-
-            sql += $@"
-
-DROP TYPE {tableType}";
+            WHERE {ColumnValueRegex.Replace(searchCondition, "t.$1 $2 tvp.$1")});";
 
             if (output != null)
             {
@@ -4493,7 +4551,7 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, tableVariable);
         }
 
         private string GenerateJoinStatement<TRight>(LambdaExpression condition, JoinType joinType, string[] aliases, IDictionary<string, object> parameters)

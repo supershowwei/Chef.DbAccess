@@ -200,6 +200,11 @@ namespace Chef.DbAccess.SqlServer.Extensions
             {
                 if (Attribute.IsDefined(memberAssignment.Member, typeof(NotMappedAttribute))) continue;
 
+                if (memberAssignment.Expression.NodeType == ExpressionType.Convert)
+                {
+                    throw new InvalidCastException("Grouping selector assignment type must match.");
+                }
+
                 if (!(memberAssignment.Expression is MethodCallExpression methodCallExpr))
                 {
                     throw new ArgumentException("Grouping selector assignment must be a MethodCallExpression.");
@@ -717,6 +722,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnName = columnAttribute?.Name ?? parameterName;
                 var parameterType = propertyInfo.PropertyType;
 
+                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
+
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(propertyInfo, new DataColumn(columnName, parameterType)));
             }
@@ -749,6 +756,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var parameter = (PropertyInfo)memberAssignment.Member;
                 var parameterType = parameter.PropertyType;
 
+                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
+
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
             }
@@ -774,12 +783,14 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     throw new ArgumentException("Member can not applied [NotMapped].");
                 }
-
+                
                 var columnAttribute = memberAssignment.Member.GetCustomAttribute<ColumnAttribute>();
                 var parameterName = memberAssignment.Member.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
                 var parameter = (PropertyInfo)memberAssignment.Member;
                 var parameterType = parameter.PropertyType;
+
+                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
@@ -798,6 +809,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var parameterName = additionalMember.Name;
                 var columnName = columnAttribute?.Name ?? parameterName;
                 var parameterType = additionalMember.PropertyType;
+
+                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(additionalMember, new DataColumn(columnName, parameterType)));
