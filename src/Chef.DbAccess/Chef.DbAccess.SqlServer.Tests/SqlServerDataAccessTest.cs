@@ -19,13 +19,16 @@ namespace Chef.DbAccess.SqlServer.Tests
         internal Club Club => new Club { Id = 25 };
 
         [TestInitialize]
-        public void Startup()
+        public async Task Startup()
         {
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement2", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
             SqlServerDataAccessFactory.Instance.AddConnectionString("WantGooConnection", @"Data Source=a.b.c.d;User ID=abc;Password=cba;Initial Catalog=AAA;Max Pool Size=50000");
             SqlServerDataAccessFactory.Instance.AddConnectionString("MallConnection", @"Data Source=d.c.b.a;User ID=abc;Password=cba;Initial Catalog=BBB;Max Pool Size=50000");
+
+            // Clear temp clubs
+            await DataAccessFactory.Create<Club>().Where(x => x.Id >= 100).DeleteAsync();
         }
 
         [TestMethod]

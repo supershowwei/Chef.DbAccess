@@ -790,12 +790,12 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var parameter = (PropertyInfo)memberAssignment.Member;
                 var parameterType = parameter.PropertyType;
 
-                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
+                if (fields.Any(f => f.Property.GetFullName() == parameter.GetFullName())) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
 
-                additionalMembers = additionalMembers.Where(x => x.PropertyType.FullName != parameterType.FullName);
+                additionalMembers = additionalMembers.Where(x => x.GetFullName() != parameter.GetFullName());
             }
 
             foreach (var additionalMember in additionalMembers)
@@ -810,7 +810,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 var columnName = columnAttribute?.Name ?? parameterName;
                 var parameterType = additionalMember.PropertyType;
 
-                if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
+                if (fields.Any(f => f.Property.GetFullName() == additionalMember.GetFullName())) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
                 fields.Add(new UserDefinedField(additionalMember, new DataColumn(columnName, parameterType)));

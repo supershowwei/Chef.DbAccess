@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Chef.DbAccess.Fluent;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json;
 
 namespace Chef.DbAccess.SqlServer.Tests
 {
@@ -333,6 +336,60 @@ namespace Chef.DbAccess.SqlServer.Tests
             clubs.Count.Should().Be(2);
             clubs[0].Name.Should().Be("TestClub3");
             clubs[1].Name.Should().Be("TestClub4");
+        }
+
+        [TestMethod]
+        public async Task Test_BulkUpsertAsync_with_Properties_has_Same_Type()
+        {
+            var clubIds = new[]
+                          {
+                              new Random(Guid.NewGuid().GetHashCode()).Next(100, 500),
+                              new Random(Guid.NewGuid().GetHashCode()).Next(500, 1000)
+                          };
+
+            var clubDataAccess = DataAccessFactory.Create<Club>();
+
+            await clubDataAccess.BulkUpsertAsync(
+                x => x.Id >= 0 && x.Id <= 0,
+                () => new Club { Name = default, Intro = default },
+                new List<Club>
+                {
+                    new Club { Id = clubIds[0], Name = "TestClub1", Intro = "TestClub1_Intro" },
+                    new Club { Id = clubIds[1], Name = "TestClub2", Intro = "TestClub2_Intro" }
+                });
+
+            var clubs = await clubDataAccess.Where(x => clubIds.Contains(x.Id))
+                            .OrderBy(x => x.Id)
+                            .Select(x => new { x.Id, x.Name, x.Intro })
+                            .QueryAsync();
+
+            clubs.Count.Should().Be(2);
+            clubs[0].Name.Should().Be("TestClub1");
+            clubs[0].Intro.Should().Be("TestClub1_Intro");
+            clubs[1].Name.Should().Be("TestClub2");
+            clubs[1].Intro.Should().Be("TestClub2_Intro");
+
+            await clubDataAccess.BulkUpsertAsync(
+                x => x.Id == default,
+                () => new Club { Name = default, Intro = default },
+                new List<Club>
+                {
+                    new Club { Id = clubIds[0], Name = "TestClub3", Intro = "TestClub3_Intro" },
+                    new Club { Id = clubIds[1], Name = "TestClub4", Intro = "TestClub4_Intro" }
+                });
+
+            clubs = await clubDataAccess.Where(x => clubIds.Contains(x.Id))
+                        .OrderBy(x => x.Id)
+                        .Select(x => new { x.Id, x.Name, x.Intro })
+                        .QueryAsync();
+
+            await clubDataAccess.DeleteAsync(x => clubIds.Contains(x.Id));
+
+            clubs.Count.Should().Be(2);
+            clubs[0].Name.Should().Be("TestClub3");
+            clubs[0].Intro.Should().Be("TestClub3_Intro");
+            clubs[1].Name.Should().Be("TestClub4");
+            clubs[1].Intro.Should().Be("TestClub4_Intro");
         }
 
         [TestMethod]
