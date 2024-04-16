@@ -18,17 +18,29 @@ namespace Chef.DbAccess.SqlServer.Extensions
         private static readonly HashSet<Type> NumericTypes = new HashSet<Type>
                                                              {
                                                                  typeof(bool),
+                                                                 typeof(bool?),
                                                                  typeof(byte),
+                                                                 typeof(byte?),
                                                                  typeof(sbyte),
+                                                                 typeof(sbyte?),
                                                                  typeof(short),
+                                                                 typeof(short?),
                                                                  typeof(ushort),
+                                                                 typeof(ushort?),
                                                                  typeof(int),
+                                                                 typeof(int?),
                                                                  typeof(uint),
+                                                                 typeof(uint?),
                                                                  typeof(long),
+                                                                 typeof(long?),
                                                                  typeof(ulong),
+                                                                 typeof(ulong?),
                                                                  typeof(float),
+                                                                 typeof(float?),
                                                                  typeof(double),
+                                                                 typeof(double?),
                                                                  typeof(decimal),
+                                                                 typeof(decimal?)
                                                              };
 
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> AllColumns = new ConcurrentDictionary<Type, PropertyInfo[]>();
@@ -1559,7 +1571,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 {
                     var properties = AllColumns.GetOrAdd(
                         parameterExpr.Type,
-                        type => type.GetProperties().Where(p => !Attribute.IsDefined(p, typeof(NotMappedAttribute))).ToArray());
+                        type => type.GetProperties().Where(p => p.PropertyType.IsFundamental() && !Attribute.IsDefined(p, typeof(NotMappedAttribute))).ToArray());
 
                     foreach (var property in properties)
                     {

@@ -857,7 +857,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var selectList = select.ToSelectList();
 
-            selectList.Should().Be("[Id], [first_name] AS [FirstName], [last_name] AS [LastName], [Seniority], [Age], [IsActive], [IsDelete], [IsActive] AS [Enabled], [SubordinateCount], [MaxSubordinateId], [SubordinateId], [Subordinate], [Age]");
+            selectList.Should().Be("[Id], [first_name] AS [FirstName], [last_name] AS [LastName], [Seniority], [Age], [IsActive], [IsDelete], [IsActive] AS [Enabled], [SubordinateCount], [MaxSubordinateId], [SubordinateId], [Age]");
         }
 
         [TestMethod]
@@ -867,7 +867,7 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             var selectList = selector.ToJoinSelectList(new[] { "m", "v" }, out var splitOn);
 
-            selectList.Should().Be("[m].[Id], [m].[first_name] AS [FirstName], [m].[Id], [m].[first_name] AS [FirstName], [m].[last_name] AS [LastName], [m].[Seniority], [m].[Age], [m].[IsActive], [m].[IsDelete], [m].[IsActive] AS [Enabled], [m].[SubordinateCount], [m].[MaxSubordinateId], [m].[SubordinateId], [m].[Subordinate], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId]");
+            selectList.Should().Be("[m].[Id], [m].[first_name] AS [FirstName], [m].[Id], [m].[first_name] AS [FirstName], [m].[last_name] AS [LastName], [m].[Seniority], [m].[Age], [m].[IsActive], [m].[IsDelete], [m].[IsActive] AS [Enabled], [m].[SubordinateCount], [m].[MaxSubordinateId], [m].[SubordinateId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId], [v].[ID] AS [Id], [v].[PackageID] AS [PackageId]");
             splitOn.Should().Be("Id");
         }
 
