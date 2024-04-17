@@ -32,6 +32,15 @@ namespace Chef.DbAccess.SqlServer.Extensions
                                                                      typeof(double?),
                                                                      typeof(decimal),
                                                                      typeof(decimal?),
+                                                                     typeof(DateTime),
+                                                                     typeof(DateTime?),
+                                                                     typeof(DateTimeOffset),
+                                                                     typeof(DateTimeOffset?),
+                                                                     typeof(TimeSpan),
+                                                                     typeof(TimeSpan?),
+                                                                     typeof(Guid),
+                                                                     typeof(Guid?),
+                                                                     typeof(byte[]),
                                                                      typeof(string)
                                                                  };
 

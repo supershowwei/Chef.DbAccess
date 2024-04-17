@@ -861,6 +861,16 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
 
         [TestMethod]
+        public void Test_ToSelectList_with_Select_All_DataType()
+        {
+            Expression<Func<SelectAll, object>> select = x => new { x };
+
+            var selectList = select.ToSelectList();
+
+            selectList.Should().Be("[Boolean], [NullableBoolean], [Byte], [NullableByte], [Sbyte], [NullableSbyte], [Short], [NullableShort], [UShort], [NullableUShort], [Integer], [NullableInteger], [UInteger], [NullableUInteger], [Long], [NullableLong], [ULong], [NullableULong], [Float], [NullableFloat], [Double], [NullableDouble], [Decimal], [NullableDecimal], [DateTime], [NullableDateTime], [DateTimeOffset], [NullableDateTimeOffset], [TimeSpan], [NullableTimeSpan], [Guid], [NullableGuid], [Bytes], [String]");
+        }
+
+        [TestMethod]
         public void Test_ToSelectList_in_Join_Two_Tables_with_SelectAll()
         {
             Expression<Func<Member, Video, object>> selector = (x, y) => new { x.Id, VideoId = y.Id, x.FirstName, y.PackageId, x, y };
@@ -1310,6 +1320,77 @@ namespace Chef.DbAccess.SqlServer.Tests
     internal class AbcStu
     {
         public string Id { get; set; }
+    }
+
+    internal class SelectAll
+    {
+        public bool Boolean { get; set; }
+
+        public bool? NullableBoolean { get; set; }
+
+        public byte Byte { get; set; }
+
+        public byte? NullableByte { get; set; }
+
+        public sbyte Sbyte { get; set; }
+
+        public sbyte? NullableSbyte { get; set; }
+
+        public short Short { get; set; }
+
+        public short? NullableShort { get; set; }
+
+        public ushort UShort { get; set; }
+
+        public ushort? NullableUShort { get; set; }
+
+        public int Integer { get; set; }
+
+        public int? NullableInteger { get; set; }
+
+        public uint UInteger { get; set; }
+
+        public uint? NullableUInteger { get; set; }
+
+        public long Long { get; set; }
+
+        public long? NullableLong { get; set; }
+
+        public ulong ULong { get; set; }
+
+        public ulong? NullableULong { get; set; }
+
+        public float Float { get; set; }
+
+        public float? NullableFloat { get; set; }
+
+        public double Double { get; set; }
+
+        public double? NullableDouble { get; set; }
+
+        public decimal Decimal { get; set; }
+
+        public decimal? NullableDecimal { get; set; }
+
+        public DateTime DateTime { get; set; }
+
+        public DateTime? NullableDateTime { get; set; }
+
+        public DateTimeOffset DateTimeOffset { get; set; }
+
+        public DateTimeOffset? NullableDateTimeOffset { get; set; }
+
+        public TimeSpan TimeSpan { get; set; }
+
+        public TimeSpan? NullableTimeSpan { get; set; }
+
+        public Guid Guid { get; set; }
+
+        public Guid? NullableGuid { get; set; }
+
+        public byte[] Bytes { get; set; }
+
+        public string String { get; set; }
     }
 
     internal abstract class FieldSet
