@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Dapper;
 
 namespace Chef.DbAccess.SqlServer
 {

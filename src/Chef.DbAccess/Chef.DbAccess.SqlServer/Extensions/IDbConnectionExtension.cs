@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Threading.Tasks;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace Chef.DbAccess.SqlServer.Extensions
 {

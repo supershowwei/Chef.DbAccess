@@ -6,10 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chef.DbAccess" Version="3.0.0-alpha" />
+    <PackageReference Include="Chef.DbAccess" Version="3.0.0" />
     <PackageReference Include="Dapper" Version="2.0.4" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.4.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
   </ItemGroup>
 
 </Project>
