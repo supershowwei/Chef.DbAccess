@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Chef.DbAccess.Fluent;
 using Chef.DbAccess.SqlServer.Samples.Model.Data;
+using Chef.DbAccess.Syntax;
 
 namespace Chef.DbAccess.SqlServer.Samples
 {
@@ -31,6 +33,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                                      .Select(x => new { x.Id, x.Name, x.Age })
                                      .QueryAsync(x => new { x.Id, x.Name });
 
+            // SELECT 出來的結果再傳入 Aggregate 函式
+            var totalAge = await memberDataAccess
+                               .Where(x => new[] { 1, 2, 3 }.Contains(x.Id))
+                               .Select(x => new { x.Id, x.Name, x.Age })
+                               .QueryAsync(0, (accuAge, m) => accuAge + m.Age);
+
             // SELECT 多筆 Id NOT IN (1, 2, 3) 的 Member
             members = await memberDataAccess
                           .Where(x => !new[] { 1, 2, 3 }.Contains(x.Id))
@@ -56,6 +64,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                           .Where(x => x.Name.Contains("e"))
                           .OrderBy(x => x.Id)
                           .ThenByDescending(x => x.Name)
+                          .Select(x => new { x.Name, x.Age })
+                          .QueryAsync();
+
+            // 從全文檢索（Full-Text Search）SELECT 多筆 Name 含有 'Johnny' 的 Member
+            members = await memberDataAccess
+                          .Where(x => x.Name.Includes("Johnny"))
                           .Select(x => new { x.Name, x.Age })
                           .QueryAsync();
 

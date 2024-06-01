@@ -22,6 +22,11 @@ namespace Chef.DbAccess.SqlServer.Samples
                 .InnerJoin(x => x.Department, (x, y) => x.DepartmentId == y.Id)
                 .Where((x, y) => x.Name.Contains("A") && y.Name.Contains("業務"))
                 .DeleteAsync();
+
+            // DELETE Name LIKE '%A%' 的 Member，並且回傳已刪除的 Member 資料。
+            var deletedMembers = await memberDataAccess
+                                     .Where(x => x.Name.Contains("A"))
+                                     .DeleteAsync(m => new { m.Id, m.Name });
         }
     }
 }

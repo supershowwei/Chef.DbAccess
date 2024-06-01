@@ -19,7 +19,10 @@ namespace Chef.DbAccess.SqlServer.Samples
             //var memberDataAccess = dataAccessFactory.Create<Member>();
 
             //// 對應不同資料庫相同結構的資料表
-            //var memberDataAccessOnAnotherMemberDB = dataAccessFactory.Create<Member>("AnotherMemberDB");
+            //var memberDataAccessOnAnotherMemberDB = dataAccessFactory.Create<Member>(null, "AnotherMemberDB");
+
+            //// 對應相同結構的不同資料表
+            //var userDataAccessOnAnotherMemberDB = dataAccessFactory.Create<Member>("User", "AnotherMemberDB");
 
             //// 執行 SQL 語法的同時將 SQL 語法輸出到指定的方法之中
             //memberDataAccess.OutputSql = (sql, parameters) => Console.WriteLine(sql);
@@ -41,17 +44,6 @@ namespace Chef.DbAccess.SqlServer.Samples
             {
                 SqlServerDataAccessFactory.Instance.AddConnectionString(configurationSection.Key, configurationSection.Value);
             }
-
-            // Add UserDefinedTable, and add [UserDefined(TableType = "MemberType")] on Model
-            SqlServerDataAccessFactory.Instance.AddUserDefinedTable(
-                "MemberType",
-                new Dictionary<string, Type>
-                {
-                    ["Id"] = typeof(int),
-                    ["Name"] = typeof(string),
-                    ["Phone"] = typeof(string),
-                    ["Age"] = typeof(int)
-                });
         }
     }
 }

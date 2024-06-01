@@ -8,7 +8,6 @@ namespace Chef.DbAccess.SqlServer.Samples.Model.Data
     [ConnectionString("MemberDB")]
     [ConnectionString("AnotherMemberDB")]
     [ConnectionString("nameOrConnectionString")]
-    [UserDefined(TableType = "MemberType")]
     [Table("tbl_member")]
     public class Member
     {
