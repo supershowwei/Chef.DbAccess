@@ -5,11 +5,13 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using Dapper;
+using Microsoft.Data.SqlClient.Server;
 
 namespace Chef.DbAccess.SqlServer.Extensions
 {
@@ -737,7 +739,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
-                fields.Add(new UserDefinedField(propertyInfo, new DataColumn(columnName, parameterType)));
+                fields.Add(new UserDefinedField(propertyInfo, CreateSqlMetaData(columnName, parameterType, columnAttribute)));
             }
 
             columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
@@ -771,7 +773,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 if (fields.Any(f => f.Property.PropertyType.FullName == parameterType.FullName)) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
-                fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
+                fields.Add(new UserDefinedField(parameter, CreateSqlMetaData(columnName, parameterType, columnAttribute)));
             }
 
             columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
@@ -805,7 +807,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 if (fields.Any(f => f.Property.GetFullName() == parameter.GetFullName())) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
-                fields.Add(new UserDefinedField(parameter, new DataColumn(columnName, parameterType)));
+                fields.Add(new UserDefinedField(parameter, CreateSqlMetaData(columnName, parameterType, columnAttribute)));
 
                 additionalMembers = additionalMembers.Where(x => x.GetFullName() != parameter.GetFullName());
             }
@@ -825,7 +827,7 @@ namespace Chef.DbAccess.SqlServer.Extensions
                 if (fields.Any(f => f.Property.GetFullName() == additionalMember.GetFullName())) continue;
 
                 columnDefinitionsBuilder.Append($"[{columnName}] {MapSqlType(parameterType, columnAttribute)}, ");
-                fields.Add(new UserDefinedField(additionalMember, new DataColumn(columnName, parameterType)));
+                fields.Add(new UserDefinedField(additionalMember, CreateSqlMetaData(columnName, parameterType, columnAttribute)));
             }
 
             columnDefinitionsBuilder.Remove(columnDefinitionsBuilder.Length - 2, 2);
@@ -1545,6 +1547,31 @@ namespace Chef.DbAccess.SqlServer.Extensions
             if (csharpType == typeof(uint)) return "BIGINT";
             if (csharpType == typeof(ulong)) return "DECIMAL(20, 0)";
             if (csharpType == typeof(char)) return "NCHAR(1)";
+
+            throw new ArgumentOutOfRangeException(nameof(csharpType));
+        }
+
+        private static SqlMetaData CreateSqlMetaData(string columnName, Type csharpType, ColumnAttribute columnAttribute)
+        {
+            if (columnAttribute != null && !string.IsNullOrEmpty(columnAttribute.TypeName))
+            {
+                if (columnAttribute.TypeName.Equals("varchar", StringComparison.OrdinalIgnoreCase)) return new SqlMetaData(columnName, SqlDbType.VarChar, -1);
+            }
+
+            if (csharpType == typeof(string)) return new SqlMetaData(columnName, SqlDbType.NVarChar, -1);
+            if (csharpType == typeof(int)) return new SqlMetaData(columnName, SqlDbType.Int);
+            if (csharpType == typeof(long)) return new SqlMetaData(columnName, SqlDbType.BigInt);
+            if (csharpType == typeof(decimal)) return new SqlMetaData(columnName, SqlDbType.Decimal, 38, 18);
+            if (csharpType == typeof(bool)) return new SqlMetaData(columnName, SqlDbType.Bit);
+            if (csharpType == typeof(float)) return new SqlMetaData(columnName, SqlDbType.Real);
+            if (csharpType == typeof(double)) return new SqlMetaData(columnName, SqlDbType.Float);
+            if (csharpType == typeof(short)) return new SqlMetaData(columnName, SqlDbType.SmallInt);
+            if (csharpType == typeof(byte)) return new SqlMetaData(columnName, SqlDbType.TinyInt);
+            if (csharpType == typeof(sbyte)) return new SqlMetaData(columnName, SqlDbType.SmallInt);
+            if (csharpType == typeof(ushort)) return new SqlMetaData(columnName, SqlDbType.Int);
+            if (csharpType == typeof(uint)) return new SqlMetaData(columnName, SqlDbType.BigInt);
+            if (csharpType == typeof(ulong)) return new SqlMetaData(columnName, SqlDbType.Decimal, 20, 0);
+            if (csharpType == typeof(char)) return new SqlMetaData(columnName, SqlDbType.NChar, 1);
 
             throw new ArgumentOutOfRangeException(nameof(csharpType));
         }

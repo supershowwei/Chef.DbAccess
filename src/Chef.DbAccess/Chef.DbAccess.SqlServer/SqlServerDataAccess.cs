@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Chef.DbAccess.SqlServer.Extensions;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
 
 [assembly: InternalsVisibleTo("Chef.DbAccess.SqlServer.Tests")]
 
@@ -3932,7 +3933,7 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, string, string, DataTable) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, string, List<SqlDataRecord>) GenerateBulkInsertStatement(IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
             var requiredColumns = RequiredColumns.GetOrAdd(
                 typeof(T),
@@ -3940,13 +3941,13 @@ DROP TABLE [{tmpTable}]";
 
             if (requiredColumns.Length == 0) throw new ArgumentException("There must be at least one [Required] column.");
 
-            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(requiredColumns, values, out var userDefinedFields);
+            var (tableType, columnDefinitions, dataRecords) = this.ConvertToTableValuedParameters(requiredColumns, values, out var userDefinedFields);
 
             var userDefinedFieldMap = default(Dictionary<string, string>);
 
             if (nonexistence != null)
             {
-                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.ColumnName);
+                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.Name);
             }
 
             var columnList = requiredColumns.ToColumnList(out _);
@@ -4016,18 +4017,18 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (declarationSql, retractionSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, dataRecords);
         }
 
-        private (string, string, string, string, DataTable) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
+        private (string, string, string, string, List<SqlDataRecord>) GenerateBulkInsertStatement(Expression<Func<T>> setterTemplate, IEnumerable<T> values, Expression<Func<T, object>> output = null, Expression<Func<T, bool>> nonexistence = null)
         {
-            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(setterTemplate, values, out var userDefinedFields);
+            var (tableType, columnDefinitions, dataRecords) = this.ConvertToTableValuedParameters(setterTemplate, values, out var userDefinedFields);
 
             var userDefinedFieldMap = default(Dictionary<string, string>);
 
             if (nonexistence != null)
             {
-                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.ColumnName);
+                userDefinedFieldMap = userDefinedFields.ToDictionary(x => x.Property.Name, x => x.Column.Name);
             }
 
             var columnList = setterTemplate.ToColumnList(out _);
@@ -4097,7 +4098,7 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (declarationSql, retractionSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, dataRecords);
         }
 
         private (string, IDictionary<string, object>) GenerateUpdateStatement(Expression<Func<T, bool>> predicate, Expression<Func<T>> setter, bool outParameters)
@@ -4351,12 +4352,12 @@ WHERE ";
             return (sql, parameters);
         }
 
-        private (string, string, string, string, DataTable) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
+        private (string, string, string, string, List<SqlDataRecord>) GenerateBulkUpdateStatement(Expression<Func<T, bool>> predicateTemplate, Expression<Func<T>> setterTemplate, IEnumerable<T> values)
         {
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition(out List<PropertyInfo> predicateMembers);
 
-            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
+            var (tableType, columnDefinitions, dataRecords) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
 
             var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
@@ -4376,7 +4377,7 @@ INNER JOIN @TableVariable tvp
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (declarationSql, retractionSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, dataRecords);
         }
 
         private (string, IDictionary<string, object>) GenerateUpsertStatement(
@@ -4463,7 +4464,7 @@ DROP TABLE [{tmpTable}]";
             return (sql, parameters);
         }
 
-        private (string, string, string, string, DataTable) GenerateBulkUpsertStatement(
+        private (string, string, string, string, List<SqlDataRecord>) GenerateBulkUpsertStatement(
             Expression<Func<T, bool>> predicateTemplate,
             Expression<Func<T>> setterTemplate,
             IEnumerable<T> values,
@@ -4472,7 +4473,7 @@ DROP TABLE [{tmpTable}]";
             var columnList = setterTemplate.ToColumnList(out _);
             var searchCondition = predicateTemplate.ToSearchCondition(out List<PropertyInfo> predicateMembers);
 
-            var (tableType, columnDefinitions, tableVariable) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
+            var (tableType, columnDefinitions, dataRecords) = this.ConvertToTableValuedParameters(predicateMembers, setterTemplate, values, out _);
 
             var declarationSql = $@"
 CREATE TYPE {tableType} AS TABLE
@@ -4550,7 +4551,7 @@ DROP TABLE [{tmpTable}]";
 
             this.OutputSql?.Invoke(sql, null);
 
-            return (declarationSql, retractionSql, sql, tableType, tableVariable);
+            return (declarationSql, retractionSql, sql, tableType, dataRecords);
         }
 
         private string GenerateJoinStatement<TRight>(LambdaExpression condition, JoinType joinType, string[] aliases, IDictionary<string, object> parameters)
@@ -4598,7 +4599,7 @@ DROP TABLE [{tmpTable}]";
             }
         }
 
-        private (string, string, DataTable) ConvertToTableValuedParameters(PropertyInfo[] requiredColumns, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
+        private (string, string, List<SqlDataRecord>) ConvertToTableValuedParameters(PropertyInfo[] requiredColumns, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
         {
             var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
 
@@ -4609,26 +4610,28 @@ DROP TABLE [{tmpTable}]";
                 throw new ArgumentException("Must configure setter.");
             }
 
-            var dataTable = new DataTable();
+            var columns = userDefinedFields.Select(x => x.Column).ToArray();
 
-            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
+            var records = new List<SqlDataRecord>();
 
             foreach (var value in values)
             {
-                var dataRow = dataTable.NewRow();
+                var row = new SqlDataRecord(columns);
 
-                foreach (var userDefinedField in userDefinedFields)
+                for (var i = 0; i < userDefinedFields.Count; i++)
                 {
-                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
+                    var userDefinedField = userDefinedFields[i];
+
+                    row.SetValue(i, userDefinedField.Property.GetValue(value));
                 }
 
-                dataTable.Rows.Add(dataRow);
+                records.Add(row);
             }
 
-            return (tableType, columnDefinitions, dataTable);
+            return (tableType, columnDefinitions, records);
         }
 
-        private (string, string, DataTable) ConvertToTableValuedParameters(Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
+        private (string, string, List<SqlDataRecord>) ConvertToTableValuedParameters(Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
         {
             var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
 
@@ -4639,26 +4642,28 @@ DROP TABLE [{tmpTable}]";
                 throw new ArgumentException("Must configure setter.");
             }
 
-            var dataTable = new DataTable();
+            var columns = userDefinedFields.Select(x => x.Column).ToArray();
 
-            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
+            var records = new List<SqlDataRecord>();
 
             foreach (var value in values)
             {
-                var dataRow = dataTable.NewRow();
+                var row = new SqlDataRecord(columns);
 
-                foreach (var userDefinedField in userDefinedFields)
+                for (var i = 0; i < userDefinedFields.Count; i++)
                 {
-                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
+                    var userDefinedField = userDefinedFields[i];
+
+                    row.SetValue(i, userDefinedField.Property.GetValue(value));
                 }
 
-                dataTable.Rows.Add(dataRow);
+                records.Add(row);
             }
 
-            return (tableType, columnDefinitions, dataTable);
+            return (tableType, columnDefinitions, records);
         }
 
-        private (string, string, DataTable) ConvertToTableValuedParameters(List<PropertyInfo> predicateMembers, Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
+        private (string, string, List<SqlDataRecord>) ConvertToTableValuedParameters(List<PropertyInfo> predicateMembers, Expression<Func<T>> setterTemplate, IEnumerable<T> values, out List<UserDefinedField> userDefinedFields)
         {
             var tableType = $"UDT_{typeof(T).Name}_{Guid.NewGuid().Purify()}";
 
@@ -4669,23 +4674,25 @@ DROP TABLE [{tmpTable}]";
                 throw new ArgumentException("Must configure setter.");
             }
 
-            var dataTable = new DataTable();
+            var columns = userDefinedFields.Select(x => x.Column).ToArray();
 
-            dataTable.Columns.AddRange(userDefinedFields.Select(x => x.Column).ToArray());
+            var records = new List<SqlDataRecord>();
 
             foreach (var value in values)
             {
-                var dataRow = dataTable.NewRow();
+                var row = new SqlDataRecord(columns);
 
-                foreach (var userDefinedField in userDefinedFields)
+                for (var i = 0; i < userDefinedFields.Count; i++)
                 {
-                    dataRow[userDefinedField.Column.ColumnName] = userDefinedField.Property.GetValue(value);
+                    var userDefinedField = userDefinedFields[i];
+
+                    row.SetValue(i, userDefinedField.Property.GetValue(value));
                 }
 
-                dataTable.Rows.Add(dataRow);
+                records.Add(row);
             }
 
-            return (tableType, columnDefinitions, dataTable);
+            return (tableType, columnDefinitions, records);
         }
     }
 }
