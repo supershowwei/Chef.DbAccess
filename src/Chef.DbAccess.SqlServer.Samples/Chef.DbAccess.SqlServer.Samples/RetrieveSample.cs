@@ -53,6 +53,12 @@ namespace Chef.DbAccess.SqlServer.Samples
                           .Select(x => new { x.Name, x.Age })
                           .QueryAsync();
 
+            // SELECT (Id & 1) > 0 的 Member
+            members = await memberDataAccess
+                          .Where(x => (x.Id & 1) > 0)
+                          .Select(x => new { x.Name, x.Age })
+                          .QueryAsync();
+
             // SELECT 多筆 Age = 18 AND Name LIKE '%y' 的 Member，並傳回 Name, Age 欄位。
             members = await memberDataAccess
                           .Where(x => x.Age == 18 && x.Name.EndsWith("y"))
