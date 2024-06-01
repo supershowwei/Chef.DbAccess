@@ -1,11 +1,12 @@
 ﻿using System.Data;
 using System.Reflection;
+using Microsoft.Data.SqlClient.Server;
 
 namespace Chef.DbAccess.SqlServer
 {
     internal class UserDefinedField
     {
-        public UserDefinedField(PropertyInfo property, DataColumn column)
+        public UserDefinedField(PropertyInfo property, SqlMetaData column)
         {
             this.Property = property;
             this.Column = column;
@@ -13,6 +14,6 @@ namespace Chef.DbAccess.SqlServer
 
         public PropertyInfo Property { get; }
 
-        public DataColumn Column { get; }
+        public SqlMetaData Column { get; }
     }
 }

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Chef.DbAccess.Fluent;
 using FluentAssertions;
+using Microsoft.Data.SqlClient;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Chef.DbAccess.SqlServer.Tests
@@ -796,8 +796,8 @@ namespace Chef.DbAccess.SqlServer.Tests
                     param.Add("Factory OnDbError", string.Empty);
                 };
 
-            DataAccessFactory.Invoking(
-                    factory =>
+            DataAccessFactory.Awaiting(
+                    async factory =>
                         {
                             var userDataAccess = factory.Create<User>();
 
@@ -808,10 +808,9 @@ namespace Chef.DbAccess.SqlServer.Tests
                                     param.Add("DataAccess OnDbError", string.Empty);
                                 };
 
-                            var user = userDataAccess.Where(x => x.Id == 1)
+                            var user = await userDataAccess.Where(x => x.Id == 1)
                                 .Select(x => new { x.Id, x.NonExistentProp })
-                                .QueryOneAsync()
-                                .Result;
+                                .QueryOneAsync();
                         })
                 .Should()
                 .Throw<SqlException>()
