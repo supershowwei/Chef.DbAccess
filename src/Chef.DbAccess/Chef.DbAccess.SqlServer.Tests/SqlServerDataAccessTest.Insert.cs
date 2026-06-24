@@ -494,12 +494,16 @@ namespace Chef.DbAccess.SqlServer.Tests
             var clubDataAccess = DataAccessFactory.Create<Club>();
 
             await clubDataAccess.BulkInsertAsync(
-                () => new Club { Id = default(int), Name = default(string) },
-                new List<Club> { new Club { Id = clubIds[0], Name = "TestClub1" }, new Club { Id = clubIds[1], Name = "TestClub2" } });
+                () => new Club { Id = default(int), Name = default(string), RunningTime = default(DateTime?) },
+                new List<Club>
+                {
+                    new Club { Id = clubIds[0], Name = "TestClub1", RunningTime = DateTime.Now },
+                    new Club { Id = clubIds[1], Name = "TestClub2", RunningTime = DateTime.Now }
+                });
 
             var clubs = await clubDataAccess.Where(x => clubIds.Contains(x.Id))
                             .OrderBy(x => x.Id)
-                            .Select(x => new { x.Id, x.Name })
+                            .Select(x => new { x.Id, x.Name, x.RunningTime })
                             .QueryAsync();
 
             await clubDataAccess.DeleteAsync(x => clubIds.Contains(x.Id));

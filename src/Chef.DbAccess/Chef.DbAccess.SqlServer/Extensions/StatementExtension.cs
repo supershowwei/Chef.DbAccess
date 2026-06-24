@@ -1526,12 +1526,25 @@ namespace Chef.DbAccess.SqlServer.Extensions
             }
         }
 
+        private static Type NormalizeType(Type csharpType)
+        {
+            // int? / DateTime? 等可空值型別 → 解開成底層型別
+            csharpType = Nullable.GetUnderlyingType(csharpType) ?? csharpType;
+
+            // enum → 轉成底層整數型別 (通常是 int)
+            if (csharpType.IsEnum) csharpType = Enum.GetUnderlyingType(csharpType);
+
+            return csharpType;
+        }
+
         private static string MapSqlType(Type csharpType, ColumnAttribute columnAttribute)
         {
             if (columnAttribute != null && !string.IsNullOrEmpty(columnAttribute.TypeName))
             {
                 if (columnAttribute.TypeName.Equals("varchar", StringComparison.OrdinalIgnoreCase)) return "VARCHAR(MAX)";
             }
+
+            csharpType = NormalizeType(csharpType);
 
             if (csharpType == typeof(string)) return "NVARCHAR(MAX)";
             if (csharpType == typeof(int)) return "INT";
@@ -1547,6 +1560,9 @@ namespace Chef.DbAccess.SqlServer.Extensions
             if (csharpType == typeof(uint)) return "BIGINT";
             if (csharpType == typeof(ulong)) return "DECIMAL(20, 0)";
             if (csharpType == typeof(char)) return "NCHAR(1)";
+            if (csharpType == typeof(DateTime)) return "DATETIME";
+            if (csharpType == typeof(DateTimeOffset)) return "DATETIMEOFFSET";
+            if (csharpType == typeof(Guid)) return "UNIQUEIDENTIFIER";
 
             throw new ArgumentOutOfRangeException(nameof(csharpType));
         }
@@ -1557,6 +1573,8 @@ namespace Chef.DbAccess.SqlServer.Extensions
             {
                 if (columnAttribute.TypeName.Equals("varchar", StringComparison.OrdinalIgnoreCase)) return new SqlMetaData(columnName, SqlDbType.VarChar, -1);
             }
+
+            csharpType = NormalizeType(csharpType);
 
             if (csharpType == typeof(string)) return new SqlMetaData(columnName, SqlDbType.NVarChar, -1);
             if (csharpType == typeof(int)) return new SqlMetaData(columnName, SqlDbType.Int);
@@ -1572,6 +1590,9 @@ namespace Chef.DbAccess.SqlServer.Extensions
             if (csharpType == typeof(uint)) return new SqlMetaData(columnName, SqlDbType.BigInt);
             if (csharpType == typeof(ulong)) return new SqlMetaData(columnName, SqlDbType.Decimal, 20, 0);
             if (csharpType == typeof(char)) return new SqlMetaData(columnName, SqlDbType.NChar, 1);
+            if (csharpType == typeof(DateTime)) return new SqlMetaData(columnName, SqlDbType.DateTime);
+            if (csharpType == typeof(DateTimeOffset)) return new SqlMetaData(columnName, SqlDbType.DateTimeOffset);
+            if (csharpType == typeof(Guid)) return new SqlMetaData(columnName, SqlDbType.UniqueIdentifier);
 
             throw new ArgumentOutOfRangeException(nameof(csharpType));
         }
