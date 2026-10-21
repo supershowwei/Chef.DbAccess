@@ -88,7 +88,6 @@ string sql = members.Query().Where(x => x.Id == 1).ToQueryString();
 - `QueryObject.Where()` 會**覆蓋**先前的條件，連續呼叫兩次 `.Where()` 時，第一個條件會被悄悄丟掉（`Fluent/Extension.cs:111`）。
 - 沒有先呼叫 `Where` 就呼叫 `And`／`Or`，或沒有先 `OrderBy` 就 `ThenBy`，會發生 NullReferenceException（`Fluent/Extension.cs:118`、`:168`）。
 - 沒指定 `Select` 時直接丟例外，不會預設選出所有欄位（`SqlServerDataAccess.cs:2027`）。
-- 預設 `IsDirtyRead = true`，所有查詢都會加上 `WITH (NOLOCK)`（`SqlServerDataAccess.cs:53`）。
 - 全部 API 都沒有 `CancellationToken`。
 
 ### 2.5 工程面
@@ -154,7 +153,7 @@ Join 兩端的 `IDataAccess` 必須是同一個連線字串，否則丟出明確
 `ToListAsync`、`ToArrayAsync`、`FirstAsync`、`FirstOrDefaultAsync`、`SingleAsync`、`SingleOrDefaultAsync`、`CountAsync`、`LongCountAsync`、`AnyAsync`、`AllAsync`、`SumAsync`、`MinAsync`、`MaxAsync`、`AverageAsync`、`ExecuteUpdateAsync`、`ExecuteDeleteAsync`、`ToQueryString`，全部都接受 `CancellationToken`。
 
 **保留 SQL Server 專屬能力，改成可以組合**
-- `.WithNoLock()`／`.WithHint("…")`：在單一查詢上指定 table hint。
+- 預設加上 `WITH (NOLOCK)`（與 3.x 的 `IsDirtyRead = true` 一致）；`.WithoutNoLock()`／`.WithHint("…")`：在單一查詢上關掉 NOLOCK 或改用其他 table hint。
 - `.Where(x => x.Name.Includes("Johnny"))`：全文檢索，沿用 `Chef.DbAccess.Syntax`。
 - `.SelectColumns(x => new { x.Name, x.Age })`：只取部分欄位，但仍然回傳 `T`，延續 3.x 的使用習慣。
 - `InsertAsync`／`UpsertAsync`／`Bulk*Async`／`OUTPUT`：沿用 3.x 的語意，內部改用新的 AST 和 metadata 實作。
@@ -243,6 +242,6 @@ Change Tracking、`SaveChanges`、Migration、Lazy Loading、Identity Map、DbCo
 | D2 | 進入點：新增 `dataAccess.Query()`，或讓 `IDataAccess<T>` 直接實作 `IQueryable<T>` | **4.x 先用 `Query()`**：完全不會跟 `Chef.DbAccess.Fluent` 的 `Where` 等擴充方法發生多載衝突；5.0 移除舊 API 時再考慮讓它直接是 IQueryable |
 | D3 | 3.x API 的去留 | **4.x 保留並改走新管線，標 `[Obsolete]`，5.0 才移除** |
 | D4 | 沒有 `Select` 時的預設行為 | **新 API 預設選出所有對應欄位**（和 EF 一樣）；舊 API 維持原本的行為 |
-| D5 | `NOLOCK` 預設值 | **新 API 預設不加**，需要時用 `.WithNoLock()` 指定；舊 API 維持 `IsDirtyRead = true` |
+| D5 | `NOLOCK` 預設值 | ✅ **已決定：新舊 API 都預設加上**。使用者只有作者與同事，情境通常允許 Dirty Read；需要時再明確關掉 |
 | D6 | 目標框架 | **`netstandard2.0` 加 `net8.0`**，保留給 .NET Framework 的使用者 |
 | D7 | 是否同時做 SQLite 方言 | **建議在 Phase 2 之後加入**：用來驗證抽象設計，也可以讓部分整合測試不需要 SQL Server |
