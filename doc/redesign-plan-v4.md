@@ -191,11 +191,11 @@ Change Tracking、`SaveChanges`、Migration、Lazy Loading、Identity Map、DbCo
 - **特徵化測試**：先把 3.x 各種 API 產生的 SQL 全部錄成快照，作為之後相容層的回歸基準（`Chef.DbAccess.SqlServer.Tests/Characterization`，52 個快照）。
 - GitHub Actions CI：build、跑快照測試、`dotnet pack`。
 
-### Phase 1：Metadata 與 SQL AST
-- `EntityMetadata`／`PropertyMetadata`：集中解析 DataAnnotations，建立一次後快取。補上 `[Key]`、`[DatabaseGenerated]`、`[ForeignKey]`。
-- 選用的全域 Fluent 設定：`ChefDbAccess.Configure<Member>(b => b.ToTable("tbl_member").Property(x => x.Id).HasColumnName("No"))`。
-- SQL AST 節點、`ISqlDialect`、`SqlServerQuerySqlGenerator`，以及型別對應（含 `DbString`）。
-- 交付標準：可以手動組 AST，並產生正確的 T-SQL，有對應的快照測試。
+### Phase 1：Metadata 與 SQL AST ✅ 已完成
+- `EntityMetadata`／`PropertyMetadata`：集中解析 DataAnnotations，建立一次後快取。補上 `[Key]`、`[DatabaseGenerated]`。（1.1）
+- SQL AST 節點（含 Join）、`SqlGenerator`（ANSI）與 `SqlServerSqlGenerator`，以及參數型別對應（`DbString`、`datetime2`／`date`／`time`）。（1.2～1.6）
+- 交付標準：可以手動組 AST，並產生正確的 T-SQL，有對應的測試。
+- 延後：`[ForeignKey]` 移到 Phase 3（導覽屬性需要時再做）；全域 Fluent 設定 `ChefDbAccess.Configure<Member>(...)` 移到 4.x 之後，確定需要再做；3.x 的跨資料庫 Join（`[Database].[Schema].[Table]`）在 Phase 3 補上。
 
 ### Phase 2：IQueryable MVP（單表）
 - `ChefQueryable<T>`、`ChefQueryProvider`、`PartialEvaluator`、查詢快取。
