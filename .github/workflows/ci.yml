@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    # Windows runner 才能跑 net462 的測試。
+    runs-on: windows-latest
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      SOLUTION: src/Chef.DbAccess/Chef.DbAccess.sln
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION }} -c Release --no-restore
+
+      # 整合測試需要 SQL Server，CI 只跑 SQL 產生與快照測試。
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION }} -c Release --no-build --filter "TestCategory!=Integration" --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            TestResults
+            src/**/*.received.sql
+
+      - name: Pack
+        run: |
+          dotnet pack src/Chef.DbAccess/Chef.DbAccess/Chef.DbAccess.csproj -c Release --no-build -o artifacts
+          dotnet pack src/Chef.DbAccess/Chef.DbAccess.SqlServer/Chef.DbAccess.SqlServer.csproj -c Release --no-build -o artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/*.nupkg
