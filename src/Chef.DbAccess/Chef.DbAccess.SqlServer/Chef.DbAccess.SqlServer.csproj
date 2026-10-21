@@ -1,14 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <Version>3.0.7</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chef.DbAccess" Version="3.0.0" />
+    <ProjectReference Include="..\Chef.DbAccess\Chef.DbAccess.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Dapper 必須維持 2.0.4，以相容無法升級的既有專案。 -->
     <PackageReference Include="Dapper" Version="2.0.4" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.4.0" />
   </ItemGroup>
 

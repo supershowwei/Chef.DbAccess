@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess", "Chef.DbAcc
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess.SqlServer", "Chef.DbAccess.SqlServer\Chef.DbAccess.SqlServer.csproj", "{119913F0-2C1E-48D9-BA05-8ECE7DAB3F91}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.SqlServer.Tests", "Chef.DbAccess.SqlServer.Tests\Chef.DbAccess.SqlServer.Tests.csproj", "{BCE552E5-B629-44E3-999F-C72DC0CB14AB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess.SqlServer.Tests", "Chef.DbAccess.SqlServer.Tests\Chef.DbAccess.SqlServer.Tests.csproj", "{BCE552E5-B629-44E3-999F-C72DC0CB14AB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

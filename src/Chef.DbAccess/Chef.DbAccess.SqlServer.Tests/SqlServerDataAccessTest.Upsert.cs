@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Chef.DbAccess.Fluent;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 
 namespace Chef.DbAccess.SqlServer.Tests
 {
