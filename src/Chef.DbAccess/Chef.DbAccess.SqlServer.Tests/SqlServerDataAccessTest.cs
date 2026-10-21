@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Chef.DbAccess.SqlServer.Tests
 {
     [TestClass]
+    [TestCategory("Integration")]
     public partial class SqlServerDataAccessTest
     {
         private static readonly IDataAccessFactory DataAccessFactory = SqlServerDataAccessFactory.Instance;

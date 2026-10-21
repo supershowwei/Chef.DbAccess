@@ -1,0 +1,1 @@
+-- Exception: System.ArgumentException: Must be at least one column selected.
