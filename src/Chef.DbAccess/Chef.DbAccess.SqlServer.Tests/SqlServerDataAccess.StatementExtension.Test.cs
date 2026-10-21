@@ -404,6 +404,78 @@ namespace Chef.DbAccess.SqlServer.Tests
             parameters["LastName_1"].Should().Be("JobGood");
         }
 
+#if NET5_0_OR_GREATER
+        // C# 14 起，array.Contains(x) 會綁定成 MemoryExtensions.Contains(ReadOnlySpan<T>.op_Implicit(array), x)。
+        // 這裡手動組出該形狀，讓測試不受編譯器版本影響。
+        private static Expression<Func<Member, bool>> CreateSpanContainsPredicate(Expression arrayExpr, bool negate)
+        {
+            var parameterExpr = Expression.Parameter(typeof(Member), "x");
+
+            var spanExpr = Expression.Call(typeof(ReadOnlySpan<string>).GetMethod("op_Implicit", new[] { typeof(string[]) }), arrayExpr);
+
+            var containsMethod = typeof(MemoryExtensions).GetMethods()
+                .Single(
+                    m => m.Name == nameof(MemoryExtensions.Contains) && m.IsGenericMethodDefinition && m.GetParameters().Length == 2
+                         && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>))
+                .MakeGenericMethod(typeof(string));
+
+            Expression body = Expression.Call(containsMethod, spanExpr, Expression.Property(parameterExpr, nameof(Member.FirstName)));
+
+            if (negate) body = Expression.Not(body);
+
+            return Expression.Lambda<Func<Member, bool>>(body, parameterExpr);
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_Span_Contains_with_Initializer()
+        {
+            var arrayExpr = Expression.NewArrayInit(typeof(string), Expression.Constant("1"), Expression.Constant("2"), Expression.Constant("3"));
+
+            var predicate = CreateSpanContainsPredicate(arrayExpr, false);
+
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
+
+            searchCondition.Should().Be("[first_name] = @FirstName_0 OR [first_name] = @FirstName_1 OR [first_name] = @FirstName_2");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
+            ((DbString)parameters["FirstName_1"]).Value.Should().Be("2");
+            ((DbString)parameters["FirstName_2"]).Value.Should().Be("3");
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_Span_Contains_with_Variable()
+        {
+            var arr = new[] { "1", "2", "3" };
+
+            Expression<Func<string[]>> variableExpr = () => arr;
+
+            var predicate = CreateSpanContainsPredicate(variableExpr.Body, false);
+
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
+
+            searchCondition.Should().Be("[first_name] = @FirstName_0 OR [first_name] = @FirstName_1 OR [first_name] = @FirstName_2");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
+            ((DbString)parameters["FirstName_1"]).Value.Should().Be("2");
+            ((DbString)parameters["FirstName_2"]).Value.Should().Be("3");
+        }
+
+        [TestMethod]
+        public void Test_ToSearchCondition_use_Not_Span_Contains_with_Variable()
+        {
+            var arr = new[] { "1", "2", "3" };
+
+            Expression<Func<string[]>> variableExpr = () => arr;
+
+            var predicate = CreateSpanContainsPredicate(variableExpr.Body, true);
+
+            var searchCondition = predicate.ToSearchCondition(out IDictionary<string, object> parameters);
+
+            searchCondition.Should().Be("[first_name] <> @FirstName_0 AND [first_name] <> @FirstName_1 AND [first_name] <> @FirstName_2");
+            ((DbString)parameters["FirstName_0"]).Value.Should().Be("1");
+            ((DbString)parameters["FirstName_1"]).Value.Should().Be("2");
+            ((DbString)parameters["FirstName_2"]).Value.Should().Be("3");
+        }
+#endif
+
         [TestMethod]
         public void Test_ToSearchCondition_use_Contains_with_Initializer()
         {

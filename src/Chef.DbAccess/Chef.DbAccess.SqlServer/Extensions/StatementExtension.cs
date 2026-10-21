@@ -1506,8 +1506,24 @@ namespace Chef.DbAccess.SqlServer.Extensions
             {
                 case NewArrayExpression newArrayExpr: return newArrayExpr.Expressions.Select(e => ExtractConstant(e)).ToArray();
                 case MemberExpression arrayExpr: return (IEnumerable)ExtractConstant(arrayExpr);
+
+                // C# 14 會把 array.Contains(x) 綁定成 MemoryExtensions.Contains(ReadOnlySpan<T>, T)，陣列外會多包一層 span 的隱含轉換。
+                case MethodCallExpression spanExpr when IsSpanImplicitConversion(spanExpr.Method): return ExtractArray(spanExpr.Arguments[0]);
+                case UnaryExpression convertExpr when convertExpr.Method != null && IsSpanImplicitConversion(convertExpr.Method): return ExtractArray(convertExpr.Operand);
+
                 default: throw new ArgumentException("Must be a array variable or array initializer.");
             }
+        }
+
+        private static bool IsSpanImplicitConversion(MethodInfo method)
+        {
+            var declaringType = method.DeclaringType;
+
+            return method.Name == "op_Implicit"
+                   && declaringType != null
+                   && declaringType.IsGenericType
+                   && declaringType.Namespace == "System"
+                   && (declaringType.Name == "ReadOnlySpan`1" || declaringType.Name == "Span`1");
         }
 
         private static string MapOperator(ExpressionType exprType)
