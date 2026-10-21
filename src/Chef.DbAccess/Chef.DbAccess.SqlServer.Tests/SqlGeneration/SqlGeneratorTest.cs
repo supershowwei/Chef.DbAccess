@@ -217,6 +217,67 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
             second.Parameters.Should().BeEmpty();
         }
 
+        [TestMethod]
+        public void Inner_and_left_joins_are_written_on_their_own_lines()
+        {
+            var departmentEntity = EntityMetadata.For<Department>();
+            var department = TableExpression.For(departmentEntity, "d");
+            var manager = TableExpression.For(MemberEntity, "mgr");
+
+            var select = new SelectExpression(
+                new[] { new ProjectionExpression(this.Name, "Name"), new ProjectionExpression(department.Column(departmentEntity.FindColumn(nameof(Department.Name))), "DepartmentName") },
+                new TableExpressionBase[]
+                {
+                    this.table,
+                    new JoinExpression(
+                        JoinType.Inner,
+                        department,
+                        Binary(SqlBinaryOperator.Equal, this.table.Column(MemberEntity.FindColumn(nameof(Member.DepartmentId))), department.Column(departmentEntity.FindColumn(nameof(Department.Id))))),
+                    new JoinExpression(
+                        JoinType.Left,
+                        manager,
+                        Binary(SqlBinaryOperator.Equal, this.table.Column(MemberEntity.FindColumn(nameof(Member.ManagerId))), manager.Column(MemberEntity.FindColumn(nameof(Member.Id)))))
+                });
+
+            Generate(select)
+                .Sql.Should()
+                .Be(
+                    "SELECT \"m\".\"Name\", \"d\".\"Name\" AS \"DepartmentName\"\n" +
+                    "FROM \"tbl_member\" \"m\"\n" +
+                    "INNER JOIN \"tbl_department\" \"d\" ON \"m\".\"DepartmentId\" = \"d\".\"Id\"\n" +
+                    "LEFT JOIN \"tbl_member\" \"mgr\" ON \"m\".\"ManagerId\" = \"mgr\".\"No\"");
+        }
+
+        [TestMethod]
+        public void Join_predicate_parameters_are_collected_before_where_parameters()
+        {
+            var departmentEntity = EntityMetadata.For<Department>();
+            var department = TableExpression.For(departmentEntity, "d");
+
+            var on = new SqlBinaryExpression(
+                SqlBinaryOperator.AndAlso,
+                Binary(SqlBinaryOperator.Equal, this.table.Column(MemberEntity.FindColumn(nameof(Member.DepartmentId))), department.Column(departmentEntity.FindColumn(nameof(Department.Id)))),
+                Binary(SqlBinaryOperator.Equal, department.Column(departmentEntity.FindColumn(nameof(Department.Name))), Parameter("Name_0", "Sales")),
+                typeof(bool));
+
+            var select = new SelectExpression(
+                new[] { new ProjectionExpression(this.Name, "Name") },
+                new TableExpressionBase[] { this.table, new JoinExpression(JoinType.Inner, department, on) },
+                Binary(SqlBinaryOperator.GreaterThan, this.Age, Parameter("Age_0", 18)));
+
+            Generate(select).Parameters.Select(p => p.Name).Should().Equal("Name_0", "Age_0");
+        }
+
+        [TestMethod]
+        public void Tables_without_join_are_separated_by_comma()
+        {
+            var other = new TableExpression("tbl_department", null, "d");
+
+            Generate(new SelectExpression(new[] { new ProjectionExpression(this.Name, "Name") }, new TableExpressionBase[] { this.table, other }))
+                .Sql.Should()
+                .EndWith("FROM \"tbl_member\" \"m\", \"tbl_department\" \"d\"");
+        }
+
         private static GeneratedSql Generate(SelectExpression select)
         {
             return new SqlGenerator().Generate(select);
@@ -261,6 +322,18 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
             public string Name { get; set; }
 
             public int Age { get; set; }
+
+            public int DepartmentId { get; set; }
+
+            public int ManagerId { get; set; }
+        }
+
+        [Table("tbl_department")]
+        private class Department
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
         }
     }
 }

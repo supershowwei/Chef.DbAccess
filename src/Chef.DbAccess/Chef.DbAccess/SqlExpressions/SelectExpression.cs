@@ -35,6 +35,7 @@ namespace Chef.DbAccess.SqlExpressions
             if (this.Projections.Any(p => p == null)) throw new ArgumentException("Projections can not contain null.", nameof(projections));
             if (this.Tables.Count == 0) throw new ArgumentException("Must be at least one table.", nameof(tables));
             if (this.Tables.Any(t => t == null)) throw new ArgumentException("Tables can not contain null.", nameof(tables));
+            if (this.Tables[0] is JoinExpression) throw new ArgumentException("The first table can not be a join.", nameof(tables));
             if (this.Orderings.Any(o => o == null)) throw new ArgumentException("Orderings can not contain null.", nameof(orderings));
         }
 

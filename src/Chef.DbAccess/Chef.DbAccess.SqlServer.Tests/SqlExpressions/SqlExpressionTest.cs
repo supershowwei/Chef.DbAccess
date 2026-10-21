@@ -147,6 +147,38 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlExpressions
             new Action(() => new ProjectionExpression(column, "")).Should().Throw<ArgumentException>();
         }
 
+        [TestMethod]
+        public void Join_uses_alias_of_joined_table()
+        {
+            var member = TableExpression.For(MemberEntity, "mem_1");
+            var manager = TableExpression.For(MemberEntity, "mem_2");
+            var on = new SqlBinaryExpression(SqlBinaryOperator.Equal, member.Column(MemberEntity.FindColumn(nameof(Member.Id))), manager.Column(MemberEntity.FindColumn(nameof(Member.Id))), typeof(bool));
+
+            var join = new JoinExpression(JoinType.Left, manager, on);
+
+            join.Alias.Should().Be("mem_2");
+            join.Table.Should().BeSameAs(manager);
+            join.JoinType.Should().Be(JoinType.Left);
+            join.Predicate.Should().BeSameAs(on);
+        }
+
+        [TestMethod]
+        public void Join_rejects_missing_parts_and_nested_join()
+        {
+            var member = TableExpression.For(MemberEntity, "mem_1");
+            var manager = TableExpression.For(MemberEntity, "mem_2");
+            var on = new SqlConstantExpression(true, typeof(bool));
+            var join = new JoinExpression(JoinType.Inner, manager, on);
+
+            new Action(() => new JoinExpression(JoinType.Inner, null, on)).Should().Throw<ArgumentNullException>();
+            new Action(() => new JoinExpression(JoinType.Inner, manager, null)).Should().Throw<ArgumentNullException>();
+            new Action(() => new JoinExpression(JoinType.Inner, join, on)).Should().Throw<ArgumentException>();
+
+            var projection = new ProjectionExpression(member.Column(MemberEntity.FindColumn(nameof(Member.Id))), "Id");
+
+            new Action(() => new SelectExpression(new[] { projection }, new TableExpressionBase[] { join, member })).Should().Throw<ArgumentException>();
+        }
+
         [Table("tbl_member", Schema = "dbo")]
         private class Member
         {

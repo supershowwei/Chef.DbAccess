@@ -44,7 +44,7 @@ namespace Chef.DbAccess.SqlGeneration
             this.GenerateList(select.Projections, this.VisitProjection);
 
             this.sql.Append("\nFROM ");
-            this.GenerateList(select.Tables, this.VisitTable);
+            this.GenerateTables(select.Tables);
 
             if (select.Predicate != null)
             {
@@ -106,6 +106,19 @@ namespace Chef.DbAccess.SqlGeneration
             this.sql.Append(" AS ").Append(this.Delimit(projection.Alias));
         }
 
+        /// <summary>
+        ///     Join 各自換行輸出；其他來源之間以逗號分隔。
+        /// </summary>
+        protected virtual void GenerateTables(IReadOnlyList<TableExpressionBase> tables)
+        {
+            for (var i = 0; i < tables.Count; i++)
+            {
+                if (i > 0) this.sql.Append(tables[i] is JoinExpression ? "\n" : ", ");
+
+                this.VisitTable(tables[i]);
+            }
+        }
+
         protected virtual void VisitTable(TableExpressionBase table)
         {
             switch (table)
@@ -114,8 +127,32 @@ namespace Chef.DbAccess.SqlGeneration
                     this.VisitTableExpression(tableExpr);
                     break;
 
+                case JoinExpression join:
+                    this.VisitJoin(join);
+                    break;
+
                 default: throw new NotSupportedException($"Unsupported table expression '{table.GetType().Name}'.");
             }
+        }
+
+        protected virtual void VisitJoin(JoinExpression join)
+        {
+            switch (join.JoinType)
+            {
+                case JoinType.Inner:
+                    this.sql.Append("INNER JOIN ");
+                    break;
+
+                case JoinType.Left:
+                    this.sql.Append("LEFT JOIN ");
+                    break;
+
+                default: throw new NotSupportedException($"Unsupported join type '{join.JoinType}'.");
+            }
+
+            this.VisitTable(join.Table);
+            this.sql.Append(" ON ");
+            this.Visit(join.Predicate);
         }
 
         /// <summary>

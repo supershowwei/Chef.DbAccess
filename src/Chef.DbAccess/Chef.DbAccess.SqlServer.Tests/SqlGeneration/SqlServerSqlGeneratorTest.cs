@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
 {
     // 放在命名空間內，才會優先於 Chef.DbAccess.SqlServer.Tests 底下整合測試用的 Member。
+    using Department = Characterization.Department;
     using Member = Characterization.Member;
 
     /// <summary>
@@ -159,6 +160,82 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
             var predicate = Binary(SqlBinaryOperator.Equal, this.Name, new SqlConstantExpression("abc", typeof(string)));
 
             Generate(new SelectExpression(new[] { this.Project(this.Name) }, new[] { this.table }, predicate)).Should().EndWith("= 'abc'");
+        }
+
+        [TestMethod]
+        public void InnerJoin_three_tables()
+        {
+            // 對應 3.x Query_InnerJoin_Three_Tables。
+            // 差異：數值參數用 @Age_0 而不是 {=Age_0}；結尾沒有分號。
+            var departmentEntity = EntityMetadata.For<Department>();
+            var department = TableExpression.For(departmentEntity, "dep_2");
+            var manager = TableExpression.For(MemberEntity, "mem_3");
+
+            var departmentId = department.Column(departmentEntity.FindColumn(nameof(Department.Id)));
+            var departmentName = department.Column(departmentEntity.FindColumn(nameof(Department.Name)));
+            var managerId = manager.Column(MemberEntity.FindColumn(nameof(Member.Id)));
+            var managerName = manager.Column(MemberEntity.FindColumn(nameof(Member.Name)));
+
+            var select = new SelectExpression(
+                new[]
+                {
+                    this.Project(this.Id),
+                    this.Project(this.Name),
+                    this.Project(departmentId),
+                    this.Project(departmentName),
+                    this.Project(managerId),
+                    this.Project(managerName)
+                },
+                new TableExpressionBase[]
+                {
+                    this.table,
+                    new JoinExpression(JoinType.Inner, department, Binary(SqlBinaryOperator.Equal, this.Column(nameof(Member.DepartmentId)), departmentId)),
+                    new JoinExpression(JoinType.Inner, manager, Binary(SqlBinaryOperator.Equal, this.Column(nameof(Member.ManagerId)), managerId))
+                },
+                Binary(SqlBinaryOperator.GreaterThan, this.Age, Parameter("Age_0", 20)),
+                new[] { new OrderingExpression(managerName, true) });
+
+            Generate(select)
+                .Should()
+                .Be(
+                    "SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [dep_2].[Id], [dep_2].[Name], [mem_3].[No] AS [Id], [mem_3].[Name]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "INNER JOIN [tbl_member] [mem_3] WITH (NOLOCK) ON [mem_1].[ManagerId] = [mem_3].[No]\n" +
+                    "WHERE [mem_1].[Age] > @Age_0\n" +
+                    "ORDER BY [mem_3].[Name] ASC");
+        }
+
+        [TestMethod]
+        public void LeftJoin_one_to_many()
+        {
+            // 對應 3.x Query_LeftJoin_One_To_Many。
+            // 差異：數值參數用 @Age_0 而不是 {=Age_0}；結尾沒有分號。
+            var departmentEntity = EntityMetadata.For<Department>();
+            var department = TableExpression.For(departmentEntity, "dep_2");
+
+            var select = new SelectExpression(
+                new[]
+                {
+                    this.Project(this.Id),
+                    this.Project(this.Name),
+                    this.Project(department.Column(departmentEntity.FindColumn(nameof(Department.Id)))),
+                    this.Project(department.Column(departmentEntity.FindColumn(nameof(Department.Name))))
+                },
+                new TableExpressionBase[]
+                {
+                    this.table,
+                    new JoinExpression(JoinType.Left, department, Binary(SqlBinaryOperator.Equal, this.Id, department.Column(departmentEntity.FindColumn(nameof(Department.ManagerId)))))
+                },
+                Binary(SqlBinaryOperator.GreaterThan, this.Age, Parameter("Age_0", 20)));
+
+            Generate(select)
+                .Should()
+                .Be(
+                    "SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [dep_2].[Id], [dep_2].[Name]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "WHERE [mem_1].[Age] > @Age_0");
         }
 
         /// <summary>
