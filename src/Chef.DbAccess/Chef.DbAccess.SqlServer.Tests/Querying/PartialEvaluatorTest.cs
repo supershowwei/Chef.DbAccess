@@ -99,6 +99,19 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void Constructor_of_member_init_is_not_evaluated()
+        {
+            var title = "t";
+            Expression<Func<Member, Dto>> projection = x => new Dto { Key = x.Id, Title = title };
+
+            var result = PartialEvaluator.Evaluate(projection);
+
+            var memberInit = ((LambdaExpression)result.Expression).Body.Should().BeAssignableTo<MemberInitExpression>().Which;
+            memberInit.NewExpression.Arguments.Should().BeEmpty();
+            ((MemberAssignment)memberInit.Bindings[1]).Expression.Should().BeAssignableTo<ParameterExpression>().Which.Name.Should().Be("__title_0");
+        }
+
+        [TestMethod]
         public void Nested_lambda_over_closure_collection_is_evaluated_as_a_whole()
         {
             var ids = new List<int> { 1, 2, 3 };
@@ -250,6 +263,13 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         private class Thrower
         {
             public int Value => throw new InvalidOperationException("boom");
+        }
+
+        private class Dto
+        {
+            public int Key { get; set; }
+
+            public string Title { get; set; }
         }
     }
 }

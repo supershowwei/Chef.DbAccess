@@ -75,6 +75,24 @@ namespace Chef.DbAccess.Querying
             return node.Update(this.Visit(node.Object), arguments);
         }
 
+        /// <summary>
+        ///     <c>new MemberDto { Key = x.Id }</c> 裡的 <c>new MemberDto()</c> 不依賴 lambda 參數，但必須維持是建構式呼叫，不能換成常數或參數，只走訪它的引數。
+        /// </summary>
+        protected override Expression VisitMemberInit(MemberInitExpression node)
+        {
+            return node.Update(this.VisitNewArguments(node.NewExpression), node.Bindings.Select(this.VisitMemberBinding));
+        }
+
+        protected override Expression VisitListInit(ListInitExpression node)
+        {
+            return node.Update(this.VisitNewArguments(node.NewExpression), node.Initializers.Select(this.VisitElementInit));
+        }
+
+        private NewExpression VisitNewArguments(NewExpression node)
+        {
+            return node.Update(this.Visit(node.Arguments));
+        }
+
         private ParameterExpression CreateParameter(Type type, object value, string nameHint)
         {
             var name = string.Concat("__", nameHint, "_", this.parameterValues.Count.ToString());
