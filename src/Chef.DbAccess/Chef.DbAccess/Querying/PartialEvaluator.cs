@@ -14,6 +14,7 @@ namespace Chef.DbAccess.Querying
     ///         <item>每次執行都可能不同的值（含成員存取或方法呼叫的子樹）換成具名的 <see cref="ParameterExpression" />，讓查詢的形狀固定，可以快取。</item>
     ///         <item>只由常數組成的子樹（例如 <c>new DateTime(2020, 1, 1)</c>）摺疊成 <see cref="ConstantExpression" />，原本就是常數的維持不變。</item>
     ///         <item>算出來是 <see cref="IQueryable" /> 的子樹（例如 <c>departments.Query()</c>），換成它的運算式，之後可以翻譯成子查詢。</item>
+    ///         <item><see cref="Queryable" /> 運算子的常數引數（<c>Skip(20)</c>、<c>Take(10)</c>）一律換成參數。</item>
     ///     </list>
     ///     <para>
     ///         值是 <see cref="IQueryable" /> 的常數（查詢的根）與 <see cref="Queryable" /> 的運算子要留給翻譯器，包含它們的子樹不會在用戶端求值，
@@ -54,11 +55,33 @@ namespace Chef.DbAccess.Querying
 
             if (value is IQueryable queryable) return Evaluate(queryable.Expression, this.parameterValues);
 
-            var name = string.Concat("__", GetNameHint(node), "_", this.parameterValues.Count.ToString());
+            return this.CreateParameter(node.Type, value, GetNameHint(node));
+        }
+
+        /// <summary>
+        ///     <c>Skip(skip)</c>、<c>Take(10)</c> 這類查詢運算子的引數（lambda 以外）在建立查詢時就已經算成常數，
+        ///     看不出原本是變數還是寫死的數字，所以一律換成以方法命名的參數（例如 <c>__Skip_0</c>），不同頁數才能共用同一個快取。
+        /// </summary>
+        protected override Expression VisitMethodCall(MethodCallExpression node)
+        {
+            if (node.Method.DeclaringType != typeof(Queryable)) return base.VisitMethodCall(node);
+
+            var arguments = node.Arguments.Select(
+                    a => a is ConstantExpression constant && !(constant.Value is IQueryable)
+                             ? this.CreateParameter(constant.Type, constant.Value, node.Method.Name)
+                             : this.Visit(a))
+                .ToArray();
+
+            return node.Update(this.Visit(node.Object), arguments);
+        }
+
+        private ParameterExpression CreateParameter(Type type, object value, string nameHint)
+        {
+            var name = string.Concat("__", nameHint, "_", this.parameterValues.Count.ToString());
 
             this.parameterValues.Add(name, value);
 
-            return Expression.Parameter(node.Type, name);
+            return Expression.Parameter(type, name);
         }
 
         private static Expression Evaluate(Expression expression, Dictionary<string, object> parameterValues)

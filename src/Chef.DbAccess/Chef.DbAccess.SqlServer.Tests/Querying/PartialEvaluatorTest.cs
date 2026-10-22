@@ -168,6 +168,19 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void Constant_arguments_of_queryable_operators_become_parameters()
+        {
+            var source = new Member[0].AsQueryable();
+
+            var page2 = PartialEvaluator.Evaluate(source.OrderBy(x => x.Id).Skip(20).Take(10).Expression);
+            var page3 = PartialEvaluator.Evaluate(source.OrderBy(x => x.Id).Skip(30).Take(10).Expression);
+
+            // Queryable.Skip 在建立查詢時就把引數變成常數，不論寫死或變數都換成參數，不同頁數共用同一個快取。
+            page2.ParameterValues.Should().BeEquivalentTo(new Dictionary<string, object> { ["__Skip_0"] = 20, ["__Take_1"] = 10 });
+            new QueryCacheKey(page2).Should().Be(new QueryCacheKey(page3));
+        }
+
+        [TestMethod]
         public void Closure_queryable_is_inlined_as_its_expression()
         {
             var source = new Member[0].AsQueryable();

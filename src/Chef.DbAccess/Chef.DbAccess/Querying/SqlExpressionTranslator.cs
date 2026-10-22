@@ -83,7 +83,7 @@ namespace Chef.DbAccess.Querying
             return this.Translate(lambda.Body, null);
         }
 
-        private static bool IsPredicate(SqlExpression expression)
+        internal static bool IsPredicate(SqlExpression expression)
         {
             switch (expression)
             {
@@ -187,7 +187,7 @@ namespace Chef.DbAccess.Querying
         /// <summary>
         ///     <see cref="PartialEvaluator" /> 產生的參數名稱是 <c>__age_0</c>，取出中間的 <c>age</c>。
         /// </summary>
-        private static string GetBaseName(string parameterName)
+        internal static string GetBaseName(string parameterName)
         {
             var name = parameterName.StartsWith("__", StringComparison.Ordinal) ? parameterName.Substring(2) : parameterName;
             var underscore = name.LastIndexOf('_');
