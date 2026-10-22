@@ -71,12 +71,13 @@ namespace Chef.DbAccess.Querying
             }
         }
 
-        private static TranslatedQuery Build(QueryBuilder source, IEnumerable<ProjectionExpression> projections, Expression shaper, QueryResultKind resultKind)
+        private TranslatedQuery Build(QueryBuilder source, IEnumerable<ProjectionExpression> projections, Expression shaper, QueryResultKind resultKind)
         {
             return new TranslatedQuery(
                 new SelectExpression(projections, new[] { source.Table }, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
                 shaper,
-                resultKind);
+                resultKind,
+                this.context.ParameterBindings.ToDictionary(b => b.Key, b => b.Value));
         }
 
         /// <summary>
@@ -86,7 +87,7 @@ namespace Chef.DbAccess.Querying
         {
             var projection = new ProjectionBuilder(this.translator, source.Table, source.Selector);
 
-            return Build(source, projection.Projections, projection.Shaper, resultKind);
+            return this.Build(source, projection.Projections, projection.Shaper, resultKind);
         }
 
         /// <summary>
@@ -140,7 +141,7 @@ namespace Chef.DbAccess.Querying
 
                     source.Orderings.Clear();
 
-                    return Build(source, new[] { new ProjectionExpression(count, "Value") }, new ProjectionBindingExpression(0, type), resultKind);
+                    return this.Build(source, new[] { new ProjectionExpression(count, "Value") }, new ProjectionBindingExpression(0, type), resultKind);
 
                 default:
                     if (source.Limit != null) throw NotTranslatable(methodCall);
@@ -148,7 +149,7 @@ namespace Chef.DbAccess.Querying
                     source.Limit = new SqlConstantExpression(1, typeof(int));
                     source.Orderings.Clear();
 
-                    return Build(source, new[] { new ProjectionExpression(new SqlConstantExpression(1, typeof(int)), "Value") }, null, resultKind);
+                    return this.Build(source, new[] { new ProjectionExpression(new SqlConstantExpression(1, typeof(int)), "Value") }, null, resultKind);
             }
         }
 
@@ -268,8 +269,8 @@ namespace Chef.DbAccess.Querying
                 case ConstantExpression constant:
                     return new SqlConstantExpression(constant.Value, typeof(int));
 
-                case ParameterExpression parameter when this.context.TryGetParameterValue(parameter, out var value):
-                    return this.context.CreateParameter(SqlExpressionTranslator.GetBaseName(parameter.Name), value, typeof(int), null);
+                case ParameterExpression parameter when this.context.TryGetParameterValue(parameter, out _):
+                    return this.context.CreateParameter(parameter, typeof(int), null);
 
                 default: throw NotTranslatable(methodCall);
             }

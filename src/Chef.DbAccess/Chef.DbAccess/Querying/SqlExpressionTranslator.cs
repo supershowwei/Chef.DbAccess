@@ -184,17 +184,6 @@ namespace Chef.DbAccess.Querying
             return type.IsEnum ? Enum.GetUnderlyingType(type) : type;
         }
 
-        /// <summary>
-        ///     <see cref="PartialEvaluator" /> 產生的參數名稱是 <c>__age_0</c>，取出中間的 <c>age</c>。
-        /// </summary>
-        internal static string GetBaseName(string parameterName)
-        {
-            var name = parameterName.StartsWith("__", StringComparison.Ordinal) ? parameterName.Substring(2) : parameterName;
-            var underscore = name.LastIndexOf('_');
-
-            return underscore > 0 && name.Skip(underscore + 1).All(char.IsDigit) ? name.Substring(0, underscore) : name;
-        }
-
         private void Bind(LambdaExpression lambda, TableExpression[] tables)
         {
             if (lambda == null) throw new ArgumentNullException(nameof(lambda));
@@ -610,7 +599,8 @@ namespace Chef.DbAccess.Querying
         {
             var sqlItem = this.Translate(item, null);
             var property = FindProperty(sqlItem);
-            var baseName = StripConversion(collection) is ParameterExpression parameter ? GetBaseName(parameter.Name) : null;
+            var queryParameter = StripConversion(collection) as ParameterExpression;
+            var baseName = queryParameter == null ? null : SqlTranslationContext.GetBaseName(queryParameter.Name);
             var elements = (IEnumerable)this.GetValue(collection) ?? Array.Empty<object>();
 
             var values = new List<SqlExpression>();
@@ -622,9 +612,23 @@ namespace Chef.DbAccess.Querying
                 {
                     hasNull = true;
                 }
-                else
+                else if (queryParameter == null)
                 {
                     values.Add(this.context.CreateParameter(baseName, element, item.Type, property));
+                }
+                else
+                {
+                    // 下次執行時取新集合的第 i 個非 null 元素；QueryCacheKey 保證元素個數與是否有 null 相同。
+                    var name = queryParameter.Name;
+                    var index = values.Count;
+
+                    values.Add(
+                        this.context.CreateParameter(
+                            baseName,
+                            element,
+                            item.Type,
+                            property,
+                            parameterValues => ((IEnumerable)parameterValues[name]).Cast<object>().Where(e => e != null).ElementAt(index)));
                 }
             }
 
@@ -671,7 +675,7 @@ namespace Chef.DbAccess.Querying
 
                 if (LikePattern.NeedsEscape(value))
                 {
-                    pattern = new SqlParameterExpression(parameter.Name, LikePattern.Escape(value), parameter.Type, parameter.Property);
+                    pattern = this.context.TransformParameter(parameter, v => LikePattern.Escape((string)v));
                     escapeChar = LikePattern.EscapeChar;
                 }
             }
@@ -707,10 +711,7 @@ namespace Chef.DbAccess.Querying
 
         private SqlExpression TranslateParameter(ParameterExpression parameter, PropertyMetadata hint)
         {
-            if (this.context.TryGetParameterValue(parameter, out var value))
-            {
-                return this.context.CreateParameter(GetBaseName(parameter.Name), value, parameter.Type, hint);
-            }
+            if (this.context.TryGetParameterValue(parameter, out _)) return this.context.CreateParameter(parameter, parameter.Type, hint);
 
             throw this.NotTranslatable(parameter);
         }

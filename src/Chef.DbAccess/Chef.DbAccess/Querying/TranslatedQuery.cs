@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using Chef.DbAccess.SqlExpressions;
 
@@ -48,11 +50,16 @@ namespace Chef.DbAccess.Querying
     /// </summary>
     internal sealed class TranslatedQuery
     {
-        public TranslatedQuery(SelectExpression select, Expression shaper, QueryResultKind resultKind = QueryResultKind.Sequence)
+        public TranslatedQuery(
+            SelectExpression select,
+            Expression shaper,
+            QueryResultKind resultKind,
+            IReadOnlyDictionary<string, Func<IReadOnlyDictionary<string, object>, object>> parameterBindings)
         {
             this.Select = select;
             this.Shaper = shaper;
             this.ResultKind = resultKind;
+            this.ParameterBindings = parameterBindings;
         }
 
         public SelectExpression Select { get; }
@@ -66,5 +73,11 @@ namespace Chef.DbAccess.Querying
         public Expression Shaper { get; }
 
         public QueryResultKind ResultKind { get; }
+
+        /// <summary>
+        ///     SQL 參數名稱對應到「依查詢參數值算出 SQL 參數值」的方式（見 <see cref="SqlTranslationContext.ParameterBindings" />），
+        ///     快取命中時用新的查詢參數值重新算出每個 SQL 參數的值。
+        /// </summary>
+        public IReadOnlyDictionary<string, Func<IReadOnlyDictionary<string, object>, object>> ParameterBindings { get; }
     }
 }
