@@ -18,7 +18,8 @@ namespace Chef.DbAccess.SqlServer.Querying
                                                                                   {
                                                                                       SqlServerStringTranslator.Instance,
                                                                                       SqlServerDateTimeTranslator.Instance,
-                                                                                      SqlServerMathTranslator.Instance
+                                                                                      SqlServerMathTranslator.Instance,
+                                                                                      SqlServerFullTextTranslator.Instance
                                                                                   };
     }
 }

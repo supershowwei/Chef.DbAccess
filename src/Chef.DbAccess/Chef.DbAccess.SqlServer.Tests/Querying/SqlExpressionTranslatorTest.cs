@@ -11,6 +11,7 @@ using Chef.DbAccess.SqlExpressions;
 using Chef.DbAccess.SqlGeneration;
 using Chef.DbAccess.SqlServer.Querying;
 using Chef.DbAccess.SqlServer.SqlGeneration;
+using Chef.DbAccess.Syntax;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -422,6 +423,104 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
 
             Where(Translate(x => (x.Level ?? 0) > 3)).Should().Be("COALESCE([m].[Level], {=Level_0}) > {=Level_1}");
+        }
+
+        [TestMethod]
+        public void Collection_Contains_becomes_in()
+        {
+            var ids = new[] { 1, 2, 3 };
+            var ages = new List<int> { 10, 20 };
+
+            // 對應 3.x 的 [Id] = {=Id_0} OR [Id] = {=Id_1} OR [Id] = {=Id_2}。
+            var generated = Translate(x => ids.Contains(x.Id));
+
+            Where(generated).Should().Be("[m].[No] IN ({=Id_0}, {=Id_1}, {=Id_2})");
+            Parameter(generated, "Id_2").Value.Should().Be(3);
+
+            Where(Translate(x => ages.Contains(x.Age))).Should().Be("[m].[Age] IN ({=Age_0}, {=Age_1})");
+        }
+
+        [TestMethod]
+        public void Literal_string_array_Contains_carries_column()
+        {
+            var generated = Translate(x => new[] { "a", "b" }.Contains(x.Name));
+
+            Where(generated).Should().Be("[m].[first_name] IN (@Name_0, @Name_1)");
+            Parameter(generated, "Name_1").Property.ColumnTypeName.Should().Be("varchar");
+        }
+
+        [TestMethod]
+        public void Negated_collection_Contains_becomes_not_in()
+        {
+            var ids = new[] { 1, 2 };
+
+            Where(Translate(x => !ids.Contains(x.Id))).Should().Be("[m].[No] NOT IN ({=Id_0}, {=Id_1})");
+        }
+
+        [TestMethod]
+        public void Empty_collection_Contains()
+        {
+            var ids = new List<int>();
+
+            // 與 3.x 相同。
+            Where(Translate(x => ids.Contains(x.Id))).Should().Be("1 = 0");
+            Where(Translate(x => !ids.Contains(x.Id))).Should().Be("1 = 1");
+        }
+
+        [TestMethod]
+        public void Null_element_in_collection_adds_is_null()
+        {
+            var names = new[] { "a", null };
+            var onlyNull = new string[] { null };
+
+            Where(Translate(x => names.Contains(x.Name))).Should().Be("[m].[first_name] IN (@Name_0) OR [m].[first_name] IS NULL");
+            Where(Translate(x => !names.Contains(x.Name))).Should().Be("NOT ([m].[first_name] IN (@Name_0) OR [m].[first_name] IS NULL)");
+            Where(Translate(x => onlyNull.Contains(x.Name))).Should().Be("[m].[first_name] IS NULL");
+        }
+
+        [TestMethod]
+        public void Enum_collection_Contains()
+        {
+            var statuses = new[] { MemberStatus.Active };
+
+            var generated = Translate(x => statuses.Contains(x.Status));
+
+            Where(generated).Should().Be("[m].[Status] IN ({=Status_0})");
+            Parameter(generated, "Status_0").Value.Should().Be(MemberStatus.Active);
+        }
+
+#if NET5_0_OR_GREATER
+        // C# 14 起，ids.Contains(x.Id) 會綁定成 MemoryExtensions.Contains(ReadOnlySpan<int>.op_Implicit(ids), x.Id)。
+        // 這裡手動組出該形狀，讓測試不受編譯器版本影響。
+        [TestMethod]
+        public void Span_Contains_from_csharp_14_becomes_in()
+        {
+            var ids = new[] { 1, 2 };
+            Expression<Func<int[]>> idsExpr = () => ids;
+
+            var x = Expression.Parameter(typeof(Member), "x");
+            var span = Expression.Call(typeof(ReadOnlySpan<int>).GetMethod("op_Implicit", new[] { typeof(int[]) }), idsExpr.Body);
+            var contains = typeof(MemoryExtensions).GetMethods()
+                .Single(
+                    m => m.Name == nameof(MemoryExtensions.Contains) && m.IsGenericMethodDefinition && m.GetParameters().Length == 2
+                         && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>))
+                .MakeGenericMethod(typeof(int));
+            var predicate = Expression.Lambda<Func<Member, bool>>(Expression.Call(contains, span, Expression.Property(x, nameof(Member.Id))), x);
+
+            Where(Translate(predicate)).Should().Be("[m].[No] IN ({=Id_0}, {=Id_1})");
+        }
+#endif
+
+        [TestMethod]
+        public void Full_text_Includes_becomes_contains()
+        {
+            var generated = Translate(x => x.Name.Includes("Johnny"));
+
+            // 與 3.x 相同：CONTAINS([first_name], @FirstName_0)。
+            Where(generated).Should().Be("CONTAINS([m].[first_name], @Name_0)");
+            Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
+
+            Where(Translate(x => !x.Name.Includes("J") && x.Age > 1)).Should().Be("NOT (CONTAINS([m].[first_name], @Name_0)) AND ([m].[Age] > {=Age_0})");
         }
 
         [TestMethod]

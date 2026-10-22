@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -105,6 +106,10 @@ namespace Chef.DbAccess.Querying
                 case SqlUnaryExpression unary: return unary.Operator != SqlUnaryOperator.Negate;
                 case InExpression _: return true;
                 case LikeExpression _: return true;
+
+                // 回傳布林的函式是 SQL 的述詞，例如 SQL Server 全文檢索的 CONTAINS(...)。
+                case SqlFunctionExpression function: return function.Type == typeof(bool);
+
                 default: return false;
             }
         }
@@ -250,6 +255,9 @@ namespace Chef.DbAccess.Querying
 
                 return new SqlUnaryExpression(nullCheck, unary.Operand, typeof(bool));
             }
+
+            // !ids.Contains(x.Id) 直接輸出 NOT IN。
+            if (!value && sql is InExpression @in) return new InExpression(@in.Item, @in.Values, !@in.IsNegated);
 
             if (IsPredicate(sql)) return value ? sql : new SqlUnaryExpression(SqlUnaryOperator.Not, sql, typeof(bool));
 
@@ -494,6 +502,11 @@ namespace Chef.DbAccess.Querying
                 return this.TranslateIsNullOrEmpty(arguments[0]);
             }
 
+            if (this.TryGetCollectionContains(methodCall, out var collection, out var item))
+            {
+                return this.TranslateCollectionContains(collection, item);
+            }
+
             // 其他方法交給方言；引數含有 lambda（例如 Enumerable.Any）時這裡不處理。
             if (methodCall.Arguments.All(a => a.NodeType != ExpressionType.Lambda && a.NodeType != ExpressionType.Quote))
             {
@@ -537,6 +550,90 @@ namespace Chef.DbAccess.Querying
             }
 
             return translated;
+        }
+
+        /// <summary>
+        ///     集合（常數或閉包變數）的 <c>Contains</c>：<c>Enumerable.Contains(ids, x.Id)</c>、<c>list.Contains(x.Id)</c>，
+        ///     以及 C# 14 的 <c>MemoryExtensions.Contains(ReadOnlySpan&lt;int&gt;.op_Implicit(ids), x.Id)</c>。
+        /// </summary>
+        private bool TryGetCollectionContains(MethodCallExpression methodCall, out Expression collection, out Expression item)
+        {
+            collection = item = null;
+
+            if (methodCall.Method.Name != nameof(Enumerable.Contains) || methodCall.Method.ReturnType != typeof(bool)) return false;
+
+            if (methodCall.Object == null && methodCall.Arguments.Count == 2)
+            {
+                collection = StripSpanConversion(methodCall.Arguments[0]);
+                item = methodCall.Arguments[1];
+            }
+            else if (methodCall.Object != null && methodCall.Arguments.Count == 1)
+            {
+                collection = methodCall.Object;
+                item = methodCall.Arguments[0];
+            }
+            else
+            {
+                return false;
+            }
+
+            return collection.Type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(collection.Type) && this.IsValue(collection);
+        }
+
+        /// <summary>
+        ///     C# 14 把陣列轉成 <c>ReadOnlySpan&lt;T&gt;</c> / <c>Span&lt;T&gt;</c> 的 <c>op_Implicit</c>，PartialEvaluator 不會對 span 求值，裡面的陣列已經是參數。
+        /// </summary>
+        private static Expression StripSpanConversion(Expression expression)
+        {
+            var (method, operand) = expression is MethodCallExpression call && call.Arguments.Count == 1
+                                        ? (call.Method, call.Arguments[0])
+                                        : expression is UnaryExpression unary && unary.NodeType == ExpressionType.Convert
+                                            ? (unary.Method, unary.Operand)
+                                            : (null, null);
+
+            if (method == null || method.Name != "op_Implicit" || !method.DeclaringType.IsGenericType) return expression;
+
+            var definition = method.DeclaringType.GetGenericTypeDefinition();
+
+            return definition.FullName == "System.ReadOnlySpan`1" || definition.FullName == "System.Span`1" ? operand : expression;
+        }
+
+        /// <summary>
+        ///     輸出 <c>[Id] IN ({=Id_0}, {=Id_1})</c>，每個元素是一個參數並帶上欄位（3.x 是以 <c>OR</c> 串起 <c>=</c>）。
+        ///     <list type="bullet">
+        ///         <item>空集合（或集合本身是 <c>null</c>）輸出 <c>1 = 0</c>，<c>NOT</c> 時是 <c>1 = 1</c>（與 3.x 相同）。</item>
+        ///         <item>元素有 <c>null</c> 時另外加上 <c>OR [Name] IS NULL</c>，因為 <c>IN (NULL)</c> 比對不到 <c>NULL</c>。</item>
+        ///     </list>
+        ///     <para>SQL 依元素個數與是否有 <c>null</c> 而不同，所以 <see cref="QueryCacheKey" /> 也記錄這兩項。</para>
+        /// </summary>
+        private SqlExpression TranslateCollectionContains(Expression collection, Expression item)
+        {
+            var sqlItem = this.Translate(item, null);
+            var property = FindProperty(sqlItem);
+            var baseName = StripConversion(collection) is ParameterExpression parameter ? GetBaseName(parameter.Name) : null;
+            var elements = (IEnumerable)this.GetValue(collection) ?? Array.Empty<object>();
+
+            var values = new List<SqlExpression>();
+            var hasNull = false;
+
+            foreach (var element in elements)
+            {
+                if (element == null)
+                {
+                    hasNull = true;
+                }
+                else
+                {
+                    values.Add(this.context.CreateParameter(baseName, element, item.Type, property));
+                }
+            }
+
+            var isNull = new SqlUnaryExpression(SqlUnaryOperator.IsNull, sqlItem, typeof(bool));
+
+            if (!hasNull) return new InExpression(sqlItem, values);
+            if (values.Count == 0) return isNull;
+
+            return new SqlBinaryExpression(SqlBinaryOperator.OrElse, new InExpression(sqlItem, values), isNull, typeof(bool));
         }
 
         /// <summary>
@@ -626,6 +723,19 @@ namespace Chef.DbAccess.Querying
             expression = StripConversion(expression);
 
             return expression is ConstantExpression || (expression is ParameterExpression parameter && !this.tables.ContainsKey(parameter));
+        }
+
+        /// <summary>
+        ///     取得常數或查詢參數這次執行的值（呼叫前要先用 <see cref="IsValue" /> 確認）。
+        /// </summary>
+        private object GetValue(Expression expression)
+        {
+            switch (StripConversion(expression))
+            {
+                case ConstantExpression constant: return constant.Value;
+                case ParameterExpression parameter when this.context.TryGetParameterValue(parameter, out var value): return value;
+                default: throw this.NotTranslatable(expression);
+            }
         }
 
         private bool IsNullValue(Expression expression)

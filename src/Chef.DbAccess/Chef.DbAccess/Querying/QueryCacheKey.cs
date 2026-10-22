@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -13,13 +13,13 @@ namespace Chef.DbAccess.Querying
     ///             字串值需要 LIKE 跳脫的參數：<c>x.Name.Contains(keyword)</c> 只在值裡有 <c>%</c>、<c>_</c> 等字元時才加上 <c>ESCAPE</c>（見 <see cref="LikePattern" />）。
     ///             這裡不知道參數會不會用在 LIKE，所以所有字串參數都檢查，頂多多分出一個快取項目。
     ///         </item>
+    ///         <item>集合參數的元素個數與是否有 <c>null</c>：<c>ids.Contains(x.Id)</c> 輸出 <c>IN</c> 時每個元素是一個參數。</item>
     ///     </list>
     /// </summary>
     internal sealed class QueryCacheKey : IEquatable<QueryCacheKey>
     {
         private readonly Expression expression;
-        private readonly string[] nullParameterNames;
-        private readonly string[] likeEscapeParameterNames;
+        private readonly string[] valueSignatures;
         private readonly int hashCode;
 
         public QueryCacheKey(ParameterizedQuery query)
@@ -27,15 +27,17 @@ namespace Chef.DbAccess.Querying
             if (query == null) throw new ArgumentNullException(nameof(query));
 
             this.expression = query.Expression;
-            this.nullParameterNames = SortedNames(query.ParameterValues.Where(p => p.Value == null));
-            this.likeEscapeParameterNames = SortedNames(query.ParameterValues.Where(p => p.Value is string value && LikePattern.NeedsEscape(value)));
+            this.valueSignatures = query.ParameterValues.Select(p => (p.Key, Signature: GetValueSignature(p.Value)))
+                .Where(p => p.Signature != null)
+                .Select(p => string.Concat(p.Key, "=", p.Signature))
+                .OrderBy(s => s, StringComparer.Ordinal)
+                .ToArray();
 
             unchecked
             {
-                // 兩組名稱之間加上分隔值，避免同一個名稱出現在不同組時得到相同的雜湊值。
-                var hash = this.nullParameterNames.Aggregate(ExpressionEqualityComparer.Instance.GetHashCode(this.expression), Combine);
-
-                this.hashCode = this.likeEscapeParameterNames.Aggregate((hash * 31) + 1, Combine);
+                this.hashCode = this.valueSignatures.Aggregate(
+                    ExpressionEqualityComparer.Instance.GetHashCode(this.expression),
+                    (hash, signature) => (hash * 31) + StringComparer.Ordinal.GetHashCode(signature));
             }
         }
 
@@ -45,8 +47,7 @@ namespace Chef.DbAccess.Querying
             if (ReferenceEquals(this, other)) return true;
 
             return this.hashCode == other.hashCode
-                   && this.nullParameterNames.SequenceEqual(other.nullParameterNames, StringComparer.Ordinal)
-                   && this.likeEscapeParameterNames.SequenceEqual(other.likeEscapeParameterNames, StringComparer.Ordinal)
+                   && this.valueSignatures.SequenceEqual(other.valueSignatures, StringComparer.Ordinal)
                    && ExpressionEqualityComparer.Instance.Equals(this.expression, other.expression);
         }
 
@@ -60,16 +61,38 @@ namespace Chef.DbAccess.Querying
             return this.hashCode;
         }
 
-        private static string[] SortedNames(IEnumerable<KeyValuePair<string, object>> parameters)
+        /// <summary>
+        ///     參數值中會改變翻譯結果的狀態；不會改變時回傳 <c>null</c>。
+        /// </summary>
+        private static string GetValueSignature(object value)
         {
-            return parameters.Select(p => p.Key).OrderBy(n => n, StringComparer.Ordinal).ToArray();
-        }
-
-        private static int Combine(int hash, string name)
-        {
-            unchecked
+            switch (value)
             {
-                return (hash * 31) + StringComparer.Ordinal.GetHashCode(name);
+                case null: return "null";
+                case string str: return LikePattern.NeedsEscape(str) ? "like" : null;
+
+                // 二進位資料是單一個值，不是集合。
+                case byte[] _: return null;
+
+                case IEnumerable collection:
+                    var count = 0;
+                    var hasNull = false;
+
+                    foreach (var element in collection)
+                    {
+                        if (element == null)
+                        {
+                            hasNull = true;
+                        }
+                        else
+                        {
+                            count++;
+                        }
+                    }
+
+                    return hasNull ? string.Concat(count.ToString(), ",null") : count.ToString();
+
+                default: return null;
             }
         }
     }

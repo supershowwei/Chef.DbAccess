@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Linq.Expressions;
 using Chef.DbAccess.Querying;
 using FluentAssertions;
@@ -38,6 +39,18 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             // x.Name.Contains(name) 只在值需要跳脫時加上 ESCAPE，SQL 不同。
             withWildcard.Should().NotBe(plain);
             withWildcard.Should().Be(Key(Build("a_b", 40)));
+        }
+
+        [TestMethod]
+        public void Collection_size_and_null_element_give_different_keys()
+        {
+            Expression<Func<Member, bool>> BuildAges(int[] ages) => x => ages.Contains(x.Age);
+            Expression<Func<Member, bool>> BuildNames(string[] names) => x => names.Contains(x.Name);
+
+            // ids.Contains(x.Id) 輸出 IN，每個元素一個參數；元素有 null 時另外加上 IS NULL。
+            Key(BuildAges(new[] { 1, 2 })).Should().Be(Key(BuildAges(new[] { 3, 4 })));
+            Key(BuildAges(new[] { 1, 2 })).Should().NotBe(Key(BuildAges(new[] { 1, 2, 3 })));
+            Key(BuildNames(new[] { "a", "b" })).Should().NotBe(Key(BuildNames(new[] { "a", null })));
         }
 
         [TestMethod]
