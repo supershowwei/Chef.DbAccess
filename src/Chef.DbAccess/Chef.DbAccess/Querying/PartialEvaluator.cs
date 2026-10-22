@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -127,6 +128,8 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private sealed class Nominator : ExpressionVisitor
         {
+            private static readonly ConcurrentDictionary<Type, bool> ByRefLikeTypes = new ConcurrentDictionary<Type, bool>();
+
             private readonly HashSet<Expression> candidates = new HashSet<Expression>();
             private readonly List<IReadOnlyCollection<ParameterExpression>> scopes = new List<IReadOnlyCollection<ParameterExpression>>();
 
@@ -204,6 +207,10 @@ namespace Chef.DbAccess.Querying
 
             /// <summary>
             ///     lambda 本身不求值（但包含它的呼叫可以），參數則一定要由外面提供值。
+            ///     <para>
+            ///         <c>ReadOnlySpan&lt;T&gt;</c> 這類 ref struct 不能裝箱成 <see cref="object" />，所以不求值，改為求值裡面的陣列。
+            ///         C# 14 會把 <c>ids.Contains(x.Id)</c> 綁定成 <c>MemoryExtensions.Contains(ReadOnlySpan&lt;int&gt;.op_Implicit(ids), x.Id)</c>。
+            ///     </para>
             /// </summary>
             private static bool CanBeEvaluated(Expression node)
             {
@@ -214,8 +221,17 @@ namespace Chef.DbAccess.Querying
                     case ExpressionType.Quote:
                         return false;
 
-                    default: return true;
+                    default: return !IsByRefLike(node.Type);
                 }
+            }
+
+            private static bool IsByRefLike(Type type)
+            {
+                // netstandard2.0 沒有 Type.IsByRefLike，改看編譯器加上的 IsByRefLikeAttribute。
+                return type.IsValueType
+                       && ByRefLikeTypes.GetOrAdd(
+                           type,
+                           t => t.GetCustomAttributes(false).Any(a => a.GetType().FullName == "System.Runtime.CompilerServices.IsByRefLikeAttribute"));
             }
         }
 

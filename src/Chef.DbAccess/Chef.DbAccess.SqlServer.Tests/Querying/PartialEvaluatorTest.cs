@@ -123,6 +123,34 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             result.ParameterValues["__ids_0"].Should().BeSameAs(ids);
         }
 
+#if NET5_0_OR_GREATER
+        // C# 14 起，ids.Contains(x.Id) 會綁定成 MemoryExtensions.Contains(ReadOnlySpan<int>.op_Implicit(ids), x.Id)。
+        // 這裡手動組出該形狀，讓測試不受編譯器版本影響。
+        [TestMethod]
+        public void Span_conversion_is_not_evaluated_but_its_array_is()
+        {
+            var ids = new[] { 1, 2, 3 };
+            Expression<Func<int[]>> idsExpr = () => ids;
+
+            var x = Expression.Parameter(typeof(Member), "x");
+            var span = Expression.Call(typeof(ReadOnlySpan<int>).GetMethod("op_Implicit", new[] { typeof(int[]) }), idsExpr.Body);
+            var contains = typeof(MemoryExtensions).GetMethods()
+                .Single(
+                    m => m.Name == nameof(MemoryExtensions.Contains) && m.IsGenericMethodDefinition && m.GetParameters().Length == 2
+                         && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>))
+                .MakeGenericMethod(typeof(int));
+            var predicate = Expression.Lambda<Func<Member, bool>>(Expression.Call(contains, span, Expression.Property(x, nameof(Member.Id))), x);
+
+            var result = PartialEvaluator.Evaluate(predicate);
+
+            var call = (MethodCallExpression)((LambdaExpression)result.Expression).Body;
+            var conversion = call.Arguments[0].Should().BeAssignableTo<MethodCallExpression>().Which;
+            conversion.Method.Name.Should().Be("op_Implicit");
+            conversion.Arguments[0].Should().BeAssignableTo<ParameterExpression>().Which.Name.Should().Be("__ids_0");
+            result.ParameterValues["__ids_0"].Should().BeSameAs(ids);
+        }
+#endif
+
         [TestMethod]
         public void Query_root_and_queryable_operators_are_not_evaluated()
         {
