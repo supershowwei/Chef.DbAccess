@@ -228,7 +228,7 @@ namespace Chef.DbAccess.SqlGeneration
                 throw new InvalidOperationException($"Parameter '{parameter.Name}' is used with different values.");
             }
 
-            this.sql.Append(this.GetParameterPlaceholder(parameter.Name));
+            this.sql.Append(this.GetParameterPlaceholder(parameter));
         }
 
         protected virtual void VisitConstant(SqlConstantExpression constant)
@@ -308,9 +308,12 @@ namespace Chef.DbAccess.SqlGeneration
             return string.Concat("\"", identifier.Replace("\"", "\"\""), "\"");
         }
 
-        protected virtual string GetParameterPlaceholder(string name)
+        /// <summary>
+        ///     參數在 SQL 中的寫法，預設為 <c>@name</c>。方言可以依參數的值決定其他寫法。
+        /// </summary>
+        protected virtual string GetParameterPlaceholder(SqlParameterExpression parameter)
         {
-            return string.Concat("@", name);
+            return string.Concat("@", parameter.Name);
         }
 
         /// <summary>

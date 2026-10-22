@@ -1,14 +1,32 @@
-using System.Linq;
+using System;
+using System.Collections.Generic;
 using Chef.DbAccess.SqlExpressions;
 using Chef.DbAccess.SqlGeneration;
 
 namespace Chef.DbAccess.SqlServer.SqlGeneration
 {
     /// <summary>
-    ///     SQL Server（T-SQL）方言：<c>[ ]</c> 跳脫、<c>TOP(n)</c>、字串以 <c>+</c> 串接、布林常數為 <c>1</c> / <c>0</c>、預設加上 <c>WITH (NOLOCK)</c>。
+    ///     SQL Server（T-SQL）方言：<c>[ ]</c> 跳脫、<c>TOP(n)</c>、字串以 <c>+</c> 串接、布林常數為 <c>1</c> / <c>0</c>、預設加上 <c>WITH (NOLOCK)</c>、
+    ///     數值、布林與列舉參數使用 Dapper 的 <c>{=name}</c> 字面值替換。
     /// </summary>
     internal class SqlServerSqlGenerator : SqlGenerator
     {
+        private static readonly HashSet<Type> LiteralTypes = new HashSet<Type>
+                                                             {
+                                                                 typeof(bool),
+                                                                 typeof(byte),
+                                                                 typeof(sbyte),
+                                                                 typeof(short),
+                                                                 typeof(ushort),
+                                                                 typeof(int),
+                                                                 typeof(uint),
+                                                                 typeof(long),
+                                                                 typeof(ulong),
+                                                                 typeof(float),
+                                                                 typeof(double),
+                                                                 typeof(decimal)
+                                                             };
+
         public SqlServerSqlGenerator(bool withNoLock = true)
         {
             this.WithNoLock = withNoLock;
@@ -59,6 +77,20 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
             if (this.WithNoLock) this.Sql.Append(" WITH (NOLOCK)");
         }
 
+        /// <summary>
+        ///     數值、布林與列舉參數使用 Dapper 的字面值替換語法 <c>{=name}</c>，執行時由 Dapper 把值直接寫進 SQL
+        ///     （列舉寫成底層的數字），讓不同的值各自產生執行計畫，減少參數探查（parameter sniffing）造成的問題。
+        ///     <para>3.x 只對數值與布林這樣做，列舉用 <c>@name</c>。值為 <c>null</c> 時仍用 <c>@name</c>，避免寫成 <c>= null</c>。</para>
+        /// </summary>
+        protected override string GetParameterPlaceholder(SqlParameterExpression parameter)
+        {
+            var valueType = parameter.Value?.GetType();
+
+            return valueType != null && (valueType.IsEnum || LiteralTypes.Contains(valueType))
+                       ? string.Concat("{=", parameter.Name, "}")
+                       : base.GetParameterPlaceholder(parameter);
+        }
+
         protected override string Delimit(string identifier)
         {
             return string.Concat("[", identifier.Replace("]", "]]"), "]");
@@ -70,16 +102,15 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
         }
 
         /// <summary>
-        ///     布林輸出 <c>1</c> / <c>0</c>；含非 ASCII 字元的字串加上 <c>N</c> 前綴，避免在非 Unicode 定序下變成問號。
+        ///     布林輸出 <c>1</c> / <c>0</c>。
+        ///     <para>
+        ///         字串常數刻意不加 <c>N</c> 前綴：<c>N'...'</c> 與 <c>varchar</c> 欄位比較時，SQL Server 會把欄位隱含轉換成 <c>nvarchar</c>，
+        ///         可能用不到索引。使用者的字串值應該走參數，依欄位型別對應（見 <see cref="SqlServerParameterMapper" />）。
+        ///     </para>
         /// </summary>
         protected override string FormatConstant(object value)
         {
-            switch (value)
-            {
-                case bool boolean: return boolean ? "1" : "0";
-                case string str when str.Any(c => c > 127): return string.Concat("N", base.FormatConstant(str));
-                default: return base.FormatConstant(value);
-            }
+            return value is bool boolean ? boolean ? "1" : "0" : base.FormatConstant(value);
         }
     }
 }

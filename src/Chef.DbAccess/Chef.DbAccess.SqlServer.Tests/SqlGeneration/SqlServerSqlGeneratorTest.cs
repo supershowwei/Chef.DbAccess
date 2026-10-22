@@ -33,7 +33,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         public void StartsWith_OrderBy_Take_uses_top()
         {
             // 對應 3.x Query_StartsWith_OrderBy_Take。
-            // 差異：數值參數用 @Age_0 而不是 Dapper 的 {=Age_0}；LIKE 右邊的串接多一層括號；結尾沒有分號。
+            // 差異：LIKE 右邊的串接多一層括號；結尾沒有分號。
             var predicate = And(
                 Binary(SqlBinaryOperator.GreaterThanOrEqual, this.Age, Parameter("Age_0", 30)),
                 Binary(
@@ -53,7 +53,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
                 .Be(
                     "SELECT TOP(10) [mem_1].[Name], [mem_1].[Age]\n" +
                     "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
-                    "WHERE ([mem_1].[Age] >= @Age_0) AND ([mem_1].[Name] LIKE (@Name_0 + '%'))\n" +
+                    "WHERE ([mem_1].[Age] >= {=Age_0}) AND ([mem_1].[Name] LIKE (@Name_0 + '%'))\n" +
                     "ORDER BY [mem_1].[Age] ASC");
         }
 
@@ -98,7 +98,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
                 .Be(
                     "SELECT [mem_1].[No] AS [Id]\n" +
                     "FROM [tbl_member] [mem_1]\n" +
-                    "WHERE [mem_1].[No] = @Id_0");
+                    "WHERE [mem_1].[No] = {=Id_0}");
         }
 
         [TestMethod]
@@ -143,30 +143,23 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         }
 
         [TestMethod]
-        public void Boolean_and_unicode_constants()
+        public void Boolean_constant_is_bit_and_string_constant_has_no_unicode_prefix()
         {
+            // 字串常數刻意不加 N 前綴，避免 varchar 欄位被隱含轉換成 nvarchar 而用不到索引。
             var predicate = And(
                 Binary(SqlBinaryOperator.Equal, this.Column(nameof(Member.IsActive)), new SqlConstantExpression(true, typeof(bool))),
-                Binary(SqlBinaryOperator.NotEqual, this.Name, new SqlConstantExpression("業務", typeof(string))));
+                Binary(SqlBinaryOperator.NotEqual, this.Column(nameof(Member.Phone)), new SqlConstantExpression("業務", typeof(string))));
 
             Generate(new SelectExpression(new[] { this.Project(this.Name) }, new[] { this.table }, predicate))
                 .Should()
-                .EndWith("\nWHERE ([mem_1].[IsActive] = 1) AND ([mem_1].[Name] <> N'業務')");
-        }
-
-        [TestMethod]
-        public void Ascii_string_constant_has_no_unicode_prefix()
-        {
-            var predicate = Binary(SqlBinaryOperator.Equal, this.Name, new SqlConstantExpression("abc", typeof(string)));
-
-            Generate(new SelectExpression(new[] { this.Project(this.Name) }, new[] { this.table }, predicate)).Should().EndWith("= 'abc'");
+                .EndWith("\nWHERE ([mem_1].[IsActive] = 1) AND ([mem_1].[Phone] <> '業務')");
         }
 
         [TestMethod]
         public void InnerJoin_three_tables()
         {
             // 對應 3.x Query_InnerJoin_Three_Tables。
-            // 差異：數值參數用 @Age_0 而不是 {=Age_0}；結尾沒有分號。
+            // 差異：結尾沒有分號。
             var departmentEntity = EntityMetadata.For<Department>();
             var department = TableExpression.For(departmentEntity, "dep_2");
             var manager = TableExpression.For(MemberEntity, "mem_3");
@@ -202,7 +195,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
                     "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
                     "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[DepartmentId] = [dep_2].[Id]\n" +
                     "INNER JOIN [tbl_member] [mem_3] WITH (NOLOCK) ON [mem_1].[ManagerId] = [mem_3].[No]\n" +
-                    "WHERE [mem_1].[Age] > @Age_0\n" +
+                    "WHERE [mem_1].[Age] > {=Age_0}\n" +
                     "ORDER BY [mem_3].[Name] ASC");
         }
 
@@ -210,7 +203,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         public void LeftJoin_one_to_many()
         {
             // 對應 3.x Query_LeftJoin_One_To_Many。
-            // 差異：數值參數用 @Age_0 而不是 {=Age_0}；結尾沒有分號。
+            // 差異：結尾沒有分號。
             var departmentEntity = EntityMetadata.For<Department>();
             var department = TableExpression.For(departmentEntity, "dep_2");
 
@@ -235,7 +228,37 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
                     "SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [dep_2].[Id], [dep_2].[Name]\n" +
                     "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
                     "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
-                    "WHERE [mem_1].[Age] > @Age_0");
+                    "WHERE [mem_1].[Age] > {=Age_0}");
+        }
+
+        [TestMethod]
+        public void Numeric_and_boolean_parameters_use_dapper_literal_replacement()
+        {
+            // 數值、布林與列舉用 {=name}，其他型別用 @name；值為 null 時用 @name。
+            // 差異：3.x 的列舉用 @name。
+            var cases = new (object Value, string Placeholder)[]
+                        {
+                            (18, "{=p}"),
+                            (18L, "{=p}"),
+                            (1.5m, "{=p}"),
+                            (2.5d, "{=p}"),
+                            ((byte)1, "{=p}"),
+                            (true, "{=p}"),
+                            ("Johnny", "@p"),
+                            (new DateTime(2020, 1, 2), "@p"),
+                            (Guid.Empty, "@p"),
+                            (DayOfWeek.Monday, "{=p}"),
+                            (null, "@p")
+                        };
+
+            foreach (var (value, placeholder) in cases)
+            {
+                var predicate = Binary(SqlBinaryOperator.Equal, this.Age, new SqlParameterExpression("p", value, value?.GetType() ?? typeof(int?)));
+
+                Generate(new SelectExpression(new[] { this.Project(this.Name) }, new[] { this.table }, predicate))
+                    .Should()
+                    .EndWith($"= {placeholder}", because: value?.GetType().Name ?? "null");
+            }
         }
 
         /// <summary>
