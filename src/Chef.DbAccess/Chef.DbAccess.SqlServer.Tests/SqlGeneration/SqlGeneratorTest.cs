@@ -105,6 +105,23 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         }
 
         [TestMethod]
+        public void Case_with_multiple_when_clauses_and_without_else()
+        {
+            var @case = new CaseExpression(
+                new[]
+                {
+                    new CaseWhenClause(Binary(SqlBinaryOperator.GreaterThan, this.Age, Constant(60)), Constant(2)),
+                    new CaseWhenClause(Binary(SqlBinaryOperator.GreaterThan, this.Age, Constant(18)), Constant(1))
+                },
+                null,
+                typeof(int));
+
+            Generate(this.Select(Binary(SqlBinaryOperator.Equal, @case, Constant(1))))
+                .Sql.Should()
+                .EndWith("\nWHERE CASE WHEN \"m\".\"Age\" > 60 THEN 2 WHEN \"m\".\"Age\" > 18 THEN 1 END = 1");
+        }
+
+        [TestMethod]
         public void Unary_operators()
         {
             Generate(this.Select(new SqlUnaryExpression(SqlUnaryOperator.IsNull, this.Name, typeof(bool)))).Sql.Should().EndWith("\nWHERE \"m\".\"Name\" IS NULL");

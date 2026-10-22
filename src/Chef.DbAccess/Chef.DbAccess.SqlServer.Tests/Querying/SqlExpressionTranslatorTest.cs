@@ -383,6 +383,48 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void Conditional_becomes_case_when()
+        {
+            var generated = Translate(x => (x.Age > 18 ? x.Name : "minor") == "adult");
+
+            // 分支與比較的值都沿用 Name 欄位，varchar 欄位一樣送成 DbString。
+            Where(generated).Should().Be("CASE WHEN [m].[Age] > {=Age_0} THEN [m].[first_name] ELSE @Name_0 END = @Name_1");
+            Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
+            Parameter(generated, "Name_1").Value.Should().Be("adult");
+
+            Where(Translate(x => (x.Age > 18 ? 1 : 0) == 1)).Should().Be("CASE WHEN [m].[Age] > {=Age_0} THEN {=p_0} ELSE {=p_1} END = {=p_2}");
+        }
+
+        [TestMethod]
+        public void Conditional_with_predicate_branches_in_condition_becomes_and_or()
+        {
+            Where(Translate(x => x.IsActive ? x.Age > 18 : x.Age > 21))
+                .Should()
+                .Be(
+                    "(([m].[IsActive] = {=IsActive_0}) AND ([m].[Age] > {=Age_0})) OR " +
+                    "(NOT ([m].[IsActive] = {=IsActive_0}) AND ([m].[Age] > {=Age_1}))");
+        }
+
+        [TestMethod]
+        public void Conditional_with_predicate_branches_as_value_throws()
+        {
+            Action act = () => Translate(x => (x.IsActive ? x.Age > 18 : x.Age > 21) == true);
+
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate*");
+        }
+
+        [TestMethod]
+        public void Coalesce_becomes_coalesce()
+        {
+            var generated = Translate(x => (x.Name ?? "-") == "-");
+
+            Where(generated).Should().Be("COALESCE([m].[first_name], @Name_0) = @Name_1");
+            Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
+
+            Where(Translate(x => (x.Level ?? 0) > 3)).Should().Be("COALESCE([m].[Level], {=Level_0}) > {=Level_1}");
+        }
+
+        [TestMethod]
         public void Evaluated_client_value_becomes_parameter()
         {
             var generated = Translate(x => x.CreatedAt > DateTime.Today.AddDays(-7));

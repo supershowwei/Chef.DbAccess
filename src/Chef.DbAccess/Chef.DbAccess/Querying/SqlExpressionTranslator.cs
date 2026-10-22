@@ -15,6 +15,7 @@ namespace Chef.DbAccess.Querying
     ///         <item>和 <c>null</c> 比較輸出 <c>IS NULL</c> / <c>IS NOT NULL</c>，閉包變數的值是 <c>null</c> 時也一樣。</item>
     ///         <item>條件中單獨的布林欄位 <c>x.IsActive</c> 輸出 <c>[IsActive] = {=IsActive_0}</c>，<c>!x.IsActive</c> 的值為 <c>false</c>（與 3.x 相同）。</item>
     ///         <item>列舉、<c>Nullable&lt;T&gt;</c> 與數值之間的轉型直接沿用欄位，不輸出 <c>CAST</c>。</item>
+    ///         <item><c>?:</c> 輸出 <c>CASE WHEN</c>（條件中的布林分支改寫成 <c>AND</c> / <c>OR</c>）、<c>??</c> 輸出 <c>COALESCE</c>。</item>
     ///         <item>
     ///             <c>HasValue</c> / <c>Value</c>、<c>Equals</c>、<c>string.IsNullOrEmpty</c>，以及 <c>string</c> 的
     ///             <c>Contains</c> / <c>StartsWith</c> / <c>EndsWith</c>（<c>LIKE</c>）。
@@ -128,6 +129,10 @@ namespace Chef.DbAccess.Querying
 
                     return property != null && UnwrapType(property.ClrType) == UnwrapType(function.Type) ? property : null;
 
+                case CaseExpression @case:
+                    return @case.WhenClauses.Select(w => FindProperty(w.Result)).FirstOrDefault(p => p != null)
+                           ?? (@case.ElseResult == null ? null : FindProperty(@case.ElseResult));
+
                 default: return null;
             }
         }
@@ -213,6 +218,22 @@ namespace Chef.DbAccess.Querying
                     typeof(bool));
             }
 
+            // x => x.IsVip ? x.Age > 18 : x.Age > 21：SQL Server 的 CASE 不能回傳條件，改寫成 (test AND a) OR (NOT (test) AND b)。
+            if (expression is ConditionalExpression conditional)
+            {
+                var test = this.TranslatePredicate(conditional.Test);
+
+                return new SqlBinaryExpression(
+                    SqlBinaryOperator.OrElse,
+                    new SqlBinaryExpression(SqlBinaryOperator.AndAlso, test, this.TranslatePredicate(conditional.IfTrue), typeof(bool)),
+                    new SqlBinaryExpression(
+                        SqlBinaryOperator.AndAlso,
+                        new SqlUnaryExpression(SqlUnaryOperator.Not, test, typeof(bool)),
+                        this.TranslatePredicate(conditional.IfFalse),
+                        typeof(bool)),
+                    typeof(bool));
+            }
+
             return this.ToPredicate(this.Translate(expression, null), true, expression);
         }
 
@@ -258,8 +279,35 @@ namespace Chef.DbAccess.Querying
                 case MethodCallExpression methodCall: return this.TranslateMethodCall(methodCall, hint);
                 case ConstantExpression constant: return this.context.CreateParameter(null, constant.Value, constant.Type, hint);
                 case ParameterExpression parameter: return this.TranslateParameter(parameter, hint);
+                case ConditionalExpression conditional: return this.TranslateConditional(conditional, hint);
                 default: throw this.NotTranslatable(expression);
             }
+        }
+
+        /// <summary>
+        ///     <c>x.Age &gt; 18 ? x.Name : "minor"</c> 輸出 <c>CASE WHEN [Age] &gt; {=Age_0} THEN [Name] ELSE @Name_0 END</c>，
+        ///     值的那一邊沿用另一邊的欄位決定參數型別。回傳條件的分支（例如 <c>? x.Age &gt; 18 : ...</c>）只能放在條件中。
+        /// </summary>
+        private SqlExpression TranslateConditional(ConditionalExpression conditional, PropertyMetadata hint)
+        {
+            var test = this.TranslatePredicate(conditional.Test);
+            var (ifTrue, ifFalse) = this.TranslatePair(conditional.IfTrue, conditional.IfFalse, hint);
+
+            if (IsPredicate(ifTrue) || IsPredicate(ifFalse)) throw this.NotTranslatable(conditional);
+
+            return new CaseExpression(new[] { new CaseWhenClause(test, ifTrue) }, ifFalse, conditional.Type);
+        }
+
+        /// <summary>
+        ///     <c>x.Name ?? "-"</c> 輸出 <c>COALESCE([Name], @Name_0)</c>，<c>x.Level ?? 0</c> 輸出 <c>COALESCE([Level], {=Level_0})</c>。
+        /// </summary>
+        private SqlExpression TranslateCoalesce(BinaryExpression coalesce, PropertyMetadata hint)
+        {
+            if (coalesce.Conversion != null) throw this.NotTranslatable(coalesce);
+
+            var (left, right) = this.TranslatePair(coalesce.Left, coalesce.Right, hint);
+
+            return new SqlFunctionExpression("COALESCE", new[] { left, right }, coalesce.Type);
         }
 
         private SqlExpression TranslateBinary(BinaryExpression binary, PropertyMetadata hint)
@@ -278,6 +326,7 @@ namespace Chef.DbAccess.Querying
 
                 case ExpressionType.Equal: return this.TranslateEquality(binary.Left, binary.Right, false, hint);
                 case ExpressionType.NotEqual: return this.TranslateEquality(binary.Left, binary.Right, true, hint);
+                case ExpressionType.Coalesce: return this.TranslateCoalesce(binary, hint);
             }
 
             var (@operator, isComparison) = this.GetOperator(binary, isBoolean);

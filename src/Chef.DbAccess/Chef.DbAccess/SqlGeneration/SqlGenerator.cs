@@ -211,6 +211,10 @@ namespace Chef.DbAccess.SqlGeneration
                     this.sql.Append(fragment.Sql);
                     break;
 
+                case CaseExpression @case:
+                    this.VisitCase(@case);
+                    break;
+
                 default: throw new NotSupportedException($"Unsupported SQL expression '{expression.GetType().Name}'.");
             }
         }
@@ -288,6 +292,27 @@ namespace Chef.DbAccess.SqlGeneration
             this.sql.Append(function.Name).Append("(");
             this.GenerateList(function.Arguments, this.Visit);
             this.sql.Append(")");
+        }
+
+        protected virtual void VisitCase(CaseExpression @case)
+        {
+            this.sql.Append("CASE");
+
+            foreach (var whenClause in @case.WhenClauses)
+            {
+                this.sql.Append(" WHEN ");
+                this.Visit(whenClause.Test);
+                this.sql.Append(" THEN ");
+                this.Visit(whenClause.Result);
+            }
+
+            if (@case.ElseResult != null)
+            {
+                this.sql.Append(" ELSE ");
+                this.Visit(@case.ElseResult);
+            }
+
+            this.sql.Append(" END");
         }
 
         protected virtual void VisitLike(LikeExpression like)
