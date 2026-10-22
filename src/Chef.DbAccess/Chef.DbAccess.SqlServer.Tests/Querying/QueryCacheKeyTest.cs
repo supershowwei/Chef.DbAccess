@@ -30,6 +30,17 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void String_value_needing_like_escape_gives_different_key()
+        {
+            var plain = Key(Build("Johnny", 30));
+            var withWildcard = Key(Build("50%", 30));
+
+            // x.Name.Contains(name) 只在值需要跳脫時加上 ESCAPE，SQL 不同。
+            withWildcard.Should().NotBe(plain);
+            withWildcard.Should().Be(Key(Build("a_b", 40)));
+        }
+
+        [TestMethod]
         public void Different_shape_gives_different_key()
         {
             var name = "Johnny";

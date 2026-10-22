@@ -203,6 +203,10 @@ namespace Chef.DbAccess.SqlGeneration
                     this.VisitIn(@in);
                     break;
 
+                case LikeExpression like:
+                    this.VisitLike(like);
+                    break;
+
                 default: throw new NotSupportedException($"Unsupported SQL expression '{expression.GetType().Name}'.");
             }
         }
@@ -237,7 +241,7 @@ namespace Chef.DbAccess.SqlGeneration
         }
 
         /// <summary>
-        ///     運算元本身也是二元運算時一律加上括號，不依賴各資料庫的運算子優先順序。
+        ///     運算元本身也是二元運算（含 <c>LIKE</c>）時一律加上括號，不依賴各資料庫的運算子優先順序。
         /// </summary>
         protected virtual void VisitBinary(SqlBinaryExpression binary)
         {
@@ -280,6 +284,15 @@ namespace Chef.DbAccess.SqlGeneration
             this.sql.Append(function.Name).Append("(");
             this.GenerateList(function.Arguments, this.Visit);
             this.sql.Append(")");
+        }
+
+        protected virtual void VisitLike(LikeExpression like)
+        {
+            this.VisitOperand(like.Match);
+            this.sql.Append(" LIKE ");
+            this.VisitOperand(like.Pattern);
+
+            if (like.EscapeChar != null) this.sql.Append(" ESCAPE ").Append(this.FormatConstant(like.EscapeChar.Value.ToString()));
         }
 
         /// <summary>
@@ -339,7 +352,6 @@ namespace Chef.DbAccess.SqlGeneration
                 case SqlBinaryOperator.BitwiseAnd: return "&";
                 case SqlBinaryOperator.BitwiseOr: return "|";
                 case SqlBinaryOperator.BitwiseXor: return "^";
-                case SqlBinaryOperator.Like: return "LIKE";
                 default: throw new NotSupportedException($"Unsupported binary operator '{binary.Operator}'.");
             }
         }
@@ -373,7 +385,7 @@ namespace Chef.DbAccess.SqlGeneration
 
         private void VisitOperand(SqlExpression operand)
         {
-            if (operand is SqlBinaryExpression)
+            if (operand is SqlBinaryExpression || operand is LikeExpression)
             {
                 this.sql.Append("(");
                 this.Visit(operand);

@@ -42,11 +42,9 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlExpressions
             var predicate = new SqlBinaryExpression(
                 SqlBinaryOperator.AndAlso,
                 new SqlBinaryExpression(SqlBinaryOperator.GreaterThanOrEqual, age, new SqlParameterExpression("Age_0", 30, typeof(int)), typeof(bool)),
-                new SqlBinaryExpression(
-                    SqlBinaryOperator.Like,
+                new LikeExpression(
                     name,
-                    new SqlBinaryExpression(SqlBinaryOperator.Add, new SqlParameterExpression("Name_0", "J", typeof(string)), new SqlConstantExpression("%", typeof(string)), typeof(string)),
-                    typeof(bool)),
+                    new SqlBinaryExpression(SqlBinaryOperator.Add, new SqlParameterExpression("Name_0", "J", typeof(string)), new SqlConstantExpression("%", typeof(string)), typeof(string))),
                 typeof(bool));
 
             var select = new SelectExpression(

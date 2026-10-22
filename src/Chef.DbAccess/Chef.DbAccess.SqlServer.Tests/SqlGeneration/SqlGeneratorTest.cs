@@ -87,7 +87,21 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         {
             var pattern = new SqlBinaryExpression(SqlBinaryOperator.Add, Parameter("Name_0", "J"), new SqlConstantExpression("%", typeof(string)), typeof(string));
 
-            Generate(this.Select(Binary(SqlBinaryOperator.Like, this.Name, pattern))).Sql.Should().EndWith("\nWHERE \"m\".\"Name\" LIKE (@Name_0 || '%')");
+            Generate(this.Select(new LikeExpression(this.Name, pattern))).Sql.Should().EndWith("\nWHERE \"m\".\"Name\" LIKE (@Name_0 || '%')");
+        }
+
+        [TestMethod]
+        public void Like_with_escape_char()
+        {
+            Generate(this.Select(new LikeExpression(this.Name, Parameter("Name_0", "50\\%"), '\\'))).Sql.Should().EndWith("\nWHERE \"m\".\"Name\" LIKE @Name_0 ESCAPE '\\'");
+        }
+
+        [TestMethod]
+        public void Like_inside_and_is_parenthesized()
+        {
+            var predicate = And(Binary(SqlBinaryOperator.Equal, this.Age, Constant(1)), new LikeExpression(this.Name, Parameter("Name_0", "J")));
+
+            Generate(this.Select(predicate)).Sql.Should().EndWith("\nWHERE (\"m\".\"Age\" = 1) AND (\"m\".\"Name\" LIKE @Name_0)");
         }
 
         [TestMethod]

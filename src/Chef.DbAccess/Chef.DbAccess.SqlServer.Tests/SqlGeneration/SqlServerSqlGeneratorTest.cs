@@ -36,8 +36,7 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
             // 差異：LIKE 右邊的串接多一層括號；結尾沒有分號。
             var predicate = And(
                 Binary(SqlBinaryOperator.GreaterThanOrEqual, this.Age, Parameter("Age_0", 30)),
-                Binary(
-                    SqlBinaryOperator.Like,
+                new LikeExpression(
                     this.Name,
                     new SqlBinaryExpression(SqlBinaryOperator.Add, Parameter("Name_0", "J"), new SqlConstantExpression("%", typeof(string)), typeof(string))));
 

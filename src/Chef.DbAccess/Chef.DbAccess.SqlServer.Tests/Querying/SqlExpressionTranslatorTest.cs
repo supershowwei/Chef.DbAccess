@@ -168,6 +168,95 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void Nullable_HasValue_and_Value()
+        {
+            Where(Translate(x => x.Level.HasValue)).Should().Be("[m].[Level] IS NOT NULL");
+            Where(Translate(x => !x.Level.HasValue)).Should().Be("[m].[Level] IS NULL");
+            Where(Translate(x => x.Level.Value > 3)).Should().Be("[m].[Level] > {=Level_0}");
+        }
+
+        [TestMethod]
+        public void Equals_method_is_equality()
+        {
+            string name = null;
+
+            Where(Translate(x => x.Id.Equals(1))).Should().Be("[m].[No] = {=Id_0}");
+            Where(Translate(x => !x.Id.Equals(1))).Should().Be("NOT ([m].[No] = {=Id_0})");
+            Where(Translate(x => x.Name.Equals("J"))).Should().Be("[m].[first_name] = @Name_0");
+            Where(Translate(x => string.Equals(x.Name, name))).Should().Be("[m].[first_name] IS NULL");
+        }
+
+        [TestMethod]
+        public void Equals_with_boxed_enum_argument()
+        {
+            var generated = Translate(x => x.Status.Equals(MemberStatus.Active));
+
+            Where(generated).Should().Be("[m].[Status] = {=Status_0}");
+            Parameter(generated, "Status_0").Value.Should().Be(MemberStatus.Active);
+        }
+
+        [TestMethod]
+        public void String_Contains_StartsWith_EndsWith_become_like()
+        {
+            var keyword = "oh";
+
+            var generated = Translate(x => x.Name.Contains(keyword));
+
+            // 對應 3.x 的 [first_name] LIKE '%' + @FirstName_0 + '%'；差異：串接多了括號。
+            Where(generated).Should().Be("[m].[first_name] LIKE (('%' + @Name_0) + '%')");
+            Parameter(generated, "Name_0").Value.Should().Be("oh");
+            Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
+
+            Where(Translate(x => x.Name.StartsWith("J"))).Should().Be("[m].[first_name] LIKE (@Name_0 + '%')");
+            Where(Translate(x => x.Name.EndsWith("y"))).Should().Be("[m].[first_name] LIKE ('%' + @Name_0)");
+        }
+
+        [TestMethod]
+        public void Like_wildcards_in_value_are_escaped_with_escape_clause()
+        {
+            // 差異：3.x 不跳脫，"50%" 會比對到所有含 50 的資料。
+            var generated = Translate(x => x.Name.Contains("50%_[a]\\"));
+
+            Where(generated).Should().Be("[m].[first_name] LIKE (('%' + @Name_0) + '%') ESCAPE '\\'");
+            Parameter(generated, "Name_0").Value.Should().Be("50\\%\\_\\[a]\\\\");
+        }
+
+        [TestMethod]
+        public void Like_null_value_stays_null_without_escape_clause()
+        {
+            string keyword = null;
+
+            var generated = Translate(x => x.Name.StartsWith(keyword));
+
+            Where(generated).Should().Be("[m].[first_name] LIKE (@Name_0 + '%')");
+            Parameter(generated, "Name_0").Value.Should().BeNull();
+        }
+
+        [TestMethod]
+        public void Negated_string_Contains()
+        {
+            Where(Translate(x => !x.Name.Contains("a"))).Should().Be("NOT ([m].[first_name] LIKE (('%' + @Name_0) + '%'))");
+            Where(Translate(x => !x.Name.Contains("a_"))).Should().Be("NOT ([m].[first_name] LIKE (('%' + @Name_0) + '%') ESCAPE '\\')");
+        }
+
+        [TestMethod]
+        public void Like_column_pattern_is_escaped_with_replace()
+        {
+            Where(Translate(x => "Johnny".Contains(x.Name)))
+                .Should()
+                .Be(
+                    "@Name_0 LIKE (('%' + REPLACE(REPLACE(REPLACE(REPLACE([m].[first_name], '\\', '\\\\'), '%', '\\%'), '_', '\\_'), '[', '\\[')) + '%') ESCAPE '\\'");
+        }
+
+        [TestMethod]
+        public void String_method_overload_with_comparison_throws()
+        {
+            Action act = () => Translate(x => x.Name.StartsWith("J", StringComparison.OrdinalIgnoreCase));
+
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate*StartsWith*");
+        }
+
+        [TestMethod]
         public void Evaluated_client_value_becomes_parameter()
         {
             var generated = Translate(x => x.CreatedAt > DateTime.Today.AddDays(-7));

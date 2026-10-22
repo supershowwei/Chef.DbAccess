@@ -58,6 +58,16 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         }
 
         [TestMethod]
+        public void Value_longer_than_string_length_is_not_truncated()
+        {
+            // 差異：3.x 一律使用欄位長度，SqlClient 會把值截斷成 20 個字元。
+            var dbString = MapDbString(nameof(Customer.Phone), "091234567890123456789");
+
+            dbString.Value.Should().Be("091234567890123456789");
+            dbString.Length.Should().Be(-1);
+        }
+
+        [TestMethod]
         public void Length_is_minus_one_without_string_length()
         {
             MapDbString(nameof(Customer.Email), "a@b.c").Length.Should().Be(-1);

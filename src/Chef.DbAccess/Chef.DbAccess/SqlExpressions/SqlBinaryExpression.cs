@@ -19,12 +19,11 @@ namespace Chef.DbAccess.SqlExpressions
         Modulo,
         BitwiseAnd,
         BitwiseOr,
-        BitwiseXor,
-        Like
+        BitwiseXor
     }
 
     /// <summary>
-    ///     二元運算，例如 <c>[m].[Age] &gt; @Age_0</c>、<c>[m].[Name] LIKE @Name_0 + '%'</c>。
+    ///     二元運算，例如 <c>[m].[Age] &gt; @Age_0</c>、<c>@Name_0 + '%'</c>。<c>LIKE</c> 見 <see cref="LikeExpression" />。
     /// </summary>
     public sealed class SqlBinaryExpression : SqlExpression
     {

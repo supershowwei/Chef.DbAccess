@@ -21,6 +21,10 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
     ///     <list type="bullet">
     ///         <item>3.x 會把非字串的值強制轉型成字串（例如 <c>[Column(TypeName = "datetime2")]</c>），導致例外。</item>
     ///         <item>型別名稱先去掉長度再判斷，<c>varchar(20)</c> 視為 <c>varchar</c>。3.x 會把它當成 <c>nvarchar</c>。</item>
+    ///         <item>
+    ///             值比 <c>[StringLength]</c> 長時不使用欄位長度（長度為 -1，由 Dapper 決定）。3.x 一律使用欄位長度，SqlClient 會把值截斷，
+    ///             例如 <c>varchar(6)</c> 欄位用 <c>"Johnny Walker"</c> 查詢會變成比對 <c>"Johnny"</c>；LIKE 跳脫後的值也可能比欄位長。
+    ///         </item>
     ///         <item>3.x 不指定日期時間的 <see cref="DbType" />。</item>
     ///     </list>
     /// </summary>
@@ -51,7 +55,14 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
 
             var baseTypeName = GetBaseTypeName(typeName);
 
-            if (parameter.Value is string value) return (CreateDbString(value, baseTypeName, parameter.Property.MaxLength ?? -1), null);
+            if (parameter.Value is string value)
+            {
+                // 參數的 Size 小於值的長度時，SqlClient 會直接截斷值，可能變成比對到別的資料；超過欄位長度時改由 Dapper 決定長度。
+                var maxLength = parameter.Property.MaxLength;
+                var length = maxLength != null && value.Length <= maxLength.Value ? maxLength.Value : -1;
+
+                return (CreateDbString(value, baseTypeName, length), null);
+            }
 
             switch (baseTypeName)
             {

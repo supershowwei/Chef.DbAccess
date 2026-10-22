@@ -14,10 +14,11 @@ namespace Chef.DbAccess.Querying
     ///         <item>和 <c>null</c> 比較輸出 <c>IS NULL</c> / <c>IS NOT NULL</c>，閉包變數的值是 <c>null</c> 時也一樣。</item>
     ///         <item>條件中單獨的布林欄位 <c>x.IsActive</c> 輸出 <c>[IsActive] = {=IsActive_0}</c>，<c>!x.IsActive</c> 的值為 <c>false</c>（與 3.x 相同）。</item>
     ///         <item>列舉、<c>Nullable&lt;T&gt;</c> 與數值之間的轉型直接沿用欄位，不輸出 <c>CAST</c>。</item>
+    ///         <item><c>HasValue</c> / <c>Value</c>、<c>Equals</c>，以及 <c>string</c> 的 <c>Contains</c> / <c>StartsWith</c> / <c>EndsWith</c>（<c>LIKE</c>）。</item>
     ///     </list>
     ///     <para>
     ///         無法翻譯的運算式一律丟出 <see cref="NotSupportedException" />，並附上該段運算式，不在用戶端偷偷計算。
-    ///         <c>string</c>、<c>DateTime</c>、<c>Math</c> 等成員與方法之後由翻譯器擴充。
+    ///         其他 <c>string</c> 函式與 <c>DateTime</c>、<c>Math</c> 之後由各方言的翻譯器擴充。
     ///     </para>
     /// </summary>
     internal sealed class SqlExpressionTranslator
@@ -36,6 +37,8 @@ namespace Chef.DbAccess.Querying
                                                                  typeof(double),
                                                                  typeof(decimal)
                                                              };
+
+        private static readonly SqlConstantExpression Wildcard = new SqlConstantExpression("%", typeof(string));
 
         private readonly SqlTranslationContext context;
         private readonly Dictionary<ParameterExpression, TableExpression> tables = new Dictionary<ParameterExpression, TableExpression>();
@@ -81,7 +84,6 @@ namespace Chef.DbAccess.Querying
                         case SqlBinaryOperator.GreaterThanOrEqual:
                         case SqlBinaryOperator.AndAlso:
                         case SqlBinaryOperator.OrElse:
-                        case SqlBinaryOperator.Like:
                             return true;
 
                         default: return false;
@@ -89,6 +91,7 @@ namespace Chef.DbAccess.Querying
 
                 case SqlUnaryExpression unary: return unary.Operator != SqlUnaryOperator.Negate;
                 case InExpression _: return true;
+                case LikeExpression _: return true;
                 default: return false;
             }
         }
@@ -115,6 +118,14 @@ namespace Chef.DbAccess.Querying
             }
 
             return expression;
+        }
+
+        /// <summary>
+        ///     <c>Equals(object)</c> 的參數會先轉成 <see cref="object" />，去掉這層轉型才能比較型別。
+        /// </summary>
+        private static Expression StripObjectConversion(Expression expression)
+        {
+            return expression.NodeType == ExpressionType.Convert && expression.Type == typeof(object) ? ((UnaryExpression)expression).Operand : expression;
         }
 
         /// <summary>
@@ -189,6 +200,14 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private SqlExpression ToPredicate(SqlExpression sql, bool value, Expression source)
         {
+            // !x.Level.HasValue 直接輸出 IS NULL，不輸出 NOT (... IS NOT NULL)。
+            if (!value && sql is SqlUnaryExpression unary && (unary.Operator == SqlUnaryOperator.IsNull || unary.Operator == SqlUnaryOperator.IsNotNull))
+            {
+                var nullCheck = unary.Operator == SqlUnaryOperator.IsNull ? SqlUnaryOperator.IsNotNull : SqlUnaryOperator.IsNull;
+
+                return new SqlUnaryExpression(nullCheck, unary.Operand, typeof(bool));
+            }
+
             if (IsPredicate(sql)) return value ? sql : new SqlUnaryExpression(SqlUnaryOperator.Not, sql, typeof(bool));
 
             switch (sql)
@@ -213,7 +232,8 @@ namespace Chef.DbAccess.Querying
             {
                 case BinaryExpression binary: return this.TranslateBinary(binary, hint);
                 case UnaryExpression unary: return this.TranslateUnary(unary, hint);
-                case MemberExpression member: return this.TranslateMember(member);
+                case MemberExpression member: return this.TranslateMember(member, hint);
+                case MethodCallExpression methodCall: return this.TranslateMethodCall(methodCall, hint);
                 case ConstantExpression constant: return this.context.CreateParameter(null, constant.Value, constant.Type, hint);
                 case ParameterExpression parameter: return this.TranslateParameter(parameter, hint);
                 default: throw this.NotTranslatable(expression);
@@ -234,44 +254,52 @@ namespace Chef.DbAccess.Querying
                 case ExpressionType.Or when isBoolean:
                     return new SqlBinaryExpression(SqlBinaryOperator.OrElse, this.TranslatePredicate(binary.Left), this.TranslatePredicate(binary.Right), typeof(bool));
 
-                case ExpressionType.Equal when this.IsNullValue(binary.Right):
-                    return new SqlUnaryExpression(SqlUnaryOperator.IsNull, this.Translate(binary.Left, hint), typeof(bool));
-
-                case ExpressionType.Equal when this.IsNullValue(binary.Left):
-                    return new SqlUnaryExpression(SqlUnaryOperator.IsNull, this.Translate(binary.Right, hint), typeof(bool));
-
-                case ExpressionType.NotEqual when this.IsNullValue(binary.Right):
-                    return new SqlUnaryExpression(SqlUnaryOperator.IsNotNull, this.Translate(binary.Left, hint), typeof(bool));
-
-                case ExpressionType.NotEqual when this.IsNullValue(binary.Left):
-                    return new SqlUnaryExpression(SqlUnaryOperator.IsNotNull, this.Translate(binary.Right, hint), typeof(bool));
+                case ExpressionType.Equal: return this.TranslateEquality(binary.Left, binary.Right, false, hint);
+                case ExpressionType.NotEqual: return this.TranslateEquality(binary.Left, binary.Right, true, hint);
             }
 
             var (@operator, isComparison) = this.GetOperator(binary, isBoolean);
-
-            // 先翻譯含欄位的一邊，值的那一邊才能依欄位決定參數名稱與型別，例如 30 < x.Age。
-            SqlExpression left, right;
-
-            if (this.IsValue(binary.Left) && !this.IsValue(binary.Right))
-            {
-                right = this.Translate(binary.Right, hint);
-                left = this.Translate(binary.Left, FindProperty(right) ?? hint);
-            }
-            else
-            {
-                left = this.Translate(binary.Left, hint);
-                right = this.Translate(binary.Right, FindProperty(left) ?? hint);
-            }
+            var (left, right) = this.TranslatePair(binary.Left, binary.Right, hint);
 
             return new SqlBinaryExpression(@operator, left, right, isComparison ? typeof(bool) : binary.Type);
+        }
+
+        /// <summary>
+        ///     <c>==</c>、<c>!=</c> 與 <c>Equals</c>；其中一邊是 <c>null</c> 時輸出 <c>IS NULL</c> / <c>IS NOT NULL</c>。
+        /// </summary>
+        private SqlExpression TranslateEquality(Expression left, Expression right, bool isNegated, PropertyMetadata hint)
+        {
+            var nullCheck = isNegated ? SqlUnaryOperator.IsNotNull : SqlUnaryOperator.IsNull;
+
+            if (this.IsNullValue(right)) return new SqlUnaryExpression(nullCheck, this.Translate(left, hint), typeof(bool));
+            if (this.IsNullValue(left)) return new SqlUnaryExpression(nullCheck, this.Translate(right, hint), typeof(bool));
+
+            var (sqlLeft, sqlRight) = this.TranslatePair(left, right, hint);
+
+            return new SqlBinaryExpression(isNegated ? SqlBinaryOperator.NotEqual : SqlBinaryOperator.Equal, sqlLeft, sqlRight, typeof(bool));
+        }
+
+        /// <summary>
+        ///     先翻譯含欄位的一邊，值的那一邊才能依欄位決定參數名稱與型別，例如 <c>30 &lt; x.Age</c>、<c>"J".Contains(x.Name)</c>。
+        /// </summary>
+        private (SqlExpression Left, SqlExpression Right) TranslatePair(Expression left, Expression right, PropertyMetadata hint)
+        {
+            if (this.IsValue(left) && !this.IsValue(right))
+            {
+                var sqlRight = this.Translate(right, hint);
+
+                return (this.Translate(left, FindProperty(sqlRight) ?? hint), sqlRight);
+            }
+
+            var sqlLeft = this.Translate(left, hint);
+
+            return (sqlLeft, this.Translate(right, FindProperty(sqlLeft) ?? hint));
         }
 
         private (SqlBinaryOperator Operator, bool IsComparison) GetOperator(BinaryExpression binary, bool isBoolean)
         {
             switch (binary.NodeType)
             {
-                case ExpressionType.Equal: return (SqlBinaryOperator.Equal, true);
-                case ExpressionType.NotEqual: return (SqlBinaryOperator.NotEqual, true);
                 case ExpressionType.LessThan: return (SqlBinaryOperator.LessThan, true);
                 case ExpressionType.LessThanOrEqual: return (SqlBinaryOperator.LessThanOrEqual, true);
                 case ExpressionType.GreaterThan: return (SqlBinaryOperator.GreaterThan, true);
@@ -318,7 +346,7 @@ namespace Chef.DbAccess.Querying
             }
         }
 
-        private SqlExpression TranslateMember(MemberExpression member)
+        private SqlExpression TranslateMember(MemberExpression member, PropertyMetadata hint)
         {
             if (member.Expression is ParameterExpression parameter && this.tables.TryGetValue(parameter, out var table))
             {
@@ -329,7 +357,108 @@ namespace Chef.DbAccess.Querying
                 return table.Column(property);
             }
 
+            // x.Level.HasValue、x.Level.Value
+            if (member.Expression != null && Nullable.GetUnderlyingType(member.Expression.Type) != null)
+            {
+                switch (member.Member.Name)
+                {
+                    case nameof(Nullable<int>.HasValue):
+                        return new SqlUnaryExpression(SqlUnaryOperator.IsNotNull, this.Translate(member.Expression, hint), typeof(bool));
+
+                    case nameof(Nullable<int>.Value):
+                        return this.Translate(member.Expression, hint);
+                }
+            }
+
             throw this.NotTranslatable(member);
+        }
+
+        private SqlExpression TranslateMethodCall(MethodCallExpression methodCall, PropertyMetadata hint)
+        {
+            var method = methodCall.Method;
+            var arguments = methodCall.Arguments;
+
+            if (method.Name == nameof(object.Equals) && method.ReturnType == typeof(bool))
+            {
+                // x.Id.Equals(1)、x.Status.Equals(status)（參數會先轉成 object）、string.Equals(x.Name, name)
+                var (left, right) = methodCall.Object != null && arguments.Count == 1
+                                        ? (methodCall.Object, StripObjectConversion(arguments[0]))
+                                        : method.DeclaringType == typeof(string) && method.IsStatic && arguments.Count == 2
+                                            ? (arguments[0], arguments[1])
+                                            : (null, null);
+
+                // PartialEvaluator 會把 Convert(MemberStatus.Active, object) 摺疊成型別為 object 的常數，這種值也接受。
+                if (left != null && (UnwrapType(left.Type) == UnwrapType(right.Type) || (right.Type == typeof(object) && this.IsValue(right))))
+                {
+                    return this.TranslateEquality(left, right, false, hint);
+                }
+            }
+
+            if (method.DeclaringType == typeof(string) && methodCall.Object != null && arguments.Count == 1 && arguments[0].Type == typeof(string))
+            {
+                switch (method.Name)
+                {
+                    case nameof(string.Contains): return this.TranslateLike(methodCall, true, true, hint);
+                    case nameof(string.StartsWith): return this.TranslateLike(methodCall, false, true, hint);
+                    case nameof(string.EndsWith): return this.TranslateLike(methodCall, true, false, hint);
+                }
+            }
+
+            throw this.NotTranslatable(methodCall);
+        }
+
+        /// <summary>
+        ///     <c>x.Name.Contains(keyword)</c> 輸出 <c>[Name] LIKE '%' + @Name_0 + '%'</c>，<c>StartsWith</c>、<c>EndsWith</c> 只在一邊加上 <c>%</c>。
+        ///     <para>
+        ///         值裡有 <c>%</c>、<c>_</c>、<c>[</c> 或 <c>\</c> 時才跳脫並加上 <c>ESCAPE '\'</c>，和 C# 一樣只比對字面上的文字（3.x 不跳脫）；
+        ///         沒有時輸出與 3.x 相同（見 <see cref="LikePattern" />）。
+        ///         欄位等其他運算式無法事先知道值，一律在 SQL 中以 <c>REPLACE</c> 跳脫並加上 <c>ESCAPE</c>。
+        ///     </para>
+        /// </summary>
+        private SqlExpression TranslateLike(MethodCallExpression methodCall, bool leadingWildcard, bool trailingWildcard, PropertyMetadata hint)
+        {
+            var (instance, pattern) = this.TranslatePair(methodCall.Object, methodCall.Arguments[0], hint);
+
+            char? escapeChar = null;
+
+            if (pattern is SqlParameterExpression parameter)
+            {
+                var value = (string)parameter.Value;
+
+                if (LikePattern.NeedsEscape(value))
+                {
+                    pattern = new SqlParameterExpression(parameter.Name, LikePattern.Escape(value), parameter.Type, parameter.Property);
+                    escapeChar = LikePattern.EscapeChar;
+                }
+            }
+            else
+            {
+                pattern = EscapeInSql(pattern);
+                escapeChar = LikePattern.EscapeChar;
+            }
+
+            if (leadingWildcard) pattern = new SqlBinaryExpression(SqlBinaryOperator.Add, Wildcard, pattern, typeof(string));
+            if (trailingWildcard) pattern = new SqlBinaryExpression(SqlBinaryOperator.Add, pattern, Wildcard, typeof(string));
+
+            return new LikeExpression(instance, pattern, escapeChar);
+        }
+
+        private static SqlExpression EscapeInSql(SqlExpression pattern)
+        {
+            foreach (var specialChar in LikePattern.SpecialChars)
+            {
+                pattern = new SqlFunctionExpression(
+                    "REPLACE",
+                    new SqlExpression[]
+                    {
+                        pattern,
+                        new SqlConstantExpression(specialChar.ToString(), typeof(string)),
+                        new SqlConstantExpression(string.Concat(LikePattern.EscapeChar.ToString(), specialChar.ToString()), typeof(string))
+                    },
+                    typeof(string));
+            }
+
+            return pattern;
         }
 
         private SqlExpression TranslateParameter(ParameterExpression parameter, PropertyMetadata hint)
