@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using Chef.DbAccess.Metadata;
 using Chef.DbAccess.Querying;
 using Chef.DbAccess.SqlExpressions;
 using Chef.DbAccess.SqlGeneration;
+using Chef.DbAccess.SqlServer.Querying;
 using Chef.DbAccess.SqlServer.SqlGeneration;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -257,6 +259,61 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void String_IsNullOrEmpty_uses_like_empty()
+        {
+            Where(Translate(x => string.IsNullOrEmpty(x.Name))).Should().Be("[m].[first_name] IS NULL OR ([m].[first_name] LIKE '')");
+            Where(Translate(x => !string.IsNullOrEmpty(x.Name))).Should().Be("NOT ([m].[first_name] IS NULL OR ([m].[first_name] LIKE ''))");
+        }
+
+        [TestMethod]
+        public void String_Length_becomes_len()
+        {
+            var generated = Translate(x => x.Name.Length > 3);
+
+            // LEN 的結果不是字串，比較的值不沿用 varchar 欄位。
+            Where(generated).Should().Be("LEN([m].[first_name]) > {=p_0}");
+            Parameter(generated, "p_0").Property.Should().BeNull();
+        }
+
+        [TestMethod]
+        public void String_ToUpper_ToLower_Trim()
+        {
+            var generated = Translate(x => x.Name.ToUpper() == "JOHNNY");
+
+            // 回傳字串的函式沿用欄位，varchar 欄位一樣送成 DbString。
+            Where(generated).Should().Be("UPPER([m].[first_name]) = @Name_0");
+            Parameter(generated, "Name_0").Property.ColumnTypeName.Should().Be("varchar");
+
+            Where(Translate(x => x.Name.ToLower() == "johnny")).Should().Be("LOWER([m].[first_name]) = @Name_0");
+            Where(Translate(x => x.Name.Trim() == "johnny")).Should().Be("LTRIM(RTRIM([m].[first_name])) = @Name_0");
+        }
+
+        [TestMethod]
+        public void String_Substring_is_one_based()
+        {
+            var start = 2;
+
+            Where(Translate(x => x.Name.Substring(1, 2) == "oh")).Should().Be("SUBSTRING([m].[first_name], {=p_0} + 1, {=p_1}) = @Name_0");
+            Where(Translate(x => x.Name.Substring(start) == "hnny")).Should().Be("SUBSTRING([m].[first_name], {=start_0} + 1, LEN([m].[first_name])) = @Name_0");
+        }
+
+        [TestMethod]
+        public void String_method_overload_with_culture_throws()
+        {
+            Action act = () => Translate(x => x.Name.ToUpper(CultureInfo.InvariantCulture) == "A");
+
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate*ToUpper*");
+        }
+
+        [TestMethod]
+        public void String_functions_need_dialect_translators()
+        {
+            Action act = () => Translate(x => x.Name.Length > 3, withSqlServerTranslators: false);
+
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate 'x.Name.Length'*");
+        }
+
+        [TestMethod]
         public void Evaluated_client_value_becomes_parameter()
         {
             var generated = Translate(x => x.CreatedAt > DateTime.Today.AddDays(-7));
@@ -276,9 +333,9 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         [TestMethod]
         public void Untranslatable_expression_throws_with_expression()
         {
-            Action act = () => Translate(x => x.Name.Trim() == "a");
+            Action act = () => Translate(x => x.Name.PadLeft(3) == "a");
 
-            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate 'x.Name.Trim()' in 'x => (x.Name.Trim() == \"a\")' to SQL.");
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate 'x.Name.PadLeft(3)' in 'x => (x.Name.PadLeft(3) == \"a\")' to SQL.");
         }
 
         [TestMethod]
@@ -292,11 +349,16 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             act.Should().Throw<ArgumentException>();
         }
 
-        private static GeneratedSql Translate(Expression<Func<Member, bool>> predicate)
+        private static GeneratedSql Translate(Expression<Func<Member, bool>> predicate, bool withSqlServerTranslators = true)
         {
             var query = PartialEvaluator.Evaluate(predicate);
             var table = TableExpression.For(MemberEntity, "m");
-            var translator = new SqlExpressionTranslator(new SqlTranslationContext(query.ParameterValues));
+            var translator = withSqlServerTranslators
+                                 ? new SqlExpressionTranslator(
+                                     new SqlTranslationContext(query.ParameterValues),
+                                     new[] { SqlServerStringTranslator.Instance },
+                                     new[] { SqlServerStringTranslator.Instance })
+                                 : new SqlExpressionTranslator(new SqlTranslationContext(query.ParameterValues));
 
             var condition = translator.TranslatePredicate((LambdaExpression)query.Expression, table);
 

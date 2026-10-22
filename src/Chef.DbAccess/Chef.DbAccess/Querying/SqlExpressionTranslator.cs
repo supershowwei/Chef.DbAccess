@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Chef.DbAccess.Metadata;
 using Chef.DbAccess.SqlExpressions;
 
@@ -14,12 +15,13 @@ namespace Chef.DbAccess.Querying
     ///         <item>和 <c>null</c> 比較輸出 <c>IS NULL</c> / <c>IS NOT NULL</c>，閉包變數的值是 <c>null</c> 時也一樣。</item>
     ///         <item>條件中單獨的布林欄位 <c>x.IsActive</c> 輸出 <c>[IsActive] = {=IsActive_0}</c>，<c>!x.IsActive</c> 的值為 <c>false</c>（與 3.x 相同）。</item>
     ///         <item>列舉、<c>Nullable&lt;T&gt;</c> 與數值之間的轉型直接沿用欄位，不輸出 <c>CAST</c>。</item>
-    ///         <item><c>HasValue</c> / <c>Value</c>、<c>Equals</c>，以及 <c>string</c> 的 <c>Contains</c> / <c>StartsWith</c> / <c>EndsWith</c>（<c>LIKE</c>）。</item>
+    ///         <item>
+    ///             <c>HasValue</c> / <c>Value</c>、<c>Equals</c>、<c>string.IsNullOrEmpty</c>，以及 <c>string</c> 的
+    ///             <c>Contains</c> / <c>StartsWith</c> / <c>EndsWith</c>（<c>LIKE</c>）。
+    ///         </item>
+    ///         <item>其他成員與方法（<c>x.Name.Length</c>、<c>x.Name.ToUpper()</c>……）交給方言提供的 <see cref="IMemberTranslator" /> 與 <see cref="IMethodCallTranslator" />。</item>
     ///     </list>
-    ///     <para>
-    ///         無法翻譯的運算式一律丟出 <see cref="NotSupportedException" />，並附上該段運算式，不在用戶端偷偷計算。
-    ///         其他 <c>string</c> 函式與 <c>DateTime</c>、<c>Math</c> 之後由各方言的翻譯器擴充。
-    ///     </para>
+    ///     <para>無法翻譯的運算式一律丟出 <see cref="NotSupportedException" />，並附上該段運算式，不在用戶端偷偷計算。</para>
     /// </summary>
     internal sealed class SqlExpressionTranslator
     {
@@ -41,12 +43,22 @@ namespace Chef.DbAccess.Querying
         private static readonly SqlConstantExpression Wildcard = new SqlConstantExpression("%", typeof(string));
 
         private readonly SqlTranslationContext context;
+        private readonly IReadOnlyList<IMemberTranslator> memberTranslators;
+        private readonly IReadOnlyList<IMethodCallTranslator> methodCallTranslators;
         private readonly Dictionary<ParameterExpression, TableExpression> tables = new Dictionary<ParameterExpression, TableExpression>();
         private LambdaExpression lambda;
 
-        public SqlExpressionTranslator(SqlTranslationContext context)
+        /// <param name="context">同一個查詢共用的參數值與參數命名。</param>
+        /// <param name="memberTranslators">方言提供的成員翻譯器，依序嘗試。</param>
+        /// <param name="methodCallTranslators">方言提供的方法翻譯器，依序嘗試。</param>
+        public SqlExpressionTranslator(
+            SqlTranslationContext context,
+            IEnumerable<IMemberTranslator> memberTranslators = null,
+            IEnumerable<IMethodCallTranslator> methodCallTranslators = null)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.memberTranslators = memberTranslators?.ToArray() ?? Array.Empty<IMemberTranslator>();
+            this.methodCallTranslators = methodCallTranslators?.ToArray() ?? Array.Empty<IMethodCallTranslator>();
         }
 
         /// <summary>
@@ -98,6 +110,10 @@ namespace Chef.DbAccess.Querying
 
         /// <summary>
         ///     找出運算式裡第一個欄位，讓另一邊的值可以依這個欄位決定參數名稱與型別，例如 <c>(x.Id &amp; 1) &gt; 2</c> 的 <c>2</c> 對應到 <c>Id</c>。
+        ///     <para>
+        ///         函式只在回傳型別與欄位相同時才沿用欄位，例如 <c>UPPER([Name]) = @Name_0</c> 沿用（<c>varchar</c> 欄位一樣送成 DbString），
+        ///         <c>LEN([Name]) &gt; 3</c> 不沿用。
+        ///     </para>
         /// </summary>
         private static PropertyMetadata FindProperty(SqlExpression expression)
         {
@@ -106,6 +122,12 @@ namespace Chef.DbAccess.Querying
                 case ColumnExpression column: return column.Property;
                 case SqlBinaryExpression binary: return FindProperty(binary.Left) ?? FindProperty(binary.Right);
                 case SqlUnaryExpression unary: return FindProperty(unary.Operand);
+
+                case SqlFunctionExpression function:
+                    var property = function.Arguments.Select(FindProperty).FirstOrDefault(p => p != null);
+
+                    return property != null && UnwrapType(property.ClrType) == UnwrapType(function.Type) ? property : null;
+
                 default: return null;
             }
         }
@@ -370,6 +392,20 @@ namespace Chef.DbAccess.Querying
                 }
             }
 
+            // x.Name.Length 等交給方言。靜態成員（DateTime.Now）已經由 PartialEvaluator 在用戶端求值。
+            if (member.Expression != null)
+            {
+                var instance = this.Translate(member.Expression, null);
+                var returnType = (member.Member as PropertyInfo)?.PropertyType ?? ((FieldInfo)member.Member).FieldType;
+
+                foreach (var translator in this.memberTranslators)
+                {
+                    var translated = translator.Translate(instance, member.Member, returnType);
+
+                    if (translated != null) return translated;
+                }
+            }
+
             throw this.NotTranslatable(member);
         }
 
@@ -404,7 +440,69 @@ namespace Chef.DbAccess.Querying
                 }
             }
 
+            if (method.DeclaringType == typeof(string) && method.Name == nameof(string.IsNullOrEmpty) && arguments.Count == 1)
+            {
+                return this.TranslateIsNullOrEmpty(arguments[0]);
+            }
+
+            // 其他方法交給方言；引數含有 lambda（例如 Enumerable.Any）時這裡不處理。
+            if (methodCall.Arguments.All(a => a.NodeType != ExpressionType.Lambda && a.NodeType != ExpressionType.Quote))
+            {
+                var parts = this.TranslateAll(methodCall.Object == null ? arguments : new[] { methodCall.Object }.Concat(arguments).ToArray(), hint);
+                var instance = methodCall.Object == null ? null : parts[0];
+                var sqlArguments = methodCall.Object == null ? parts : parts.Skip(1).ToArray();
+
+                foreach (var translator in this.methodCallTranslators)
+                {
+                    var translated = translator.Translate(instance, method, sqlArguments);
+
+                    if (translated != null) return translated;
+                }
+            }
+
             throw this.NotTranslatable(methodCall);
+        }
+
+        /// <summary>
+        ///     和 <see cref="TranslatePair" /> 一樣先翻譯含欄位的部分，值再依第一個欄位決定參數名稱與型別；
+        ///     但只有型別相同的值才沿用欄位，例如 <c>x.Name.Substring(1, 2)</c> 的 1、2 不會變成 <c>Name_0</c>。
+        /// </summary>
+        private IReadOnlyList<SqlExpression> TranslateAll(IReadOnlyList<Expression> expressions, PropertyMetadata hint)
+        {
+            var translated = new SqlExpression[expressions.Count];
+
+            for (var i = 0; i < expressions.Count; i++)
+            {
+                if (!this.IsValue(expressions[i])) translated[i] = this.Translate(expressions[i], hint);
+            }
+
+            var property = translated.Where(t => t != null).Select(FindProperty).FirstOrDefault(p => p != null) ?? hint;
+
+            for (var i = 0; i < expressions.Count; i++)
+            {
+                if (translated[i] != null) continue;
+
+                var valueHint = property != null && UnwrapType(property.ClrType) == UnwrapType(expressions[i].Type) ? property : null;
+
+                translated[i] = this.Translate(expressions[i], valueHint);
+            }
+
+            return translated;
+        }
+
+        /// <summary>
+        ///     <c>string.IsNullOrEmpty(x.Name)</c> 輸出 <c>[Name] IS NULL OR [Name] LIKE ''</c>。
+        ///     不用 <c>= ''</c>：SQL Server 比較字串時會忽略結尾空白，<c>'  ' = ''</c> 為真，但 C# 的 <c>IsNullOrEmpty("  ")</c> 為假。
+        /// </summary>
+        private SqlExpression TranslateIsNullOrEmpty(Expression argument)
+        {
+            var value = this.Translate(argument, null);
+
+            return new SqlBinaryExpression(
+                SqlBinaryOperator.OrElse,
+                new SqlUnaryExpression(SqlUnaryOperator.IsNull, value, typeof(bool)),
+                new LikeExpression(value, new SqlConstantExpression(string.Empty, typeof(string))),
+                typeof(bool));
         }
 
         /// <summary>
