@@ -314,6 +314,75 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void DateTime_parts_become_datepart()
+        {
+            Where(Translate(x => x.CreatedAt.Year == 2020)).Should().Be("DATEPART(year, [m].[CreatedAt]) = {=p_0}");
+            Where(Translate(x => x.CreatedAt.Month == 1 && x.CreatedAt.Hour > 8))
+                .Should()
+                .Be("(DATEPART(month, [m].[CreatedAt]) = {=p_0}) AND (DATEPART(hour, [m].[CreatedAt]) > {=p_1})");
+            Where(Translate(x => x.UpdatedAt.Day == 1)).Should().Be("DATEPART(day, [m].[UpdatedAt]) = {=p_0}");
+        }
+
+        [TestMethod]
+        public void DateTime_Date_becomes_convert_to_date()
+        {
+            var today = DateTime.Today;
+
+            var generated = Translate(x => x.CreatedAt.Date == today);
+
+            // CONVERT(date, ...) 的結果是日期，比較的值沿用 CreatedAt 欄位。
+            Where(generated).Should().Be("CONVERT(date, [m].[CreatedAt]) = @CreatedAt_0");
+            Parameter(generated, "CreatedAt_0").Value.Should().Be(today);
+        }
+
+        [TestMethod]
+        public void DateTime_add_methods_become_dateadd()
+        {
+            var now = DateTime.Now;
+
+            Where(Translate(x => x.CreatedAt.AddMonths(-1) > now)).Should().Be("DATEADD(month, {=p_0}, [m].[CreatedAt]) > @CreatedAt_0");
+            Where(Translate(x => x.CreatedAt.AddYears(1) > now)).Should().Be("DATEADD(year, {=p_0}, [m].[CreatedAt]) > @CreatedAt_0");
+        }
+
+        [TestMethod]
+        public void DateTime_add_methods_keep_fraction_as_milliseconds()
+        {
+            var now = DateTime.Now;
+
+            // DATEADD 會捨去小數，所以整數部分用原本的單位，小數部分換算成毫秒；已在 LocalDB 確認 1.5、-1.5、0.1、-0.25 天的結果與 C# 相同。
+            var generated = Translate(x => x.CreatedAt.AddDays(1.5) > now);
+
+            Where(generated)
+                .Should()
+                .Be("DATEADD(millisecond, ROUND(({=p_0} - FLOOR({=p_0})) * 86400000, 0), DATEADD(day, FLOOR({=p_0}), [m].[CreatedAt])) > @CreatedAt_0");
+            Parameter(generated, "p_0").Value.Should().Be(1.5);
+
+            Where(Translate(x => x.CreatedAt.AddHours(1.5) > now))
+                .Should()
+                .Be("DATEADD(millisecond, ROUND(({=p_0} - FLOOR({=p_0})) * 3600000, 0), DATEADD(hour, FLOOR({=p_0}), [m].[CreatedAt])) > @CreatedAt_0");
+
+            Where(Translate(x => x.CreatedAt.AddMilliseconds(1.5) > now)).Should().Be("DATEADD(millisecond, ROUND({=p_0}, 0), [m].[CreatedAt]) > @CreatedAt_0");
+        }
+
+        [TestMethod]
+        public void Math_functions()
+        {
+            Where(Translate(x => Math.Abs(x.Age) > 3)).Should().Be("ABS([m].[Age]) > {=Age_0}");
+            Where(Translate(x => Math.Floor(x.Price) == 1)).Should().Be("FLOOR([m].[Price]) = {=Price_0}");
+            Where(Translate(x => Math.Ceiling(x.Price) == 1)).Should().Be("CEILING([m].[Price]) = {=Price_0}");
+            Where(Translate(x => Math.Round(x.Price) == 1)).Should().Be("ROUND([m].[Price], 0) = {=Price_0}");
+            Where(Translate(x => Math.Round(x.Price, 2) == 1.23m)).Should().Be("ROUND([m].[Price], {=p_0}) = {=Price_0}");
+        }
+
+        [TestMethod]
+        public void Math_Round_with_midpoint_rounding_throws()
+        {
+            Action act = () => Translate(x => Math.Round(x.Price, MidpointRounding.AwayFromZero) == 1);
+
+            act.Should().Throw<NotSupportedException>().WithMessage("Can not translate*Round*");
+        }
+
+        [TestMethod]
         public void Evaluated_client_value_becomes_parameter()
         {
             var generated = Translate(x => x.CreatedAt > DateTime.Today.AddDays(-7));
@@ -356,8 +425,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             var translator = withSqlServerTranslators
                                  ? new SqlExpressionTranslator(
                                      new SqlTranslationContext(query.ParameterValues),
-                                     new[] { SqlServerStringTranslator.Instance },
-                                     new[] { SqlServerStringTranslator.Instance })
+                                     SqlServerTranslators.Members,
+                                     SqlServerTranslators.MethodCalls)
                                  : new SqlExpressionTranslator(new SqlTranslationContext(query.ParameterValues));
 
             var condition = translator.TranslatePredicate((LambdaExpression)query.Expression, table);
@@ -409,6 +478,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public MemberStatus Status { get; set; }
 
             public DateTime CreatedAt { get; set; }
+
+            public DateTimeOffset UpdatedAt { get; set; }
 
             [NotMapped]
             public string Secret { get; set; }

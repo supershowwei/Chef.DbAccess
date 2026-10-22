@@ -207,6 +207,10 @@ namespace Chef.DbAccess.SqlGeneration
                     this.VisitLike(like);
                     break;
 
+                case SqlFragmentExpression fragment:
+                    this.sql.Append(fragment.Sql);
+                    break;
+
                 default: throw new NotSupportedException($"Unsupported SQL expression '{expression.GetType().Name}'.");
             }
         }
