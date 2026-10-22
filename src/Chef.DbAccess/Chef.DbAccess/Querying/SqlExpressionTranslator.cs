@@ -628,7 +628,7 @@ namespace Chef.DbAccess.Querying
                             element,
                             item.Type,
                             property,
-                            parameterValues => ((IEnumerable)parameterValues[name]).Cast<object>().Where(e => e != null).ElementAt(index)));
+                            parameterValues => QueryParameterValues.GetNonNullElements(parameterValues, name)[index]));
                 }
             }
 

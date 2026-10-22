@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 方言與核心一起發佈、版本一致，查詢管線的型別維持 internal，不擴大公開 API。 -->
+    <InternalsVisibleTo Include="Chef.DbAccess.SqlServer" />
     <InternalsVisibleTo Include="Chef.DbAccess.SqlServer.Tests" />
   </ItemGroup>
 
