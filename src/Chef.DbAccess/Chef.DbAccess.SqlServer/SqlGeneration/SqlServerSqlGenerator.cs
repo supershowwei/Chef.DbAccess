@@ -91,6 +91,16 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
                        : base.GetParameterPlaceholder(parameter);
         }
 
+        /// <summary>
+        ///     回傳 <see cref="long" /> 的 <c>COUNT</c>（<c>LongCount</c>）輸出 <c>COUNT_BIG</c>；SQL Server 的 <c>COUNT</c> 回傳 <c>int</c>，超過約 21 億筆會溢位。
+        /// </summary>
+        protected override void VisitFunction(SqlFunctionExpression function)
+        {
+            if (function.Name == "COUNT" && function.Type == typeof(long)) function = new SqlFunctionExpression("COUNT_BIG", function.Arguments, function.Type);
+
+            base.VisitFunction(function);
+        }
+
         protected override string Delimit(string identifier)
         {
             return string.Concat("[", identifier.Replace("]", "]]"), "]");

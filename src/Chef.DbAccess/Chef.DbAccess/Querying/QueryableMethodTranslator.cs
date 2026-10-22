@@ -21,6 +21,7 @@ namespace Chef.DbAccess.Querying
     ///             <c>Select</c> 可以投影成實體、匿名型別、DTO 或單一值；之後的 <c>Where</c>、<c>OrderBy</c> 等透過 <see cref="LambdaComposer" />
     ///             對應回欄位，例如 <c>Select(x =&gt; new { N = x.Name }).Where(a =&gt; a.N == "J")</c>。
     ///         </item>
+    ///         <item><c>First</c>、<c>Single</c>（含 <c>OrDefault</c>）、<c>Count</c>、<c>LongCount</c>、<c>Any</c>、<c>All</c> 見 <see cref="TranslateResultOperator" />。</item>
     ///     </list>
     ///     <para>
     ///         <c>Skip</c> / <c>Take</c> 之後再接 <c>Where</c>、<c>OrderBy</c>、<c>Distinct</c> 等需要子查詢，目前不支援，丟出 <see cref="NotSupportedException" />。
@@ -45,12 +46,110 @@ namespace Chef.DbAccess.Querying
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
 
-            var source = this.Visit(query);
+            if (query is MethodCallExpression methodCall && methodCall.Method.DeclaringType == typeof(Queryable) && TryGetResultKind(methodCall, out var resultKind))
+            {
+                return this.TranslateResultOperator(methodCall, resultKind);
+            }
+
+            return this.Build(this.Visit(query), QueryResultKind.Sequence);
+        }
+
+        private static bool TryGetResultKind(MethodCallExpression methodCall, out QueryResultKind resultKind)
+        {
+            switch (methodCall.Method.Name)
+            {
+                case nameof(Queryable.First): resultKind = QueryResultKind.First; return true;
+                case nameof(Queryable.FirstOrDefault): resultKind = QueryResultKind.FirstOrDefault; return true;
+                case nameof(Queryable.Single): resultKind = QueryResultKind.Single; return true;
+                case nameof(Queryable.SingleOrDefault): resultKind = QueryResultKind.SingleOrDefault; return true;
+                case nameof(Queryable.Count):
+                case nameof(Queryable.LongCount):
+                    resultKind = QueryResultKind.Scalar; return true;
+                case nameof(Queryable.Any): resultKind = QueryResultKind.Any; return true;
+                case nameof(Queryable.All): resultKind = QueryResultKind.All; return true;
+                default: resultKind = default; return false;
+            }
+        }
+
+        private static TranslatedQuery Build(QueryBuilder source, IEnumerable<ProjectionExpression> projections, Expression shaper, QueryResultKind resultKind)
+        {
+            return new TranslatedQuery(
+                new SelectExpression(projections, new[] { source.Table }, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
+                shaper,
+                resultKind);
+        }
+
+        /// <summary>
+        ///     依目前的投影（沒有 <c>Select</c> 時是實體）產生 <c>SELECT</c> 清單與 Shaper。
+        /// </summary>
+        private TranslatedQuery Build(QueryBuilder source, QueryResultKind resultKind)
+        {
             var projection = new ProjectionBuilder(this.translator, source.Table, source.Selector);
 
-            return new TranslatedQuery(
-                new SelectExpression(projection.Projections, new[] { source.Table }, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
-                projection.Shaper);
+            return Build(source, projection.Projections, projection.Shaper, resultKind);
+        }
+
+        /// <summary>
+        ///     結束查詢的運算子：
+        ///     <list type="bullet">
+        ///         <item><c>First</c> / <c>FirstOrDefault</c> 取一筆（<c>TOP(1)</c>），<c>Single</c> / <c>SingleOrDefault</c> 取兩筆（<c>TOP(2)</c>）才能判斷是否超過一筆。3.x 的 <c>QueryOne</c> 不限制筆數。</item>
+        ///         <item><c>Count</c> 輸出 <c>COUNT(*)</c>、<c>LongCount</c> 輸出 <c>COUNT</c> 並回傳 <see cref="long" />（SQL Server 輸出 <c>COUNT_BIG(*)</c>），排序不影響筆數，直接拿掉。</item>
+        ///         <item><c>Any</c> 只取一筆看有沒有資料（<c>SELECT TOP(1) 1</c>）；<c>All(predicate)</c> 找一筆不符合的資料（<c>WHERE NOT (predicate)</c>），找不到才是 <c>true</c>。</item>
+        ///     </list>
+        ///     <para>
+        ///         已經 <c>Take</c> 過再取筆數、在 <c>Skip</c> / <c>Take</c> / <c>Distinct</c> 之後 <c>Count</c> 都需要子查詢，目前丟出 <see cref="NotSupportedException" />。
+        ///         注意 <c>All</c> 的條件結果是 <c>NULL</c>（例如和 <c>NULL</c> 欄位比較）時，該筆不算不符合，與 C# 不同。
+        ///     </para>
+        /// </summary>
+        private TranslatedQuery TranslateResultOperator(MethodCallExpression methodCall, QueryResultKind resultKind)
+        {
+            var source = this.Visit(methodCall.Arguments[0]);
+
+            if (methodCall.Arguments.Count == 2)
+            {
+                source.EnsureNotPaged(methodCall);
+
+                var predicate = this.translator.TranslatePredicate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Table);
+
+                source.AddPredicate(resultKind == QueryResultKind.All ? new SqlUnaryExpression(SqlUnaryOperator.Not, predicate, typeof(bool)) : predicate);
+            }
+            else if (methodCall.Arguments.Count > 2)
+            {
+                throw NotTranslatable(methodCall);
+            }
+
+            switch (resultKind)
+            {
+                case QueryResultKind.First:
+                case QueryResultKind.FirstOrDefault:
+                case QueryResultKind.Single:
+                case QueryResultKind.SingleOrDefault:
+                    if (source.Limit != null) throw NotTranslatable(methodCall);
+
+                    var isFirst = resultKind == QueryResultKind.First || resultKind == QueryResultKind.FirstOrDefault;
+
+                    source.Limit = new SqlConstantExpression(isFirst ? 1 : 2, typeof(int));
+
+                    return this.Build(source, resultKind);
+
+                case QueryResultKind.Scalar:
+                    if (source.Offset != null || source.Limit != null || source.IsDistinct) throw NotTranslatable(methodCall);
+
+                    var type = methodCall.Method.ReturnType;
+                    var count = new SqlFunctionExpression("COUNT", new[] { new SqlFragmentExpression("*") }, type);
+
+                    source.Orderings.Clear();
+
+                    return Build(source, new[] { new ProjectionExpression(count, "Value") }, new ProjectionBindingExpression(0, type), resultKind);
+
+                default:
+                    if (source.Limit != null) throw NotTranslatable(methodCall);
+
+                    source.Limit = new SqlConstantExpression(1, typeof(int));
+                    source.Orderings.Clear();
+
+                    return Build(source, new[] { new ProjectionExpression(new SqlConstantExpression(1, typeof(int)), "Value") }, null, resultKind);
+            }
         }
 
         /// <summary>

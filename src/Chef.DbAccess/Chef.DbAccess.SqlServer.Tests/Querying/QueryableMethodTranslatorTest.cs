@@ -238,6 +238,110 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public void Query_is_a_sequence_by_default()
+        {
+            TranslateQuery(Members.Where(x => x.Age > 1)).ResultKind.Should().Be(QueryResultKind.Sequence);
+        }
+
+        [TestMethod]
+        public void First_takes_one_row()
+        {
+            // 對應 3.x QueryOne_Where_Select；差異：加上 TOP(1)，3.x 會讀取所有符合的資料列再取第一筆。
+            var translated = TranslateResult(Members.Where(x => x.Id == 1).Select(x => new { x.Name, x.Age }), q => q.First());
+
+            Sql(translated).Should().Be("SELECT TOP(1) [mem_1].[Name], [mem_1].[Age]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE [mem_1].[No] = {=Id_0}");
+            translated.ResultKind.Should().Be(QueryResultKind.First);
+            translated.Shaper.Should().BeAssignableTo<NewExpression>();
+        }
+
+        [TestMethod]
+        public void FirstOrDefault_with_predicate()
+        {
+            var translated = TranslateResult(Members, q => q.FirstOrDefault(x => x.Age > 18));
+
+            Sql(translated).Should().StartWith("SELECT TOP(1) ").And.EndWith("\nWHERE [mem_1].[Age] > {=Age_0}");
+            translated.ResultKind.Should().Be(QueryResultKind.FirstOrDefault);
+        }
+
+        [TestMethod]
+        public void Single_takes_two_rows_to_detect_duplicates()
+        {
+            var single = TranslateResult(Members, q => q.Single(x => x.Id == 1));
+            var singleOrDefault = TranslateResult(Members.Where(x => x.Id == 1), q => q.SingleOrDefault());
+
+            Sql(single).Should().StartWith("SELECT TOP(2) ");
+            single.ResultKind.Should().Be(QueryResultKind.Single);
+            Sql(singleOrDefault).Should().StartWith("SELECT TOP(2) ");
+            singleOrDefault.ResultKind.Should().Be(QueryResultKind.SingleOrDefault);
+        }
+
+        [TestMethod]
+        public void Count()
+        {
+            // 對應 3.x Count；差異：COUNT(*) 多了別名、沒有分號。
+            var translated = TranslateResult(Members.Where(x => x.Age == 20), q => q.Count());
+
+            Sql(translated).Should().Be("SELECT COUNT(*) AS [Value]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE [mem_1].[Age] = {=Age_0}");
+            translated.ResultKind.Should().Be(QueryResultKind.Scalar);
+            translated.Shaper.Should().BeOfType<ProjectionBindingExpression>().Which.Type.Should().Be(typeof(int));
+        }
+
+        [TestMethod]
+        public void Count_with_predicate_ignores_ordering_and_projection()
+        {
+            Sql(TranslateResult(Members.OrderBy(x => x.Name).Select(x => new { x.Name }), q => q.Count(a => a.Name == "J")))
+                .Should()
+                .Be("SELECT COUNT(*) AS [Value]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE [mem_1].[Name] = @Name_0");
+        }
+
+        [TestMethod]
+        public void LongCount_uses_count_big()
+        {
+            var translated = TranslateResult(Members, q => q.LongCount());
+
+            Sql(translated).Should().StartWith("SELECT COUNT_BIG(*) AS [Value]\n");
+            translated.Shaper.Type.Should().Be(typeof(long));
+        }
+
+        [TestMethod]
+        public void Any_takes_one_row()
+        {
+            // 3.x 的 Exists 輸出 CAST(CASE WHEN EXISTS (...) THEN 1 ELSE 0 END AS BIT)；這裡只取一筆看有沒有資料。
+            var translated = TranslateResult(Members.Where(x => x.Id == 1), q => q.Any());
+
+            Sql(translated).Should().Be("SELECT TOP(1) 1 AS [Value]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE [mem_1].[No] = {=Id_0}");
+            translated.ResultKind.Should().Be(QueryResultKind.Any);
+            translated.Shaper.Should().BeNull();
+
+            Sql(TranslateResult(Members.OrderBy(x => x.Name), q => q.Any(x => x.Age > 1))).Should().EndWith("\nWHERE [mem_1].[Age] > {=Age_0}");
+        }
+
+        [TestMethod]
+        public void All_looks_for_a_row_that_does_not_match()
+        {
+            var translated = TranslateResult(Members, q => q.All(x => x.Age > 18));
+
+            Sql(translated).Should().Be("SELECT TOP(1) 1 AS [Value]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE NOT ([mem_1].[Age] > {=Age_0})");
+            translated.ResultKind.Should().Be(QueryResultKind.All);
+        }
+
+        [TestMethod]
+        public void Result_operators_that_need_subquery_are_not_supported()
+        {
+            Action firstAfterTake = () => TranslateResult(Members.Take(5), q => q.First());
+            Action firstWithPredicateAfterTake = () => TranslateResult(Members.Take(5), q => q.First(x => x.Age > 1));
+            Action countAfterSkip = () => TranslateResult(Members.OrderBy(x => x.Id).Skip(1), q => q.Count());
+            Action countAfterDistinct = () => TranslateResult(Members.Select(x => x.Name).Distinct(), q => q.Count());
+            Action anyAfterTake = () => TranslateResult(Members.Take(1), q => q.Any());
+
+            firstAfterTake.Should().Throw<NotSupportedException>();
+            firstWithPredicateAfterTake.Should().Throw<NotSupportedException>();
+            countAfterSkip.Should().Throw<NotSupportedException>();
+            countAfterDistinct.Should().Throw<NotSupportedException>();
+            anyAfterTake.Should().Throw<NotSupportedException>();
+        }
+
+        [TestMethod]
         public void Operators_after_paging_are_not_supported()
         {
             Action whereAfterTake = () => Translate(Members.Take(10).Where(x => x.Age > 1));
@@ -270,7 +374,27 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
         private static TranslatedQuery TranslateQuery<T>(IQueryable<T> query)
         {
-            var parameterized = PartialEvaluator.Evaluate(query.Expression);
+            return TranslateExpression(query.Expression);
+        }
+
+        /// <summary>
+        ///     First、Count 等運算子會直接執行查詢，所以從 <c>q =&gt; q.First()</c> 取出呼叫，換上 <paramref name="source" /> 的運算式再翻譯。
+        /// </summary>
+        private static TranslatedQuery TranslateResult<T, TResult>(IQueryable<T> source, Expression<Func<IQueryable<T>, TResult>> resultOperator)
+        {
+            var methodCall = (MethodCallExpression)resultOperator.Body;
+
+            return TranslateExpression(methodCall.Update(null, new[] { source.Expression }.Concat(methodCall.Arguments.Skip(1))));
+        }
+
+        private static string Sql(TranslatedQuery translated)
+        {
+            return new SqlServerSqlGenerator().Generate(translated.Select).Sql;
+        }
+
+        private static TranslatedQuery TranslateExpression(Expression query)
+        {
+            var parameterized = PartialEvaluator.Evaluate(query);
             var translator = new QueryableMethodTranslator(
                 new SqlTranslationContext(parameterized.ParameterValues),
                 SqlServerTranslators.Members,
