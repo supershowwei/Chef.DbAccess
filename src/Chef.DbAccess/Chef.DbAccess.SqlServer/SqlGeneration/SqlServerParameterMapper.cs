@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Data;
 using Chef.DbAccess.SqlExpressions;
 using Chef.DbAccess.SqlGeneration;
@@ -32,9 +33,14 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
     {
         public static DynamicParameters ToDynamicParameters(GeneratedSql generated)
         {
+            return ToDynamicParameters(generated.Parameters);
+        }
+
+        public static DynamicParameters ToDynamicParameters(IEnumerable<SqlParameterExpression> sqlParameters)
+        {
             var parameters = new DynamicParameters();
 
-            foreach (var parameter in generated.Parameters)
+            foreach (var parameter in sqlParameters)
             {
                 var (value, dbType) = Map(parameter);
 
