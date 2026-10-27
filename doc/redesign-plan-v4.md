@@ -197,11 +197,26 @@ Change Tracking、`SaveChanges`、Migration、Lazy Loading、Identity Map、DbCo
 - 交付標準：可以手動組 AST，並產生正確的 T-SQL，有對應的測試。
 - 延後：`[ForeignKey]` 移到 Phase 3（導覽屬性需要時再做）；全域 Fluent 設定 `ChefDbAccess.Configure<Member>(...)` 移到 4.x 之後，確定需要再做；3.x 的跨資料庫 Join（`[Database].[Schema].[Table]`）在 Phase 3 補上。
 
-### Phase 2：IQueryable MVP（單表）
-- `ChefQueryable<T>`、`ChefQueryProvider`、`PartialEvaluator`、查詢快取。
-- 翻譯 `Where`、`Select`、`OrderBy`、`ThenBy`、`Skip`、`Take`、`Distinct`、`First`、`Single`、`Count`、`Any`，以及 §3.2 列出的成員與方法翻譯器。
-- Shaper 編譯、非同步運算子、`ToQueryString()`、`CancellationToken`。
-- `IDataAccess<T>.Query()` 上線，**出 4.0.0-preview1**。
+### Phase 2：IQueryable MVP（單表）✅ 已完成
+- `PartialEvaluator`：閉包變數換成參數，`Skip`／`Take` 的數字也一律換成參數；依運算式形狀計算的查詢快取鍵，另外記錄參數是否為 null、字串是否需要 LIKE 跳脫、集合的元素個數。（2.1、2.2）
+- 條件與成員／方法翻譯：比較、AND／OR／NOT、null、布林欄位、列舉、`Nullable`、`Equals`、LIKE、`IsNullOrEmpty`、`?:`→`CASE`、`??`→`COALESCE`、集合 `Contains`→`IN`、全文檢索 `Includes`→`CONTAINS`；SQL Server 的字串、`DateTime`（`AddDays` 等支援小數）與 `Math` 函式。方言以 `IMemberTranslator`／`IMethodCallTranslator` 擴充。（2.3、2.4a～2.4e）
+- 查詢運算子：`Where`、`OrderBy`／`ThenBy`、`Skip`／`Take`、`Distinct`、`Select`（實體、匿名型別、DTO、單一值），以及 `First`、`Single`（含 `OrDefault`）、`Count`、`LongCount`、`Any`、`All`。（2.5a、2.5b、2.6）
+- Shaper 編譯；快取命中時依記錄的取值方式重新算出參數值；`QueryCompiler`、`ChefQueryable<T>`、`ChefQueryProvider`、`ToQueryString()`。（2.7、2.8a～2.8c）
+- SQL Server 執行（同步一邊讀一邊回傳；非同步運算子搭配 `CancellationToken`），以 LocalDB 整合測試驗證。（2.9a、2.9b）
+- `IDataAccess<T>.Query()` 上線，沿用 3.x 的資料表名稱、`IsDirtyRead`、`OutputSql`、`OnDbError`，版本 **4.0.0-preview1**。（2.10）
+- 與 3.x 的差異（新 API）：
+  - 多次 `Where` 以 AND 結合，不再覆蓋。
+  - LIKE 的值中有 `%`、`_`、`[` 或 `\` 時跳脫，並加上 `ESCAPE '\'`；沒有時輸出與 3.x 相同。
+  - `First`／`FirstOrDefault` 加上 `TOP(1)`，`Single` 加上 `TOP(2)`。
+  - 集合 `Contains` 輸出 `IN`，元素有 null 時另外加上 `IS NULL`。
+  - 字串值比 `[StringLength]` 長時不指定參數長度，不再被 SqlClient 截斷（`SqlServerParameterMapper`，3.x 路徑未改動）。
+- 延後：
+  - 需要子查詢的組合（`Skip`／`Take` 之後再接 `Where`、`OrderBy`、`Distinct`、`Count`、`First` 等）目前丟出 `NotSupportedException`，在 Phase 4 隨子查詢一起處理。
+  - 大量值的 `Contains`（字串值會受 2,100 個參數的上限影響；數值與列舉以 `{=}` 寫入 SQL，不佔參數）改用 OPENJSON，維持在 Phase 4。
+  - 單一查詢的 `.WithoutNoLock()`／`.WithHint(...)` 與 3.x 風格的 `.SelectColumns(...)`：目前以 `IsDirtyRead` 控制 NOLOCK，確定需要時再做。
+  - 算術中整數轉成浮點數的轉型會被省略，`x.Age / 2.0` 可能變成整數除法；之後改為輸出 `CAST` 或丟出例外。
+  - 查詢快取沒有數量上限，每種形狀會保留第一次執行的查詢根；Shaper 讀值時會裝箱。在 Phase 6 跑 benchmark 時一併檢討。
+  - 沿用 SQL Server 行為、與 C# 不同的語意：兩個可為 null 的欄位互相比較、`All` 的條件結果為 NULL、`LEN` 不計結尾空白、`Math.Round` 為四捨五入、`DateTime` 加減只精確到毫秒、`DateTime.Now` 在用戶端求值。
 
 ### Phase 3：Join 與導覽屬性
 - `Join`、`SelectMany`＋`DefaultIfEmpty`、`[ForeignKey]` 導覽、`Include`、一對多的 identity resolution。
@@ -239,9 +254,9 @@ Change Tracking、`SaveChanges`、Migration、Lazy Loading、Identity Map、DbCo
 | # | 決策 | 建議 |
 |---|------|------|
 | D1 | 走完整的 `IQueryable<T>` Provider，或者維持自訂的型別化 Builder | **完整的 IQueryable**：符合目標，可以組合，也能直接用 LINQ 查詢語法 |
-| D2 | 進入點：新增 `dataAccess.Query()`，或讓 `IDataAccess<T>` 直接實作 `IQueryable<T>` | **4.x 先用 `Query()`**：完全不會跟 `Chef.DbAccess.Fluent` 的 `Where` 等擴充方法發生多載衝突；5.0 移除舊 API 時再考慮讓它直接是 IQueryable |
+| D2 | 進入點：新增 `dataAccess.Query()`，或讓 `IDataAccess<T>` 直接實作 `IQueryable<T>` | ✅ **已採用：4.x 先用 `Query()`**（Phase 2 上線）：完全不會跟 `Chef.DbAccess.Fluent` 的 `Where` 等擴充方法發生多載衝突；5.0 移除舊 API 時再考慮讓它直接是 IQueryable |
 | D3 | 3.x API 的去留 | **4.x 保留並改走新管線，標 `[Obsolete]`，5.0 才移除** |
-| D4 | 沒有 `Select` 時的預設行為 | **新 API 預設選出所有對應欄位**（和 EF 一樣）；舊 API 維持原本的行為 |
+| D4 | 沒有 `Select` 時的預設行為 | ✅ **已採用：新 API 預設選出所有對應欄位**（和 EF 一樣）；舊 API 維持原本的行為 |
 | D5 | `NOLOCK` 預設值 | ✅ **已決定：新舊 API 都預設加上**。使用者只有作者與同事，情境通常允許 Dirty Read；需要時再明確關掉 |
 | D6 | 目標框架 | **`netstandard2.0` 加 `net8.0`**，保留給 .NET Framework 的使用者 |
 | D7 | 是否同時做 SQLite 方言 | **建議在 Phase 2 之後加入**：用來驗證抽象設計，也可以讓部分整合測試不需要 SQL Server |
