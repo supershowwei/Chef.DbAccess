@@ -10,14 +10,17 @@ namespace Chef.DbAccess.Querying
     ///     Chef.DbAccess 的 <see cref="IQueryable{T}" />。查詢的根是值為自己的常數，之後的 LINQ 運算子由 <see cref="ChefQueryProvider" /> 組成新的查詢；
     ///     列舉時才翻譯成 SQL 並執行。
     /// </summary>
-    internal sealed class ChefQueryable<T> : IOrderedQueryable<T>
+    internal sealed class ChefQueryable<T> : IOrderedQueryable<T>, IQueryRoot
     {
         /// <summary>
         ///     查詢的根，例如 <c>members.Query()</c>。
         /// </summary>
-        public ChefQueryable(ChefQueryProvider provider)
+        /// <param name="provider">組合與執行查詢的 Provider。</param>
+        /// <param name="tableName">指定的資料表名稱；<c>null</c> 時使用 <c>[Table]</c> 或類別名稱。</param>
+        public ChefQueryable(ChefQueryProvider provider, string tableName = null)
         {
             this.Provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            this.TableName = string.IsNullOrEmpty(tableName) ? null : tableName;
             this.Expression = Expression.Constant(this);
         }
 
@@ -35,6 +38,11 @@ namespace Chef.DbAccess.Querying
         public Expression Expression { get; }
 
         public ChefQueryProvider Provider { get; }
+
+        /// <summary>
+        ///     只有查詢的根有意義；之後的運算子組出的查詢為 <c>null</c>。
+        /// </summary>
+        public string TableName { get; }
 
         IQueryProvider IQueryable.Provider => this.Provider;
 

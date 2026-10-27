@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
@@ -24,6 +25,23 @@ namespace Chef.DbAccess
         Action<string, object> OutputSql { get; set; }
 
         Action<Exception, string, object> OnDbError { get; set; }
+
+        /// <summary>
+        ///     4.0 的查詢入口：回傳可以用標準 LINQ（方法語法或查詢語法）組合的 <see cref="IQueryable{T}" />，列舉時才翻譯成 SQL 並執行。
+        ///     <code>
+        ///     var adults = await members.Query()
+        ///         .Where(x =&gt; x.Age &gt;= 18)
+        ///         .OrderBy(x =&gt; x.Name)
+        ///         .Select(x =&gt; new { x.Id, x.Name })
+        ///         .ToListAsync();
+        ///     </code>
+        ///     <para>
+        ///         非同步運算子（<c>ToListAsync</c>、<c>FirstOrDefaultAsync</c>……）與除錯用的 <c>ToQueryString()</c> 在 <see cref="ChefQueryableExtensions" />。
+        ///         <see cref="IsDirtyRead" />、<see cref="OutputSql" />、<see cref="OnDbError" /> 取呼叫 <c>Query()</c> 當下的設定。
+        ///         無法翻譯成 SQL 的運算式會丟出 <see cref="NotSupportedException" />，不會在用戶端計算。
+        ///     </para>
+        /// </summary>
+        IQueryable<T> Query();
 
         Task<T> QueryOneAsync(string sql, object param);
 
@@ -470,4 +488,4 @@ namespace Chef.DbAccess
             Expression<Func<T, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, bool>> predicate,
             Expression<Func<T, object>> output);
     }
-}
+}

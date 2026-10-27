@@ -16,8 +16,8 @@ namespace Chef.DbAccess.Querying
     ///         <item>不屬於任何 lambda 的參數（<see cref="PartialEvaluator" /> 產生的 <c>__age_0</c>）依名稱比較。</item>
     ///         <item>常數依值比較；集合依內容比較，因為同一段程式每次執行都會建立新的陣列。</item>
     ///         <item>
-    ///             值是 <see cref="IQueryable" /> 的常數（查詢的根）只比較型別與元素型別，因為每次 <c>Query()</c> 都是新的執行個體；
-    ///             所以根上的其他狀態不能影響產生的 SQL。
+    ///             值是 <see cref="IQueryable" /> 的常數（查詢的根）只比較型別、元素型別與 <see cref="IQueryRoot.TableName" />，因為每次 <c>Query()</c> 都是新的執行個體；
+    ///             所以根上的其他狀態（例如連線字串）不能影響產生的 SQL。
     ///         </item>
     ///     </list>
     ///     <para>不認得的節點只有同一個執行個體才相等，頂多快取不到，不會誤用別的查詢的 SQL。</para>
@@ -50,7 +50,9 @@ namespace Chef.DbAccess.Querying
         {
             if (x is IQueryable queryableX && y is IQueryable queryableY)
             {
-                return queryableX.GetType() == queryableY.GetType() && queryableX.ElementType == queryableY.ElementType;
+                return queryableX.GetType() == queryableY.GetType()
+                       && queryableX.ElementType == queryableY.ElementType
+                       && (queryableX as IQueryRoot)?.TableName == (queryableY as IQueryRoot)?.TableName;
             }
 
             if (x is IEnumerable enumerableX && y is IEnumerable enumerableY && !(x is string))
@@ -66,7 +68,10 @@ namespace Chef.DbAccess.Querying
             switch (value)
             {
                 case null: return 0;
-                case IQueryable queryable: return Combine(queryable.GetType().GetHashCode(), queryable.ElementType.GetHashCode());
+                case IQueryable queryable:
+                    return Combine(
+                        Combine(queryable.GetType().GetHashCode(), queryable.ElementType.GetHashCode()),
+                        (queryable as IQueryRoot)?.TableName?.GetHashCode() ?? 0);
                 case string str: return str.GetHashCode();
                 case IEnumerable enumerable: return enumerable.Cast<object>().Aggregate(17, (hash, item) => Combine(hash, item?.GetHashCode() ?? 0));
                 default: return value.GetHashCode();

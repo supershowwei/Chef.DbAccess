@@ -180,7 +180,7 @@ namespace Chef.DbAccess.Querying
             switch (expression)
             {
                 case ConstantExpression constant when constant.Value is IQueryable queryable:
-                    return this.CreateRoot(queryable.ElementType);
+                    return this.CreateRoot(queryable.ElementType, (queryable as IQueryRoot)?.TableName);
 
                 case MethodCallExpression methodCall when methodCall.Method.DeclaringType == typeof(Queryable):
                     return this.VisitQueryableMethod(methodCall);
@@ -189,11 +189,16 @@ namespace Chef.DbAccess.Querying
             }
         }
 
-        private QueryBuilder CreateRoot(Type elementType)
+        /// <summary>
+        ///     <paramref name="tableName" /> 是指定的資料表名稱（例如 3.x 的 <c>factory.Create&lt;Member&gt;("tbl_member_archive")</c>），
+        ///     只換掉名稱，schema 仍取自 <c>[Table]</c>。
+        /// </summary>
+        private QueryBuilder CreateRoot(Type elementType, string tableName)
         {
             var entity = EntityMetadata.For(elementType);
+            var alias = CreateAlias(elementType, ++this.tableCount);
 
-            return new QueryBuilder(TableExpression.For(entity, CreateAlias(elementType, ++this.tableCount)));
+            return new QueryBuilder(tableName == null ? TableExpression.For(entity, alias) : new TableExpression(tableName, entity.Schema, alias, entity));
         }
 
         private QueryBuilder VisitQueryableMethod(MethodCallExpression methodCall)

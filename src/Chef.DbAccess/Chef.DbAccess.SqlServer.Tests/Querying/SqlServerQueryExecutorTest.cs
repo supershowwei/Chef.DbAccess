@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -185,6 +186,45 @@ INSERT INTO dbo.chef_query_member VALUES
 
                 await act.Should().ThrowAsync<OperationCanceledException>();
             }
+        }
+
+        [TestMethod]
+        public void Data_access_query_with_table_name_and_output_sql()
+        {
+            var outputs = new List<string>();
+            var rows = SqlServerDataAccessFactory.Instance.Create<MemberRow>("chef_query_member", ConnectionString);
+
+            rows.OutputSql = (sql, _) => outputs.Add(sql);
+
+            rows.Query().Count(x => x.Age > 18).Should().Be(4);
+            outputs.Should().ContainSingle().Which.Should().Contain("FROM [chef_query_member] [mr_1] WITH (NOLOCK)");
+        }
+
+        [TestMethod]
+        public async Task OnDbError_is_called_before_rethrowing()
+        {
+            var errors = new List<(Exception Exception, string Sql)>();
+            var rows = SqlServerDataAccessFactory.Instance.Create<MemberRow>("chef_query_missing", ConnectionString);
+
+            rows.OnDbError = (ex, sql, _) => errors.Add((ex, sql));
+
+            Action query = () => rows.Query().ToList();
+            Func<Task> queryAsync = () => rows.Query().ToListAsync();
+
+            query.Should().Throw<SqlException>();
+            await queryAsync.Should().ThrowAsync<SqlException>();
+            errors.Should().HaveCount(2).And.OnlyContain(e => e.Exception is SqlException && e.Sql.Contains("[chef_query_missing]"));
+        }
+
+        /// <summary>
+        ///     沒有 <c>[Table]</c>，以資料表名稱指定。
+        /// </summary>
+        private class MemberRow
+        {
+            [Column("No")]
+            public int Id { get; set; }
+
+            public int Age { get; set; }
         }
 
         private enum MemberStatus
