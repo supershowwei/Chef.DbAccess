@@ -300,6 +300,46 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         }
 
         [TestMethod]
+        public void Cross_join_followed_by_join()
+        {
+            var departmentEntity = EntityMetadata.For<Department>();
+            var department = TableExpression.For(departmentEntity, "d");
+            var manager = TableExpression.For(MemberEntity, "mgr");
+
+            var select = new SelectExpression(
+                new[] { new ProjectionExpression(this.Name, "Name") },
+                new TableExpressionBase[]
+                {
+                    this.table,
+                    new CrossJoinExpression(department),
+                    new JoinExpression(
+                        JoinType.Inner,
+                        manager,
+                        Binary(SqlBinaryOperator.Equal, this.table.Column(MemberEntity.FindColumn(nameof(Member.ManagerId))), manager.Column(MemberEntity.FindColumn(nameof(Member.Id)))))
+                });
+
+            Generate(select)
+                .Sql.Should()
+                .Be(
+                    "SELECT \"m\".\"Name\"\n" +
+                    "FROM \"tbl_member\" \"m\"\n" +
+                    "CROSS JOIN \"tbl_department\" \"d\"\n" +
+                    "INNER JOIN \"tbl_member\" \"mgr\" ON \"m\".\"ManagerId\" = \"mgr\".\"No\"");
+        }
+
+        [TestMethod]
+        public void Cross_join_can_not_be_first_or_nested()
+        {
+            var department = new TableExpression("tbl_department", null, "d");
+
+            Action first = () => new SelectExpression(new[] { new ProjectionExpression(this.Name, "Name") }, new TableExpressionBase[] { new CrossJoinExpression(department) });
+            Action nested = () => new CrossJoinExpression(new CrossJoinExpression(department));
+
+            first.Should().Throw<ArgumentException>();
+            nested.Should().Throw<ArgumentException>();
+        }
+
+        [TestMethod]
         public void Tables_without_join_are_separated_by_comma()
         {
             var other = new TableExpression("tbl_department", null, "d");

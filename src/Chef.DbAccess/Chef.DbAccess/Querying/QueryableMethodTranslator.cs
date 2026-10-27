@@ -23,7 +23,7 @@ namespace Chef.DbAccess.Querying
     ///             對應回欄位，例如 <c>Select(x =&gt; new { N = x.Name }).Where(a =&gt; a.N == "J")</c>。
     ///         </item>
     ///         <item><c>First</c>、<c>Single</c>（含 <c>OrDefault</c>）、<c>Count</c>、<c>LongCount</c>、<c>Any</c>、<c>All</c> 見 <see cref="TranslateResultOperator" />。</item>
-    ///         <item><c>Join</c> 見 <see cref="TranslateJoin" />；<c>GroupJoin</c> + <c>SelectMany</c>（Left Join）見 <see cref="TranslateGroupJoin" />。</item>
+    ///         <item><c>Join</c> 見 <see cref="TranslateJoin" />；<c>GroupJoin</c> + <c>SelectMany</c>（Left Join）見 <see cref="TranslateGroupJoin" />；其他的 <c>SelectMany</c> 見 <see cref="TranslateCrossJoin" />。</item>
     ///     </list>
     ///     <para>
     ///         <c>Skip</c> / <c>Take</c> 之後再接 <c>Where</c>、<c>OrderBy</c>、<c>Distinct</c> 等需要子查詢，目前不支援，丟出 <see cref="NotSupportedException" />。
@@ -281,6 +281,9 @@ namespace Chef.DbAccess.Querying
                 case nameof(Queryable.Join) when arguments.Count == 5:
                     return this.TranslateJoin(source, methodCall);
 
+                case nameof(Queryable.SelectMany) when GetLambda(arguments[1]).Parameters.Count == 1:
+                    return this.TranslateCrossJoin(source, methodCall);
+
                 default: throw NotTranslatable(methodCall);
             }
         }
@@ -351,6 +354,45 @@ namespace Chef.DbAccess.Querying
             this.AddJoin(outer, inner, groupJoin, joinType);
 
             outer.Selector = Expression.Lambda(body, outerSelector.Parameters.Concat(innerSelector.Parameters));
+
+            return outer;
+        }
+
+        /// <summary>
+        ///     不相關的 <c>SelectMany</c>（查詢語法連續兩個 <c>from</c>，例如 <c>from m in members from d in departments</c>）翻譯成 <c>CROSS JOIN</c>：
+        ///     <list type="bullet">
+        ///         <item>展開的集合是另一個查詢，它的 <c>Where</c> 放進 <c>WHERE</c>（CROSS JOIN 先篩選或後篩選結果相同），排序直接拿掉。</item>
+        ///         <item>之後再加上 <c>where m.Id == d.ManagerId</c> 就是以 <c>WHERE</c> 結合的 Join。</item>
+        ///     </list>
+        ///     <para>
+        ///         集合參考外層的資料（例如 <c>m =&gt; departments.Where(d =&gt; d.ManagerId == m.Id)</c>）、
+        ///         任一方已經分頁或 <c>Distinct</c>、展開的查詢本身已經有 Join 時，目前丟出 <see cref="NotSupportedException" />。
+        ///     </para>
+        /// </summary>
+        private QueryBuilder TranslateCrossJoin(QueryBuilder outer, MethodCallExpression selectMany)
+        {
+            var collection = GetLambda(selectMany.Arguments[1]);
+
+            if (ParameterFinder.Contains(collection.Body, collection.Parameters[0]))
+            {
+                throw new NotSupportedException($"Can not translate '{selectMany}' to SQL: SelectMany whose collection depends on the outer element is not supported yet.");
+            }
+
+            var inner = this.Visit(collection.Body);
+
+            if (outer.Offset != null || outer.Limit != null || outer.IsDistinct) throw NotTranslatable(selectMany);
+            if (inner.Sources.Count > 1 || inner.Offset != null || inner.Limit != null || inner.IsDistinct) throw NotTranslatable(selectMany);
+
+            var outerSelector = outer.GetSelector();
+            var innerSelector = inner.GetSelector();
+
+            outer.Sources.Add(new CrossJoinExpression(inner.Sources[0]));
+
+            if (inner.Predicate != null) outer.AddPredicate(inner.Predicate);
+
+            outer.Selector = selectMany.Arguments.Count == 3
+                                 ? LambdaComposer.Compose(GetLambda(selectMany.Arguments[2]), outerSelector, innerSelector)
+                                 : Expression.Lambda(innerSelector.Body, outerSelector.Parameters.Concat(innerSelector.Parameters));
 
             return outer;
         }
@@ -448,6 +490,33 @@ namespace Chef.DbAccess.Querying
             }
         }
 
+        private sealed class ParameterFinder : ExpressionVisitor
+        {
+            private readonly ParameterExpression parameter;
+            private bool found;
+
+            private ParameterFinder(ParameterExpression parameter)
+            {
+                this.parameter = parameter;
+            }
+
+            public static bool Contains(Expression expression, ParameterExpression parameter)
+            {
+                var finder = new ParameterFinder(parameter);
+
+                finder.Visit(expression);
+
+                return finder.found;
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                this.found |= node == this.parameter;
+
+                return node;
+            }
+        }
+
         /// <summary>
         ///     翻譯過程中逐步累積的查詢內容，最後再建立不可變的 <see cref="SelectExpression" />。
         /// </summary>
@@ -466,7 +535,10 @@ namespace Chef.DbAccess.Querying
             /// <summary>
             ///     所有的資料表，依序對應 <see cref="Selector" /> 的參數。
             /// </summary>
-            public TableExpression[] Tables => this.Sources.Select(s => (TableExpression)(s is JoinExpression join ? join.Table : s)).ToArray();
+            public TableExpression[] Tables =>
+                this.Sources.Select(
+                        s => (TableExpression)(s is JoinExpression join ? join.Table : s is CrossJoinExpression crossJoin ? crossJoin.Table : s))
+                    .ToArray();
 
             /// <summary>
             ///     Left Join 的右邊可能沒有資料：資料表對應到一個有資料時一定不是 <c>NULL</c> 的欄位。

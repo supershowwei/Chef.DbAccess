@@ -113,7 +113,7 @@ namespace Chef.DbAccess.SqlGeneration
         {
             for (var i = 0; i < tables.Count; i++)
             {
-                if (i > 0) this.sql.Append(tables[i] is JoinExpression ? "\n" : ", ");
+                if (i > 0) this.sql.Append(tables[i] is JoinExpression || tables[i] is CrossJoinExpression ? "\n" : ", ");
 
                 this.VisitTable(tables[i]);
             }
@@ -131,8 +131,18 @@ namespace Chef.DbAccess.SqlGeneration
                     this.VisitJoin(join);
                     break;
 
+                case CrossJoinExpression crossJoin:
+                    this.VisitCrossJoin(crossJoin);
+                    break;
+
                 default: throw new NotSupportedException($"Unsupported table expression '{table.GetType().Name}'.");
             }
+        }
+
+        protected virtual void VisitCrossJoin(CrossJoinExpression crossJoin)
+        {
+            this.sql.Append("CROSS JOIN ");
+            this.VisitTable(crossJoin.Table);
         }
 
         protected virtual void VisitJoin(JoinExpression join)

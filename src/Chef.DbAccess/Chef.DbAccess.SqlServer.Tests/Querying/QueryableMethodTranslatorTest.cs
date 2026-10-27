@@ -629,6 +629,86 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             keyWithoutColumn.Should().Throw<NotSupportedException>().WithMessage("*must contain a column*");
         }
 
+        [TestMethod]
+        public void Two_from_clauses_become_cross_join()
+        {
+            var query = from m in Members
+                        from d in Departments
+                        select new { m.Name, DepartmentName = d.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_2].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "CROSS JOIN [tbl_department] [dep_2] WITH (NOLOCK)");
+        }
+
+        [TestMethod]
+        public void Cross_join_with_where_on_collection_and_after()
+        {
+            // 展開的集合的 Where 放進 WHERE；之後的 where 可以同時參考兩邊，等同以 WHERE 結合的 Join。
+            var query = from m in Members.Where(x => x.Age > 30)
+                        from d in Departments.Where(x => x.Name == "業務")
+                        where m.Id == d.ManagerId
+                        select m.Name;
+
+            var generated = Translate(query);
+
+            generated.Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "CROSS JOIN [tbl_department] [dep_2] WITH (NOLOCK)\n" +
+                    "WHERE (([mem_1].[Age] > {=Age_0}) AND ([dep_2].[Name] = @Name_0)) AND ([mem_1].[No] = [dep_2].[ManagerId])");
+            generated.Parameters.Select(p => p.Value).Should().Equal(30, "業務");
+        }
+
+        [TestMethod]
+        public void Cross_join_then_join_and_selecting_entities()
+        {
+            var query = from m in Members
+                        from d in Departments
+                        join b in Members on d.Id equals b.Age
+                        select new { m, d, b.Name };
+
+            var translated = TranslateQuery(query);
+
+            Sql(translated)
+                .Should()
+                .EndWith(
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "CROSS JOIN [tbl_department] [dep_2] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_member] [mem_3] WITH (NOLOCK) ON [dep_2].[Id] = [mem_3].[Age]");
+            ((NewExpression)translated.Shaper).Arguments.Select(a => a.Type).Should().Equal(typeof(Member), typeof(Department), typeof(string));
+        }
+
+        [TestMethod]
+        public void SelectMany_without_result_selector_is_cross_join()
+        {
+            Translate(Members.SelectMany(m => Departments))
+                .Sql.Should()
+                .Be("SELECT [dep_2].[Id], [dep_2].[Name], [dep_2].[ManagerId]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nCROSS JOIN [tbl_department] [dep_2] WITH (NOLOCK)");
+        }
+
+        [TestMethod]
+        public void SelectMany_that_needs_subquery_is_not_supported()
+        {
+            Action correlated = () => Translate(Members.SelectMany(m => Departments.Where(d => d.ManagerId == m.Id)));
+            Action outerTake = () => Translate(Members.Take(5).SelectMany(m => Departments));
+            Action innerTake = () => Translate(Members.SelectMany(m => Departments.Take(5)));
+            Action innerJoined = () => Translate(Members.SelectMany(m => Departments.Join(Members, d => d.Id, b => b.Age, (d, b) => d)));
+            Action notQuery = () => Translate(Members.SelectMany(m => new[] { 1, 2 }));
+            Action withIndex = () => Translate(Members.SelectMany((m, i) => Departments));
+
+            correlated.Should().Throw<NotSupportedException>().WithMessage("*depends on the outer element*");
+            outerTake.Should().Throw<NotSupportedException>();
+            innerTake.Should().Throw<NotSupportedException>();
+            innerJoined.Should().Throw<NotSupportedException>();
+            notQuery.Should().Throw<NotSupportedException>();
+            withIndex.Should().Throw<NotSupportedException>();
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);

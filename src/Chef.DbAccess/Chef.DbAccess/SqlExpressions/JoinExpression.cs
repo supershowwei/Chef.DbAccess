@@ -14,7 +14,7 @@ namespace Chef.DbAccess.SqlExpressions
         public JoinExpression(JoinType joinType, TableExpressionBase table, SqlExpression predicate)
             : base((table ?? throw new ArgumentNullException(nameof(table))).Alias)
         {
-            if (table is JoinExpression) throw new ArgumentException("Can not join a join expression.", nameof(table));
+            if (table is JoinExpression || table is CrossJoinExpression) throw new ArgumentException("Can not join a join expression.", nameof(table));
 
             this.JoinType = joinType;
             this.Table = table;
