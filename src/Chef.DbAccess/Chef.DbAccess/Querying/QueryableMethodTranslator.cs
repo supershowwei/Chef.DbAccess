@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
 using Chef.DbAccess.Metadata;
@@ -22,6 +23,7 @@ namespace Chef.DbAccess.Querying
     ///             對應回欄位，例如 <c>Select(x =&gt; new { N = x.Name }).Where(a =&gt; a.N == "J")</c>。
     ///         </item>
     ///         <item><c>First</c>、<c>Single</c>（含 <c>OrDefault</c>）、<c>Count</c>、<c>LongCount</c>、<c>Any</c>、<c>All</c> 見 <see cref="TranslateResultOperator" />。</item>
+    ///         <item><c>Join</c> 見 <see cref="TranslateJoin" />。</item>
     ///     </list>
     ///     <para>
     ///         <c>Skip</c> / <c>Take</c> 之後再接 <c>Where</c>、<c>OrderBy</c>、<c>Distinct</c> 等需要子查詢，目前不支援，丟出 <see cref="NotSupportedException" />。
@@ -74,7 +76,7 @@ namespace Chef.DbAccess.Querying
         private TranslatedQuery Build(QueryBuilder source, IEnumerable<ProjectionExpression> projections, Expression shaper, QueryResultKind resultKind)
         {
             return new TranslatedQuery(
-                new SelectExpression(projections, new[] { source.Table }, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
+                new SelectExpression(projections, source.Sources, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
                 shaper,
                 resultKind,
                 this.context.ParameterBindings.ToDictionary(b => b.Key, b => b.Value));
@@ -85,7 +87,7 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private TranslatedQuery Build(QueryBuilder source, QueryResultKind resultKind)
         {
-            var projection = new ProjectionBuilder(this.translator, source.Table, source.Selector);
+            var projection = new ProjectionBuilder(this.translator, source.Tables, source.Selector);
 
             return this.Build(source, projection.Projections, projection.Shaper, resultKind);
         }
@@ -110,7 +112,7 @@ namespace Chef.DbAccess.Querying
             {
                 source.EnsureNotPaged(methodCall);
 
-                var predicate = this.translator.TranslatePredicate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Table);
+                var predicate = this.translator.TranslatePredicate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Tables);
 
                 source.AddPredicate(resultKind == QueryResultKind.All ? new SqlUnaryExpression(SqlUnaryOperator.Not, predicate, typeof(bool)) : predicate);
             }
@@ -175,6 +177,22 @@ namespace Chef.DbAccess.Querying
             return new NotSupportedException($"Can not translate '{expression}' to SQL.");
         }
 
+        private static SqlExpression AndAlso(SqlExpression left, SqlExpression right)
+        {
+            if (left == null) return right;
+            if (right == null) return left;
+
+            return new SqlBinaryExpression(SqlBinaryOperator.AndAlso, left, right, typeof(bool));
+        }
+
+        /// <summary>
+        ///     複合鍵 <c>new { m.A, m.B }</c> 拆成各個成員；其他的鍵就是單一值。
+        /// </summary>
+        private static IReadOnlyList<Expression> SplitKey(Expression key)
+        {
+            return key is NewExpression @new && @new.Members != null ? (IReadOnlyList<Expression>)@new.Arguments : new[] { key };
+        }
+
         private QueryBuilder Visit(Expression expression)
         {
             switch (expression)
@@ -210,7 +228,7 @@ namespace Chef.DbAccess.Querying
             {
                 case nameof(Queryable.Where) when arguments.Count == 2 && GetLambda(arguments[1]).Parameters.Count == 1:
                     source.EnsureNotPaged(methodCall);
-                    source.AddPredicate(this.translator.TranslatePredicate(source.Compose(GetLambda(arguments[1])), source.Table));
+                    source.AddPredicate(this.translator.TranslatePredicate(source.Compose(GetLambda(arguments[1])), source.Tables));
                     return source;
 
                 case nameof(Queryable.OrderBy) when arguments.Count == 2:
@@ -248,13 +266,64 @@ namespace Chef.DbAccess.Querying
                     source.IsDistinct = true;
                     return source;
 
+                case nameof(Queryable.Join) when arguments.Count == 5:
+                    return this.TranslateJoin(source, methodCall);
+
                 default: throw NotTranslatable(methodCall);
             }
         }
 
+        /// <summary>
+        ///     <c>Join</c>（查詢語法的 <c>join … on … equals …</c>）翻譯成 <c>INNER JOIN</c>：
+        ///     <list type="bullet">
+        ///         <item>鍵以 SQL 的 <c>=</c> 比較，<c>NULL</c> 不等於任何值，與 LINQ to Objects 相同；複合鍵 <c>new { a, b } equals new { c, d }</c> 逐一比較，以 AND 結合。</item>
+        ///         <item>被 Join 的一方的 <c>Where</c> 放進 <c>ON</c>，排序不影響結果，直接拿掉。</item>
+        ///         <item>
+        ///             結果選擇器（例如 <c>(m, d) =&gt; new { m, d }</c>）組成以所有資料表為參數的投影，之後的運算子照常對應回欄位，
+        ///             所以可以一直 Join 下去，沒有 3.x 的 7 張表上限。
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         任一方已經分頁、<c>Distinct</c>，或被 Join 的一方本身已經有 Join 時需要子查詢，目前丟出 <see cref="NotSupportedException" />。
+        ///     </para>
+        /// </summary>
+        private QueryBuilder TranslateJoin(QueryBuilder outer, MethodCallExpression methodCall)
+        {
+            var inner = this.Visit(methodCall.Arguments[1]);
+
+            if (outer.Offset != null || outer.Limit != null || outer.IsDistinct) throw NotTranslatable(methodCall);
+            if (inner.Sources.Count > 1 || inner.Offset != null || inner.Limit != null || inner.IsDistinct) throw NotTranslatable(methodCall);
+
+            var outerTables = outer.Tables;
+            var innerTables = inner.Tables;
+            var outerKey = outer.Compose(GetLambda(methodCall.Arguments[2]));
+            var innerKey = inner.Compose(GetLambda(methodCall.Arguments[3]));
+            var outerParts = SplitKey(outerKey.Body);
+            var innerParts = SplitKey(innerKey.Body);
+
+            if (outerParts.Count != innerParts.Count) throw NotTranslatable(methodCall);
+
+            SqlExpression predicate = null;
+
+            for (var i = 0; i < outerParts.Count; i++)
+            {
+                var left = this.translator.Translate(Expression.Lambda(outerParts[i], outerKey.Parameters), outerTables);
+                var right = this.translator.Translate(Expression.Lambda(innerParts[i], innerKey.Parameters), innerTables);
+
+                if (SqlExpressionTranslator.IsPredicate(left) || SqlExpressionTranslator.IsPredicate(right)) throw NotTranslatable(methodCall);
+
+                predicate = AndAlso(predicate, new SqlBinaryExpression(SqlBinaryOperator.Equal, left, right, typeof(bool)));
+            }
+
+            outer.Sources.Add(new JoinExpression(JoinType.Inner, inner.Sources[0], AndAlso(predicate, inner.Predicate)));
+            outer.Selector = LambdaComposer.Compose(GetLambda(methodCall.Arguments[4]), outer.GetSelector(), inner.GetSelector());
+
+            return outer;
+        }
+
         private OrderingExpression TranslateOrdering(MethodCallExpression methodCall, QueryBuilder source)
         {
-            var key = this.translator.Translate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Table);
+            var key = this.translator.Translate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Tables);
 
             // SQL Server 不能直接以條件排序，例如 OrderBy(x => x.Age > 18)。
             if (SqlExpressionTranslator.IsPredicate(key)) throw NotTranslatable(methodCall);
@@ -288,10 +357,18 @@ namespace Chef.DbAccess.Querying
         {
             public QueryBuilder(TableExpression table)
             {
-                this.Table = table;
+                this.Sources.Add(table);
             }
 
-            public TableExpression Table { get; }
+            /// <summary>
+            ///     <c>FROM</c> 的來源：查詢的根，之後依序是 <see cref="JoinExpression" />。
+            /// </summary>
+            public List<TableExpressionBase> Sources { get; } = new List<TableExpressionBase>();
+
+            /// <summary>
+            ///     所有的資料表，依序對應 <see cref="Selector" /> 的參數。
+            /// </summary>
+            public TableExpression[] Tables => this.Sources.Select(s => (TableExpression)(s is JoinExpression join ? join.Table : s)).ToArray();
 
             public SqlExpression Predicate { get; private set; }
 
@@ -304,7 +381,7 @@ namespace Chef.DbAccess.Querying
             public bool IsDistinct { get; set; }
 
             /// <summary>
-            ///     目前的投影，以實體為參數；還沒有 <c>Select</c> 時為 <c>null</c>，表示元素就是實體。
+            ///     目前的投影，依序以 <see cref="Tables" /> 的實體為參數；還沒有 <c>Select</c> 或 <c>Join</c> 時為 <c>null</c>，表示元素就是唯一一張資料表的實體。
             /// </summary>
             public LambdaExpression Selector { get; set; }
 
@@ -316,9 +393,21 @@ namespace Chef.DbAccess.Querying
                 return this.Selector == null ? lambda : LambdaComposer.Compose(lambda, this.Selector);
             }
 
+            /// <summary>
+            ///     <see cref="Selector" />；還沒有投影時是 <c>x =&gt; x</c>。
+            /// </summary>
+            public LambdaExpression GetSelector()
+            {
+                if (this.Selector != null) return this.Selector;
+
+                var parameter = Expression.Parameter(this.Tables[0].Entity.ClrType, "x");
+
+                return Expression.Lambda(parameter, parameter);
+            }
+
             public void AddPredicate(SqlExpression predicate)
             {
-                this.Predicate = this.Predicate == null ? predicate : new SqlBinaryExpression(SqlBinaryOperator.AndAlso, this.Predicate, predicate, typeof(bool));
+                this.Predicate = AndAlso(this.Predicate, predicate);
             }
 
             /// <summary>
@@ -346,26 +435,25 @@ namespace Chef.DbAccess.Querying
         private sealed class ProjectionBuilder
         {
             private readonly SqlExpressionTranslator translator;
-            private readonly TableExpression table;
-            private readonly ParameterExpression parameter;
+            private readonly TableExpression[] tables;
+            private readonly ReadOnlyCollection<ParameterExpression> parameters;
             private readonly List<ProjectionExpression> projections = new List<ProjectionExpression>();
             private readonly HashSet<string> aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            public ProjectionBuilder(SqlExpressionTranslator translator, TableExpression table, LambdaExpression selector)
+            /// <param name="tables">依序對應 <paramref name="selector" /> 的參數。</param>
+            /// <param name="selector">目前的投影；<c>null</c> 時元素就是唯一一張資料表的實體。</param>
+            public ProjectionBuilder(SqlExpressionTranslator translator, TableExpression[] tables, LambdaExpression selector)
             {
                 this.translator = translator;
-                this.table = table;
+                this.tables = tables;
 
                 if (selector == null)
                 {
-                    this.parameter = Expression.Parameter(table.Entity.ClrType, "x");
-                    selector = Expression.Lambda(this.parameter, this.parameter);
-                }
-                else
-                {
-                    this.parameter = selector.Parameters[0];
+                    var parameter = Expression.Parameter(tables[0].Entity.ClrType, "x");
+                    selector = Expression.Lambda(parameter, parameter);
                 }
 
+                this.parameters = selector.Parameters;
                 this.Shaper = this.BuildShaper(selector.Body, null);
 
                 // 投影完全不需要資料庫（例如 Select(x => 1)）時，仍然要選出一個欄位，SQL 才合法。
@@ -380,8 +468,8 @@ namespace Chef.DbAccess.Querying
             {
                 switch (expression)
                 {
-                    case ParameterExpression parameterExpr when parameterExpr == this.parameter:
-                        return this.BuildEntityShaper(expression);
+                    case ParameterExpression parameterExpr when this.parameters.Contains(parameterExpr):
+                        return this.BuildEntityShaper(parameterExpr, this.tables[this.parameters.IndexOf(parameterExpr)]);
 
                     case NewExpression @new:
                         var parameters = @new.Constructor?.GetParameters();
@@ -401,7 +489,7 @@ namespace Chef.DbAccess.Querying
                         return value;
 
                     default:
-                        var sql = this.translator.Translate(Expression.Lambda(expression, this.parameter), this.table);
+                        var sql = this.translator.Translate(Expression.Lambda(expression, this.parameters), this.tables);
 
                         if (SqlExpressionTranslator.IsPredicate(sql))
                         {
@@ -415,14 +503,14 @@ namespace Chef.DbAccess.Querying
                 }
             }
 
-            private Expression BuildEntityShaper(Expression entity)
+            private Expression BuildEntityShaper(Expression entity, TableExpression table)
             {
                 var constructor = entity.Type.GetConstructor(Type.EmptyTypes);
 
                 if (constructor == null) throw new NotSupportedException($"'{entity.Type}' must have a parameterless constructor to be materialized.");
 
-                var bindings = this.table.Entity.Columns.Where(c => c.Property.CanWrite)
-                    .Select(c => Expression.Bind(c.Property, this.AddProjection(this.table.Column(c), c.PropertyName, c.ClrType)));
+                var bindings = table.Entity.Columns.Where(c => c.Property.CanWrite)
+                    .Select(c => Expression.Bind(c.Property, this.AddProjection(table.Column(c), c.PropertyName, c.ClrType)));
 
                 return Expression.MemberInit(Expression.New(constructor), bindings);
             }
@@ -451,7 +539,7 @@ namespace Chef.DbAccess.Querying
                     expression = ((UnaryExpression)expression).Operand;
                 }
 
-                return expression is ConstantExpression || (expression is ParameterExpression parameterExpr && parameterExpr != this.parameter);
+                return expression is ConstantExpression || (expression is ParameterExpression parameterExpr && !this.parameters.Contains(parameterExpr));
             }
         }
     }

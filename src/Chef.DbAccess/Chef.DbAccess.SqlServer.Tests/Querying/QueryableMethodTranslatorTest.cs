@@ -22,6 +22,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
         private static IQueryable<Member> Members => new Member[0].AsQueryable();
 
+        private static IQueryable<Department> Departments => new Department[0].AsQueryable();
+
         [TestMethod]
         public void Query_root_selects_all_mapped_columns()
         {
@@ -367,6 +369,139 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             reverse.Should().Throw<NotSupportedException>().WithMessage("Can not translate*Reverse*");
         }
 
+        [TestMethod]
+        public void Join_becomes_inner_join()
+        {
+            Translate(Members.Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => new { m.Name, DepartmentName = d.Name }))
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_2].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]");
+        }
+
+        [TestMethod]
+        public void Query_syntax_join_with_where_and_orderby()
+        {
+            // 中間的 where 讓 C# 產生 new { m, d } 的透明識別項，之後的 t.d.Name 對應回 [dep_2].[Name]。
+            var query = from m in Members
+                        join d in Departments on m.Id equals d.ManagerId
+                        where d.Name.Contains("業務") && m.Age > 30
+                        orderby m.Name
+                        select new { m.Name, DepartmentName = d.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_2].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "WHERE ([dep_2].[Name] LIKE (('%' + @Name_0) + '%')) AND ([mem_1].[Age] > {=Age_0})\n" +
+                    "ORDER BY [mem_1].[Name] ASC");
+        }
+
+        [TestMethod]
+        public void Join_selecting_both_entities()
+        {
+            var translated = TranslateQuery(Members.Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => new { m, d }));
+
+            Sql(translated)
+                .Should()
+                .StartWith("SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [mem_1].[Age], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n");
+
+            var shaper = translated.Shaper.Should().BeAssignableTo<NewExpression>().Which;
+            shaper.Arguments.Select(a => a.Type).Should().Equal(typeof(Member), typeof(Department));
+            ((MemberInitExpression)shaper.Arguments[1]).Bindings.Cast<MemberAssignment>().Select(b => ProjectionIndex(b.Expression)).Should().Equal(3, 4, 5);
+        }
+
+        [TestMethod]
+        public void Join_without_projection_of_entity_selects_the_entity()
+        {
+            Translate(Members.Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => d))
+                .Sql.Should()
+                .StartWith("SELECT [dep_2].[Id], [dep_2].[Name], [dep_2].[ManagerId]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nINNER JOIN ");
+        }
+
+        [TestMethod]
+        public void Join_with_composite_key()
+        {
+            var query = from m in Members
+                        join d in Departments on new { m.Id, m.Name } equals new { Id = d.ManagerId, d.Name }
+                        select d.Id;
+
+            Translate(query).Sql.Should().EndWith("ON ([mem_1].[No] = [dep_2].[ManagerId]) AND ([mem_1].[Name] = [dep_2].[Name])");
+        }
+
+        [TestMethod]
+        public void Where_on_joined_source_goes_into_on()
+        {
+            var generated = Translate(
+                Members.Where(m => m.Age > 30)
+                    .Join(Departments.Where(d => d.Name == "業務").OrderBy(d => d.Id), m => m.Id, d => d.ManagerId, (m, d) => m.Name));
+
+            generated.Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON ([mem_1].[No] = [dep_2].[ManagerId]) AND ([dep_2].[Name] = @Name_0)\n" +
+                    "WHERE [mem_1].[Age] > {=Age_0}");
+            generated.Parameters.Select(p => p.Name).Should().Equal("Name_0", "Age_0");
+        }
+
+        [TestMethod]
+        public void Join_after_select_and_multiple_joins()
+        {
+            // 沒有表數上限：Join 的結果可以再 Join，同一張表 Join 兩次時別名各自編號。
+            var query = from a in Members.Select(x => new { x.Id, x.Name })
+                        join d in Departments on a.Id equals d.ManagerId
+                        join b in Members on d.Id equals b.Age
+                        where b.Name != a.Name
+                        select new { Manager = a.Name, Department = d.Name, Member = b.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name] AS [Manager], [dep_2].[Name] AS [Department], [mem_3].[Name] AS [Member]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "INNER JOIN [tbl_member] [mem_3] WITH (NOLOCK) ON [dep_2].[Id] = [mem_3].[Age]\n" +
+                    "WHERE [mem_3].[Name] <> [mem_1].[Name]");
+        }
+
+        [TestMethod]
+        public void Result_operators_after_join()
+        {
+            var joined = Members.Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => new { m, d });
+
+            Sql(TranslateResult(joined, q => q.Count(t => t.d.Name == "業務")))
+                .Should()
+                .Be(
+                    "SELECT COUNT(*) AS [Value]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "WHERE [dep_2].[Name] = @Name_0");
+            Sql(TranslateResult(joined.Select(t => t.m), q => q.First())).Should().StartWith("SELECT TOP(1) [mem_1].[No] AS [Id], [mem_1].[Name], [mem_1].[Age]\n");
+        }
+
+        [TestMethod]
+        public void Join_that_needs_subquery_is_not_supported()
+        {
+            Action outerTake = () => Translate(Members.Take(5).Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => d));
+            Action outerDistinct = () => Translate(Members.Distinct().Join(Departments, m => m.Id, d => d.ManagerId, (m, d) => d));
+            Action innerTake = () => Translate(Members.Join(Departments.Take(5), m => m.Id, d => d.ManagerId, (m, d) => d));
+            Action innerDistinct = () => Translate(Members.Join(Departments.Distinct(), m => m.Id, d => d.ManagerId, (m, d) => d));
+            Action innerJoined = () => Translate(
+                Members.Join(Departments.Join(Members, d => d.Id, b => b.Age, (d, b) => d), m => m.Id, d => d.ManagerId, (m, d) => d));
+            Action predicateKey = () => Translate(Members.Join(Departments, m => m.Age > 1, d => d.Id > 1, (m, d) => d));
+
+            outerTake.Should().Throw<NotSupportedException>();
+            outerDistinct.Should().Throw<NotSupportedException>();
+            innerTake.Should().Throw<NotSupportedException>();
+            innerDistinct.Should().Throw<NotSupportedException>();
+            innerJoined.Should().Throw<NotSupportedException>();
+            predicateKey.Should().Throw<NotSupportedException>();
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);
@@ -417,6 +552,16 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int Age { get; set; }
+        }
+
+        [Table("tbl_department")]
+        private class Department
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
+
+            public int ManagerId { get; set; }
         }
 
         private class MemberProfile

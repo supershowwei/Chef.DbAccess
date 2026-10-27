@@ -7,16 +7,27 @@ namespace Chef.DbAccess.Querying
     ///     把 <c>Select</c> 之後的 lambda 改寫成以原本實體為參數的 lambda，例如
     ///     <c>Select(x =&gt; new { N = x.Name })</c> 之後的 <c>a =&gt; a.N == "J"</c> 改寫成 <c>x =&gt; x.Name == "J"</c>，
     ///     翻譯器就可以照常把成員對應到欄位。
+    ///     <para>
+    ///         Join 的結果選擇器有兩個參數，例如 <c>(m, d) =&gt; new { m, d }</c>，每個參數各自換成一邊的投影，
+    ///         組出來的 lambda 以兩邊所有的實體為參數，例如 <c>(x1, x2) =&gt; new { m = x1, d = x2 }</c>。
+    ///     </para>
     /// </summary>
     internal static class LambdaComposer
     {
         /// <param name="lambda">接在 <c>Select</c> 之後的 lambda，例如 <c>a =&gt; a.N == "J"</c>。</param>
-        /// <param name="selector">目前的投影，例如 <c>x =&gt; new { N = x.Name }</c>。</param>
-        public static LambdaExpression Compose(LambdaExpression lambda, LambdaExpression selector)
+        /// <param name="selectors">
+        ///     <paramref name="lambda" /> 每個參數目前的投影，例如 <c>x =&gt; new { N = x.Name }</c>；組出來的 lambda 依序以這些投影的參數為參數。
+        /// </param>
+        public static LambdaExpression Compose(LambdaExpression lambda, params LambdaExpression[] selectors)
         {
-            var body = new ParameterReplacer(lambda.Parameters[0], selector.Body).Visit(lambda.Body);
+            var body = lambda.Body;
 
-            return Expression.Lambda(new ProjectionMemberSimplifier().Visit(body), selector.Parameters);
+            for (var i = 0; i < selectors.Length; i++)
+            {
+                body = new ParameterReplacer(lambda.Parameters[i], selectors[i].Body).Visit(body);
+            }
+
+            return Expression.Lambda(new ProjectionMemberSimplifier().Visit(body), selectors.SelectMany(s => s.Parameters));
         }
 
         private sealed class ParameterReplacer : ExpressionVisitor
