@@ -4,6 +4,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Chef.DbAccess.Querying
 {
@@ -75,6 +77,35 @@ namespace Chef.DbAccess.Querying
                 case QueryResultKind.Scalar: return this.executor.Query<TResult>(prepared).Single();
                 case QueryResultKind.Any: return (TResult)(object)this.executor.HasRows(prepared);
                 case QueryResultKind.All: return (TResult)(object)!this.executor.HasRows(prepared);
+                default: throw new NotSupportedException($"Can not execute '{expression}' as a single result.");
+            }
+        }
+
+        public Task<List<T>> ToListAsync<T>(Expression expression, CancellationToken cancellationToken)
+        {
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+
+            return this.executor.QueryAsync<T>(this.Compiler.Prepare(expression), cancellationToken);
+        }
+
+        /// <summary>
+        ///     <see cref="Execute{TResult}" /> 的非同步版本，<c>FirstAsync</c>、<c>CountAsync</c> 等運算子使用。
+        /// </summary>
+        public async Task<TResult> ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken)
+        {
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+
+            var prepared = this.Compiler.Prepare(expression);
+
+            switch (prepared.Compiled.ResultKind)
+            {
+                case QueryResultKind.First: return (await this.executor.QueryAsync<TResult>(prepared, cancellationToken).ConfigureAwait(false)).First();
+                case QueryResultKind.FirstOrDefault: return (await this.executor.QueryAsync<TResult>(prepared, cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+                case QueryResultKind.Single: return (await this.executor.QueryAsync<TResult>(prepared, cancellationToken).ConfigureAwait(false)).Single();
+                case QueryResultKind.SingleOrDefault: return (await this.executor.QueryAsync<TResult>(prepared, cancellationToken).ConfigureAwait(false)).SingleOrDefault();
+                case QueryResultKind.Scalar: return (await this.executor.QueryAsync<TResult>(prepared, cancellationToken).ConfigureAwait(false)).Single();
+                case QueryResultKind.Any: return (TResult)(object)await this.executor.HasRowsAsync(prepared, cancellationToken).ConfigureAwait(false);
+                case QueryResultKind.All: return (TResult)(object)!await this.executor.HasRowsAsync(prepared, cancellationToken).ConfigureAwait(false);
                 default: throw new NotSupportedException($"Can not execute '{expression}' as a single result.");
             }
         }

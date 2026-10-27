@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Chef.DbAccess.Querying;
 using Chef.DbAccess.SqlServer.Querying;
 using Dapper;
@@ -159,6 +161,30 @@ INSERT INTO dbo.chef_query_member VALUES
 
             Members.Where(x => x.Name.Length == 4).Select(x => x.Id).ToList().Should().Equal(2);
             Members.Where(x => x.Name.ToUpper() == "JOHNNY").Select(x => x.Id).ToList().Should().Equal(1);
+        }
+
+        [TestMethod]
+        public async Task Async_operators()
+        {
+            (await Members.Where(x => x.IsActive).OrderBy(x => x.Id).Select(x => x.Id).ToListAsync()).Should().Equal(1, 3, 5);
+            (await Members.FirstOrDefaultAsync(x => x.Name == "Mary")).Id.Should().Be(2);
+            (await Members.SingleOrDefaultAsync(x => x.Id == 99)).Should().BeNull();
+            (await Members.CountAsync(x => x.Age >= 25)).Should().Be(3);
+            (await Members.AnyAsync(x => x.Name.Contains("%"))).Should().BeTrue();
+            (await Members.AllAsync(x => x.Age > 18)).Should().BeFalse();
+        }
+
+        [TestMethod]
+        public async Task Cancelled_token_stops_the_query()
+        {
+            using (var cancellation = new CancellationTokenSource())
+            {
+                cancellation.Cancel();
+
+                Func<Task> act = () => Members.ToListAsync(cancellation.Token);
+
+                await act.Should().ThrowAsync<OperationCanceledException>();
+            }
         }
 
         private enum MemberStatus

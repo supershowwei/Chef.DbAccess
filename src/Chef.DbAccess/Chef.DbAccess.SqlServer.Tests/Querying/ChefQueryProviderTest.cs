@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Chef.DbAccess.Querying;
 using Chef.DbAccess.SqlServer.Querying;
 using FluentAssertions;
@@ -144,6 +146,76 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
         }
 
         [TestMethod]
+        public async Task ToListAsync_and_ToArrayAsync()
+        {
+            var johnny = new Member { Id = 1 };
+            this.executor.Rows = new object[] { johnny };
+
+            (await this.Members.Where(x => x.Age > 18).ToListAsync()).Should().Equal(johnny);
+            (await this.Members.ToArrayAsync()).Should().Equal(johnny);
+            this.executor.Queries.First().Sql.Should().EndWith("\nWHERE [mem_1].[Age] > {=Age_0}");
+        }
+
+        [TestMethod]
+        public async Task Async_result_operators_share_sql_with_sync_ones()
+        {
+            this.executor.Rows = new object[] { new Member { Id = 1 } };
+
+            (await this.Members.FirstAsync(x => x.Id == 1)).Id.Should().Be(1);
+            this.Members.First(x => x.Id == 1);
+
+            this.executor.Queries.Select(q => q.Sql).Distinct().Should().ContainSingle().Which.Should().StartWith("SELECT TOP(1) ");
+            this.compiler.CacheCount.Should().Be(1);
+        }
+
+        [TestMethod]
+        public async Task Async_result_operators()
+        {
+            this.executor.Rows = new object[0];
+            (await this.Members.FirstOrDefaultAsync()).Should().BeNull();
+            (await this.Members.SingleOrDefaultAsync(x => x.Id == 2)).Should().BeNull();
+
+            Func<Task> first = () => this.Members.FirstAsync();
+            await first.Should().ThrowAsync<InvalidOperationException>();
+
+            this.executor.Rows = new object[] { new Member(), new Member() };
+            Func<Task> single = () => this.Members.SingleAsync(x => x.Age > 1);
+            await single.Should().ThrowAsync<InvalidOperationException>();
+
+            this.executor.Rows = new object[] { 3 };
+            (await this.Members.CountAsync(x => x.Age > 1)).Should().Be(3);
+
+            this.executor.Rows = new object[] { 3L };
+            (await this.Members.LongCountAsync()).Should().Be(3L);
+
+            this.executor.HasRowsResult = true;
+            (await this.Members.AnyAsync()).Should().BeTrue();
+            (await this.Members.AllAsync(x => x.Age > 1)).Should().BeFalse();
+        }
+
+        [TestMethod]
+        public async Task CancellationToken_is_passed_to_executor()
+        {
+            using (var cancellation = new CancellationTokenSource())
+            {
+                await this.Members.ToListAsync(cancellation.Token);
+                this.executor.LastCancellationToken.Should().Be(cancellation.Token);
+
+                this.executor.HasRowsResult = true;
+                await this.Members.AnyAsync(x => x.Age > 1, cancellation.Token);
+                this.executor.LastCancellationToken.Should().Be(cancellation.Token);
+            }
+        }
+
+        [TestMethod]
+        public void Async_operators_require_chef_query()
+        {
+            Func<Task> act = () => new Member[0].AsQueryable().ToListAsync();
+
+            act.Should().Throw<InvalidOperationException>();
+        }
+
+        [TestMethod]
         public void ToQueryString_requires_chef_query()
         {
             Action act = () => new Member[0].AsQueryable().ToQueryString();
@@ -170,6 +242,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
             public bool HasRowsResult { get; set; }
 
+            public CancellationToken LastCancellationToken { get; private set; }
+
             public IEnumerable<T> Query<T>(PreparedQuery query)
             {
                 this.Queries.Add(query);
@@ -177,11 +251,25 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
                 return this.Rows.Cast<T>();
             }
 
+            public Task<List<T>> QueryAsync<T>(PreparedQuery query, CancellationToken cancellationToken)
+            {
+                this.LastCancellationToken = cancellationToken;
+
+                return Task.FromResult(this.Query<T>(query).ToList());
+            }
+
             public bool HasRows(PreparedQuery query)
             {
                 this.Queries.Add(query);
 
                 return this.HasRowsResult;
+            }
+
+            public Task<bool> HasRowsAsync(PreparedQuery query, CancellationToken cancellationToken)
+            {
+                this.LastCancellationToken = cancellationToken;
+
+                return Task.FromResult(this.HasRows(query));
             }
         }
     }

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Chef.DbAccess.Querying
 {
@@ -14,8 +16,15 @@ namespace Chef.DbAccess.Querying
         IEnumerable<T> Query<T>(PreparedQuery query);
 
         /// <summary>
+        ///     非同步執行查詢，讀完所有資料列後回傳。
+        /// </summary>
+        Task<List<T>> QueryAsync<T>(PreparedQuery query, CancellationToken cancellationToken);
+
+        /// <summary>
         ///     執行查詢，回傳是否有任何資料列（<c>Any</c> / <c>All</c>）。
         /// </summary>
         bool HasRows(PreparedQuery query);
+
+        Task<bool> HasRowsAsync(PreparedQuery query, CancellationToken cancellationToken);
     }
 }
