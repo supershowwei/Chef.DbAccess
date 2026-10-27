@@ -502,6 +502,133 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             predicateKey.Should().Throw<NotSupportedException>();
         }
 
+        [TestMethod]
+        public void GroupJoin_with_DefaultIfEmpty_becomes_left_join()
+        {
+            var query = from m in Members
+                        join d in Departments on m.Id equals d.ManagerId into g
+                        from d in g.DefaultIfEmpty()
+                        where m.Age > 30
+                        orderby d.Name
+                        select new { m.Name, DepartmentName = d.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_2].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "WHERE [mem_1].[Age] > {=Age_0}\n" +
+                    "ORDER BY [dep_2].[Name] ASC");
+        }
+
+        [TestMethod]
+        public void Left_join_entity_is_null_checked_by_key_column()
+        {
+            var query = from m in Members
+                        join d in Departments on m.Id equals d.ManagerId into g
+                        from d in g.DefaultIfEmpty()
+                        select new { m.Name, d };
+
+            var translated = TranslateQuery(query);
+
+            // 判斷用的 [dep_2].[ManagerId] 已經在 SELECT 清單中，不另外選出。
+            Sql(translated).Should().StartWith("SELECT [mem_1].[Name], [dep_2].[Id], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n");
+
+            var department = ((NewExpression)translated.Shaper).Arguments[1].Should().BeAssignableTo<ConditionalExpression>().Which;
+            ProjectionIndex(((BinaryExpression)department.Test).Left).Should().Be(3);
+            department.IfTrue.Should().BeAssignableTo<ConstantExpression>().Which.Value.Should().BeNull();
+            department.IfFalse.Should().BeAssignableTo<MemberInitExpression>();
+        }
+
+        [TestMethod]
+        public void Where_on_left_joined_source_stays_in_on()
+        {
+            // 放在 ON 只篩選右邊，左邊的資料不會減少。
+            var query = from m in Members
+                        join d in Departments.Where(x => x.Name == "業務") on m.Id equals d.ManagerId into g
+                        from d in g.DefaultIfEmpty()
+                        select m.Name;
+
+            Translate(query)
+                .Sql.Should()
+                .EndWith("LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON ([mem_1].[No] = [dep_2].[ManagerId]) AND ([dep_2].[Name] = @Name_0)");
+        }
+
+        [TestMethod]
+        public void GroupJoin_without_DefaultIfEmpty_is_inner_join()
+        {
+            var query = from m in Members
+                        join d in Departments on m.Id equals d.ManagerId into g
+                        from d in g
+                        select d.Name;
+
+            Translate(query).Sql.Should().Contain("\nINNER JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON ");
+            TranslateQuery(query).Shaper.Should().BeOfType<ProjectionBindingExpression>();
+        }
+
+        [TestMethod]
+        public void SelectMany_without_result_selector()
+        {
+            var query = Members.GroupJoin(Departments, m => m.Id, d => d.ManagerId, (m, g) => g).SelectMany(g => g.DefaultIfEmpty());
+
+            var translated = TranslateQuery(query);
+
+            Sql(translated).Should().StartWith("SELECT [dep_2].[Id], [dep_2].[Name], [dep_2].[ManagerId]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nLEFT JOIN ");
+            translated.Shaper.Should().BeAssignableTo<ConditionalExpression>();
+        }
+
+        [TestMethod]
+        public void Left_join_then_join()
+        {
+            var query = from m in Members
+                        join d in Departments on m.Id equals d.ManagerId into g
+                        from d in g.DefaultIfEmpty()
+                        join b in Members on m.Age equals b.Age
+                        select new { m.Name, Department = d.Name, Peer = b.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_2].[Name] AS [Department], [mem_3].[Name] AS [Peer]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "INNER JOIN [tbl_member] [mem_3] WITH (NOLOCK) ON [mem_1].[Age] = [mem_3].[Age]");
+        }
+
+        [TestMethod]
+        public void GroupJoin_that_needs_subquery_is_not_supported()
+        {
+            Action groupJoinOnly = () => Translate(Members.GroupJoin(Departments, m => m.Id, d => d.ManagerId, (m, g) => new { m.Name, Count = g.Count() }));
+            Action filteredGroup = () => Translate(
+                from m in Members
+                join d in Departments on m.Id equals d.ManagerId into g
+                from d in g.Where(x => x.Id > 1).DefaultIfEmpty()
+                select d.Name);
+            Action groupInResult = () => Translate(
+                from m in Members
+                join d in Departments on m.Id equals d.ManagerId into g
+                from d in g.DefaultIfEmpty()
+                select new { d.Name, Count = g.Count() });
+            Action groupSelected = () => Translate(
+                from m in Members
+                join d in Departments on m.Id equals d.ManagerId into g
+                from d in g.DefaultIfEmpty()
+                where m.Age > 1
+                select g);
+            Action keyWithoutColumn = () => Translate(
+                from m in Members
+                join d in Departments on m.Id equals 1 into g
+                from d in g.DefaultIfEmpty()
+                select d.Name);
+
+            groupJoinOnly.Should().Throw<NotSupportedException>();
+            filteredGroup.Should().Throw<NotSupportedException>();
+            groupInResult.Should().Throw<NotSupportedException>();
+            groupSelected.Should().Throw<NotSupportedException>();
+            keyWithoutColumn.Should().Throw<NotSupportedException>().WithMessage("*must contain a column*");
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);

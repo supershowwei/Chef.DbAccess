@@ -110,6 +110,26 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             act.Should().Throw<InvalidCastException>().WithMessage("*'abc'*System.Int32*");
         }
 
+        [TestMethod]
+        public void Left_join_entity_without_row_is_null()
+        {
+            var query = from m in Members
+                        join d in new Department[0].AsQueryable() on m.Id equals d.ManagerId into g
+                        from d in g.DefaultIfEmpty()
+                        select new { m.Name, Department = d };
+
+            // SELECT [mem_1].[Name], [dep_2].[Id], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]；以 ON 條件中的 [ManagerId] 判斷右邊有沒有資料。
+            var table = Table(("Name", typeof(string)), ("Id", typeof(int)), ("Name1", typeof(string)), ("ManagerId", typeof(int)));
+            table.Rows.Add("Johnny", 1, "業務", 1);
+            table.Rows.Add("Amy", DBNull.Value, DBNull.Value, DBNull.Value);
+
+            var results = Shape(query, table);
+
+            results[0].Department.Should().BeEquivalentTo(new Department { Id = 1, Name = "業務", ManagerId = 1 });
+            results[1].Name.Should().Be("Amy");
+            results[1].Department.Should().BeNull();
+        }
+
         private static List<T> Shape<T>(IQueryable<T> query, DataTable table)
         {
             var parameterized = PartialEvaluator.Evaluate(query.Expression);
@@ -174,6 +194,16 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public int Key { get; set; }
 
             public string Title { get; set; }
+        }
+
+        [Table("tbl_department")]
+        private class Department
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
+
+            public int ManagerId { get; set; }
         }
     }
 }

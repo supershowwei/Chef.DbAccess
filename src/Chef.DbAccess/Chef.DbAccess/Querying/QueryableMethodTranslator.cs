@@ -23,7 +23,7 @@ namespace Chef.DbAccess.Querying
     ///             對應回欄位，例如 <c>Select(x =&gt; new { N = x.Name }).Where(a =&gt; a.N == "J")</c>。
     ///         </item>
     ///         <item><c>First</c>、<c>Single</c>（含 <c>OrDefault</c>）、<c>Count</c>、<c>LongCount</c>、<c>Any</c>、<c>All</c> 見 <see cref="TranslateResultOperator" />。</item>
-    ///         <item><c>Join</c> 見 <see cref="TranslateJoin" />。</item>
+    ///         <item><c>Join</c> 見 <see cref="TranslateJoin" />；<c>GroupJoin</c> + <c>SelectMany</c>（Left Join）見 <see cref="TranslateGroupJoin" />。</item>
     ///     </list>
     ///     <para>
     ///         <c>Skip</c> / <c>Take</c> 之後再接 <c>Where</c>、<c>OrderBy</c>、<c>Distinct</c> 等需要子查詢，目前不支援，丟出 <see cref="NotSupportedException" />。
@@ -87,7 +87,7 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private TranslatedQuery Build(QueryBuilder source, QueryResultKind resultKind)
         {
-            var projection = new ProjectionBuilder(this.translator, source.Tables, source.Selector);
+            var projection = new ProjectionBuilder(this.context, this.translator, source.Tables, source.OptionalTables, source.Selector);
 
             return this.Build(source, projection.Projections, projection.Shaper, resultKind);
         }
@@ -221,8 +221,20 @@ namespace Chef.DbAccess.Querying
 
         private QueryBuilder VisitQueryableMethod(MethodCallExpression methodCall)
         {
-            var source = this.Visit(methodCall.Arguments[0]);
             var arguments = methodCall.Arguments;
+
+            // GroupJoin 要和接在後面的 SelectMany 一起翻譯，不能先翻譯來源。
+            if (methodCall.Method.Name == nameof(Queryable.SelectMany)
+                && GetLambda(arguments[1]).Parameters.Count == 1
+                && arguments[0] is MethodCallExpression groupJoin
+                && groupJoin.Method.DeclaringType == typeof(Queryable)
+                && groupJoin.Method.Name == nameof(Queryable.GroupJoin)
+                && groupJoin.Arguments.Count == 5)
+            {
+                return this.TranslateGroupJoin(methodCall);
+            }
+
+            var source = this.Visit(arguments[0]);
 
             switch (methodCall.Method.Name)
             {
@@ -290,35 +302,121 @@ namespace Chef.DbAccess.Querying
         private QueryBuilder TranslateJoin(QueryBuilder outer, MethodCallExpression methodCall)
         {
             var inner = this.Visit(methodCall.Arguments[1]);
+            var outerSelector = outer.GetSelector();
 
-            if (outer.Offset != null || outer.Limit != null || outer.IsDistinct) throw NotTranslatable(methodCall);
-            if (inner.Sources.Count > 1 || inner.Offset != null || inner.Limit != null || inner.IsDistinct) throw NotTranslatable(methodCall);
+            this.AddJoin(outer, inner, methodCall, JoinType.Inner);
+
+            outer.Selector = LambdaComposer.Compose(GetLambda(methodCall.Arguments[4]), outerSelector, inner.GetSelector());
+
+            return outer;
+        }
+
+        /// <summary>
+        ///     查詢語法的 Left Join：<c>join d in departments on m.Id equals d.ManagerId into g from d in g.DefaultIfEmpty()</c>，
+        ///     C# 編譯成 <c>GroupJoin(…, (m, g) =&gt; new { m, g }).SelectMany(t =&gt; t.g.DefaultIfEmpty(), (t, d) =&gt; …)</c>，翻譯成 <c>LEFT JOIN</c>；
+        ///     沒有 <c>DefaultIfEmpty()</c>（<c>from d in g</c>）時只留下有對應的資料，翻譯成 <c>INNER JOIN</c>。
+        ///     <list type="bullet">
+        ///         <item>鍵、被 Join 一方的 <c>Where</c> 與 <see cref="TranslateJoin" /> 相同；<c>Where</c> 放在 <c>ON</c>，所以只篩選右邊，不會減少左邊的資料。</item>
+        ///         <item>
+        ///             右邊沒有資料時，選出的實體是 <c>null</c>；選出的欄位是 <c>NULL</c>，讀成 <c>default</c>（例如 <see cref="int" /> 是 0，與 Dapper 相同），
+        ///             LINQ to Objects 則會丟出 <see cref="NullReferenceException" />。
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         用到群組本身（例如 <c>g.Count()</c>、<c>g.Where(…)</c>）或只有 <c>GroupJoin</c> 沒有 <c>SelectMany</c> 時，需要子查詢或 GroupBy，
+        ///         目前丟出 <see cref="NotSupportedException" />。
+        ///     </para>
+        /// </summary>
+        private QueryBuilder TranslateGroupJoin(MethodCallExpression selectMany)
+        {
+            var groupJoin = (MethodCallExpression)selectMany.Arguments[0];
+            var outer = this.Visit(groupJoin.Arguments[0]);
+            var inner = this.Visit(groupJoin.Arguments[1]);
+            var outerSelector = outer.GetSelector();
+            var innerSelector = inner.GetSelector();
+
+            // (m, g) => new { m, g } 以左邊的資料表與群組 g 為參數。
+            var groupSelector = GetLambda(groupJoin.Arguments[4]);
+            var group = groupSelector.Parameters[1];
+            var intermediate = LambdaComposer.Compose(groupSelector, outerSelector, Expression.Lambda(group, group));
+
+            var joinType = GetGroupJoinType(LambdaComposer.Compose(GetLambda(selectMany.Arguments[1]), intermediate).Body, group)
+                           ?? throw NotTranslatable(selectMany);
+
+            // 結果選擇器可能還留著群組 g（例如中間有 where 時的 (t, d) => new { t, d }），之後的投影真的用到 g 時，翻譯器才丟出例外。
+            var body = selectMany.Arguments.Count == 3
+                           ? LambdaComposer.Compose(GetLambda(selectMany.Arguments[2]), intermediate, innerSelector).Body
+                           : innerSelector.Body;
+
+            this.AddJoin(outer, inner, groupJoin, joinType);
+
+            outer.Selector = Expression.Lambda(body, outerSelector.Parameters.Concat(innerSelector.Parameters));
+
+            return outer;
+        }
+
+        /// <summary>
+        ///     <c>SelectMany</c> 展開的集合：<c>g.DefaultIfEmpty()</c> 是 Left Join、<c>g</c> 是 Inner Join，其他（例如 <c>g.Where(…)</c>）無法翻譯，回傳 <c>null</c>。
+        /// </summary>
+        private static JoinType? GetGroupJoinType(Expression collection, ParameterExpression group)
+        {
+            if (collection == group) return JoinType.Inner;
+
+            if (collection is MethodCallExpression methodCall
+                && methodCall.Method.DeclaringType == typeof(Enumerable)
+                && methodCall.Method.Name == nameof(Enumerable.DefaultIfEmpty)
+                && methodCall.Arguments.Count == 1
+                && methodCall.Arguments[0] == group)
+            {
+                return JoinType.Left;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     把 <paramref name="inner" /> 以 <paramref name="joinCall" />（<c>Join</c> 或 <c>GroupJoin</c>，第 3、4 個引數是鍵）的條件 Join 到 <paramref name="outer" />。
+        ///     <para>
+        ///         Left Join 時記下右邊的一個鍵欄位：有對應的資料時它一定不是 <c>NULL</c>（<c>NULL = …</c> 不成立），Shaper 以它判斷右邊的實體是否為 <c>null</c>。
+        ///     </para>
+        /// </summary>
+        private void AddJoin(QueryBuilder outer, QueryBuilder inner, MethodCallExpression joinCall, JoinType joinType)
+        {
+            if (outer.Offset != null || outer.Limit != null || outer.IsDistinct) throw NotTranslatable(joinCall);
+            if (inner.Sources.Count > 1 || inner.Offset != null || inner.Limit != null || inner.IsDistinct) throw NotTranslatable(joinCall);
 
             var outerTables = outer.Tables;
-            var innerTables = inner.Tables;
-            var outerKey = outer.Compose(GetLambda(methodCall.Arguments[2]));
-            var innerKey = inner.Compose(GetLambda(methodCall.Arguments[3]));
+            var innerTable = inner.Tables[0];
+            var outerKey = outer.Compose(GetLambda(joinCall.Arguments[2]));
+            var innerKey = inner.Compose(GetLambda(joinCall.Arguments[3]));
             var outerParts = SplitKey(outerKey.Body);
             var innerParts = SplitKey(innerKey.Body);
 
-            if (outerParts.Count != innerParts.Count) throw NotTranslatable(methodCall);
+            if (outerParts.Count != innerParts.Count) throw NotTranslatable(joinCall);
 
             SqlExpression predicate = null;
+            ColumnExpression marker = null;
 
             for (var i = 0; i < outerParts.Count; i++)
             {
                 var left = this.translator.Translate(Expression.Lambda(outerParts[i], outerKey.Parameters), outerTables);
-                var right = this.translator.Translate(Expression.Lambda(innerParts[i], innerKey.Parameters), innerTables);
+                var right = this.translator.Translate(Expression.Lambda(innerParts[i], innerKey.Parameters), innerTable);
 
-                if (SqlExpressionTranslator.IsPredicate(left) || SqlExpressionTranslator.IsPredicate(right)) throw NotTranslatable(methodCall);
+                if (SqlExpressionTranslator.IsPredicate(left) || SqlExpressionTranslator.IsPredicate(right)) throw NotTranslatable(joinCall);
 
                 predicate = AndAlso(predicate, new SqlBinaryExpression(SqlBinaryOperator.Equal, left, right, typeof(bool)));
+                marker = marker ?? right as ColumnExpression;
             }
 
-            outer.Sources.Add(new JoinExpression(JoinType.Inner, inner.Sources[0], AndAlso(predicate, inner.Predicate)));
-            outer.Selector = LambdaComposer.Compose(GetLambda(methodCall.Arguments[4]), outer.GetSelector(), inner.GetSelector());
+            if (joinType == JoinType.Left)
+            {
+                // 右邊的鍵都不是欄位（例如 on m.Type equals 1）時，沒辦法分辨右邊有沒有資料。
+                if (marker == null) throw new NotSupportedException($"Can not translate '{joinCall}' to SQL: the key of the joined source must contain a column.");
 
-            return outer;
+                outer.OptionalTables.Add(innerTable, marker);
+            }
+
+            outer.Sources.Add(new JoinExpression(joinType, inner.Sources[0], AndAlso(predicate, inner.Predicate)));
         }
 
         private OrderingExpression TranslateOrdering(MethodCallExpression methodCall, QueryBuilder source)
@@ -369,6 +467,11 @@ namespace Chef.DbAccess.Querying
             ///     所有的資料表，依序對應 <see cref="Selector" /> 的參數。
             /// </summary>
             public TableExpression[] Tables => this.Sources.Select(s => (TableExpression)(s is JoinExpression join ? join.Table : s)).ToArray();
+
+            /// <summary>
+            ///     Left Join 的右邊可能沒有資料：資料表對應到一個有資料時一定不是 <c>NULL</c> 的欄位。
+            /// </summary>
+            public Dictionary<TableExpression, ColumnExpression> OptionalTables { get; } = new Dictionary<TableExpression, ColumnExpression>();
 
             public SqlExpression Predicate { get; private set; }
 
@@ -434,18 +537,28 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private sealed class ProjectionBuilder
         {
+            private readonly SqlTranslationContext context;
             private readonly SqlExpressionTranslator translator;
             private readonly TableExpression[] tables;
+            private readonly IReadOnlyDictionary<TableExpression, ColumnExpression> optionalTables;
             private readonly ReadOnlyCollection<ParameterExpression> parameters;
             private readonly List<ProjectionExpression> projections = new List<ProjectionExpression>();
             private readonly HashSet<string> aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             /// <param name="tables">依序對應 <paramref name="selector" /> 的參數。</param>
+            /// <param name="optionalTables">Left Join 右邊的資料表，以及判斷有沒有資料的欄位。</param>
             /// <param name="selector">目前的投影；<c>null</c> 時元素就是唯一一張資料表的實體。</param>
-            public ProjectionBuilder(SqlExpressionTranslator translator, TableExpression[] tables, LambdaExpression selector)
+            public ProjectionBuilder(
+                SqlTranslationContext context,
+                SqlExpressionTranslator translator,
+                TableExpression[] tables,
+                IReadOnlyDictionary<TableExpression, ColumnExpression> optionalTables,
+                LambdaExpression selector)
             {
+                this.context = context;
                 this.translator = translator;
                 this.tables = tables;
+                this.optionalTables = optionalTables;
 
                 if (selector == null)
                 {
@@ -512,7 +625,19 @@ namespace Chef.DbAccess.Querying
                 var bindings = table.Entity.Columns.Where(c => c.Property.CanWrite)
                     .Select(c => Expression.Bind(c.Property, this.AddProjection(table.Column(c), c.PropertyName, c.ClrType)));
 
-                return Expression.MemberInit(Expression.New(constructor), bindings);
+                var memberInit = Expression.MemberInit(Expression.New(constructor), bindings);
+
+                if (!this.optionalTables.TryGetValue(table, out var marker)) return memberInit;
+
+                // Left Join 的右邊沒有資料時是 null；判斷用的欄位已經在 SELECT 清單中就直接沿用。
+                var index = this.projections.FindIndex(p => p.Expression is ColumnExpression column && column.Table == table && column.Name == marker.Name);
+
+                if (index < 0) index = this.AddProjection(marker, marker.Property?.PropertyName ?? marker.Name, typeof(object)).Index;
+
+                return Expression.Condition(
+                    Expression.Equal(new ProjectionBindingExpression(index, typeof(object)), Expression.Constant(null)),
+                    Expression.Constant(null, entity.Type),
+                    memberInit);
             }
 
             private ProjectionBindingExpression AddProjection(SqlExpression sql, string alias, Type type)
@@ -539,7 +664,8 @@ namespace Chef.DbAccess.Querying
                     expression = ((UnaryExpression)expression).Operand;
                 }
 
-                return expression is ConstantExpression || (expression is ParameterExpression parameterExpr && !this.parameters.Contains(parameterExpr));
+                // 其他參數（例如 GroupJoin 的群組 g）交給翻譯器，丟出無法翻譯的例外。
+                return expression is ConstantExpression || (expression is ParameterExpression parameterExpr && this.context.TryGetParameterValue(parameterExpr, out _));
             }
         }
     }
