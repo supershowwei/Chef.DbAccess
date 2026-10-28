@@ -34,6 +34,7 @@ namespace Chef.DbAccess.Querying
         private readonly SqlTranslationContext context;
         private readonly SqlExpressionTranslator translator;
         private int tableCount;
+        private IQueryRoot connectionRoot;
 
         public QueryableMethodTranslator(
             SqlTranslationContext context,
@@ -198,7 +199,7 @@ namespace Chef.DbAccess.Querying
             switch (expression)
             {
                 case ConstantExpression constant when constant.Value is IQueryable queryable:
-                    return this.CreateRoot(queryable.ElementType, (queryable as IQueryRoot)?.TableName);
+                    return this.CreateRoot(queryable);
 
                 case MethodCallExpression methodCall when methodCall.Method.DeclaringType == typeof(Queryable):
                     return this.VisitQueryableMethod(methodCall);
@@ -208,15 +209,43 @@ namespace Chef.DbAccess.Querying
         }
 
         /// <summary>
-        ///     <paramref name="tableName" /> 是指定的資料表名稱（例如 3.x 的 <c>factory.Create&lt;Member&gt;("tbl_member_archive")</c>），
-        ///     只換掉名稱，schema 仍取自 <c>[Table]</c>。
+        ///     查詢的根對應到資料表：
+        ///     <list type="bullet">
+        ///         <item>指定的資料表名稱（例如 3.x 的 <c>factory.Create&lt;Member&gt;("tbl_member_archive")</c>）只換掉名稱，schema 仍取自 <c>[Table]</c>。</item>
+        ///         <item>
+        ///             第一個根是執行查詢的連線，Join 的其他來源要在同一台伺服器，否則丟出 <see cref="InvalidOperationException" />；
+        ///             在其他資料庫時，資料表名稱加上資料庫，例如 <c>[Member].[dbo].[Department]</c>，與 3.x 相同。
+        ///             伺服器與資料庫不分大小寫比較，不知道時（例如不是 <c>Query()</c> 建立的根）視為相同。
+        ///         </item>
+        ///     </list>
         /// </summary>
-        private QueryBuilder CreateRoot(Type elementType, string tableName)
+        private QueryBuilder CreateRoot(IQueryable queryable)
         {
+            var root = queryable as IQueryRoot;
+            var elementType = queryable.ElementType;
             var entity = EntityMetadata.For(elementType);
             var alias = CreateAlias(elementType, ++this.tableCount);
+            string database = null;
 
-            return new QueryBuilder(tableName == null ? TableExpression.For(entity, alias) : new TableExpression(tableName, entity.Schema, alias, entity));
+            if (this.tableCount == 1)
+            {
+                this.connectionRoot = root;
+            }
+            else if (this.connectionRoot?.Server != null && root?.Server != null)
+            {
+                if (!string.Equals(this.connectionRoot.Server, root.Server, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Can not join '{elementType.Name}': it is on database server '{root.Server}', but the query runs on '{this.connectionRoot.Server}'.");
+                }
+
+                if (this.connectionRoot.Database != null && root.Database != null && !string.Equals(this.connectionRoot.Database, root.Database, StringComparison.OrdinalIgnoreCase))
+                {
+                    database = root.Database;
+                }
+            }
+
+            return new QueryBuilder(new TableExpression(root?.TableName ?? entity.TableName, entity.Schema, alias, entity, database));
         }
 
         private QueryBuilder VisitQueryableMethod(MethodCallExpression methodCall)

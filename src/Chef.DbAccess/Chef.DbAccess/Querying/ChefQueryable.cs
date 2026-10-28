@@ -17,10 +17,14 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         /// <param name="provider">組合與執行查詢的 Provider。</param>
         /// <param name="tableName">指定的資料表名稱；<c>null</c> 時使用 <c>[Table]</c> 或類別名稱。</param>
-        public ChefQueryable(ChefQueryProvider provider, string tableName = null)
+        /// <param name="server">連線字串的資料庫伺服器；不知道時為 <c>null</c>。</param>
+        /// <param name="database">連線字串的資料庫；不知道時為 <c>null</c>。</param>
+        public ChefQueryable(ChefQueryProvider provider, string tableName = null, string server = null, string database = null)
         {
             this.Provider = provider ?? throw new ArgumentNullException(nameof(provider));
             this.TableName = string.IsNullOrEmpty(tableName) ? null : tableName;
+            this.Server = string.IsNullOrEmpty(server) ? null : server;
+            this.Database = string.IsNullOrEmpty(database) ? null : database;
             this.Expression = Expression.Constant(this);
         }
 
@@ -43,6 +47,16 @@ namespace Chef.DbAccess.Querying
         ///     只有查詢的根有意義；之後的運算子組出的查詢為 <c>null</c>。
         /// </summary>
         public string TableName { get; }
+
+        /// <summary>
+        ///     只有查詢的根有意義；之後的運算子組出的查詢為 <c>null</c>。
+        /// </summary>
+        public string Server { get; }
+
+        /// <summary>
+        ///     只有查詢的根有意義；之後的運算子組出的查詢為 <c>null</c>。
+        /// </summary>
+        public string Database { get; }
 
         IQueryProvider IQueryable.Provider => this.Provider;
 

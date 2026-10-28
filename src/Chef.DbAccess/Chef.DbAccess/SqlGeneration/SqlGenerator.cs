@@ -166,11 +166,29 @@ namespace Chef.DbAccess.SqlGeneration
         }
 
         /// <summary>
-        ///     <c>[schema].[name] [alias]</c>。資料表別名不加 <c>AS</c>，因為有些資料庫（例如 Oracle）不接受。
+        ///     跨資料庫的資料表沒有指定 schema 時使用的 schema；<c>null</c> 時輸出 <c>database..name</c>。
+        /// </summary>
+        protected virtual string DefaultSchema => null;
+
+        /// <summary>
+        ///     <c>[schema].[name] [alias]</c>，在其他資料庫時是 <c>[database].[schema].[name] [alias]</c>。資料表別名不加 <c>AS</c>，因為有些資料庫（例如 Oracle）不接受。
         /// </summary>
         protected virtual void VisitTableExpression(TableExpression table)
         {
-            if (table.Schema != null) this.sql.Append(this.Delimit(table.Schema)).Append(".");
+            if (table.Database != null)
+            {
+                var schema = table.Schema ?? this.DefaultSchema;
+
+                this.sql.Append(this.Delimit(table.Database)).Append(".");
+
+                if (schema != null) this.sql.Append(this.Delimit(schema));
+
+                this.sql.Append(".");
+            }
+            else if (table.Schema != null)
+            {
+                this.sql.Append(this.Delimit(table.Schema)).Append(".");
+            }
 
             this.sql.Append(this.Delimit(table.Name)).Append(" ").Append(this.Delimit(table.Alias));
         }

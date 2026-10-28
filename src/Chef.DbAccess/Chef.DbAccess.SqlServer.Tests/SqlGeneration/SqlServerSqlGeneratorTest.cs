@@ -260,6 +260,21 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
             }
         }
 
+        [TestMethod]
+        public void Table_in_other_database()
+        {
+            // 與 3.x 的跨資料庫 Join 相同，沒有指定 schema 時用 dbo。
+            var department = new TableExpression("tbl_department", null, "dep_2", null, "Organization");
+            var withSchema = new TableExpression("tbl_department", "hr", "dep_2", null, "Organization");
+
+            Generate(new SelectExpression(new[] { this.Project(this.Name) }, new TableExpressionBase[] { this.table, new CrossJoinExpression(department) }))
+                .Should()
+                .EndWith("\nCROSS JOIN [Organization].[dbo].[tbl_department] [dep_2] WITH (NOLOCK)");
+            Generate(new SelectExpression(new[] { this.Project(this.Name) }, new TableExpressionBase[] { this.table, new CrossJoinExpression(withSchema) }))
+                .Should()
+                .EndWith("\nCROSS JOIN [Organization].[hr].[tbl_department] [dep_2] WITH (NOLOCK)");
+        }
+
         /// <summary>
         ///     使用預設建構子，所以用到它的測試同時驗證了 NOLOCK 預設開啟。
         /// </summary>

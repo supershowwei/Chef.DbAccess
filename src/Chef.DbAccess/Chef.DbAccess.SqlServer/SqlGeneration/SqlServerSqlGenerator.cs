@@ -70,6 +70,11 @@ namespace Chef.DbAccess.SqlServer.SqlGeneration
             }
         }
 
+        /// <summary>
+        ///     與 3.x 的跨資料庫 Join 相同，沒有指定 schema 時輸出 <c>[database].[dbo].[name]</c>。
+        /// </summary>
+        protected override string DefaultSchema => "dbo";
+
         protected override void VisitTableExpression(TableExpression table)
         {
             base.VisitTableExpression(table);

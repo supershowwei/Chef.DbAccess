@@ -340,6 +340,16 @@ namespace Chef.DbAccess.SqlServer.Tests.SqlGeneration
         }
 
         [TestMethod]
+        public void Table_in_other_database_without_schema_leaves_schema_empty()
+        {
+            var other = new TableExpression("tbl_department", null, "d", null, "Organization");
+
+            Generate(new SelectExpression(new[] { new ProjectionExpression(this.Name, "Name") }, new TableExpressionBase[] { this.table, other }))
+                .Sql.Should()
+                .EndWith("FROM \"tbl_member\" \"m\", \"Organization\"..\"tbl_department\" \"d\"");
+        }
+
+        [TestMethod]
         public void Tables_without_join_are_separated_by_comma()
         {
             var other = new TableExpression("tbl_department", null, "d");
