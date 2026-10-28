@@ -42,6 +42,11 @@ namespace Chef.DbAccess
             new Func<IQueryable<object>, Expression<Func<object, object>>, Expression<Func<object, object, bool>>, IQueryable<object>>(Include).GetMethodInfo()
                 .GetGenericMethodDefinition();
 
+        private static readonly MethodInfo IncludeCollectionMethod =
+            new Func<IQueryable<object>, Expression<Func<object, IEnumerable<object>>>, Expression<Func<object, object, bool>>, IQueryable<object>>(Include)
+                .GetMethodInfo()
+                .GetGenericMethodDefinition();
+
         /// <summary>
         ///     查詢實體時一併填入以 <c>[ForeignKey]</c> 設定的參考導覽屬性，例如 <c>employees.Query().Include(x =&gt; x.Department)</c>：
         ///     <c>LEFT JOIN</c> 被參考的資料表，沒有對應的資料時導覽屬性是 <c>null</c>。
@@ -78,6 +83,36 @@ namespace Chef.DbAccess
                 Expression.Call(
                     null,
                     IncludeWithConditionMethod.MakeGenericMethod(typeof(TSource), typeof(TProperty)),
+                    source.Expression,
+                    Expression.Quote(navigation),
+                    Expression.Quote(condition)));
+        }
+
+        /// <summary>
+        ///     延續 3.x 的寫法，以條件 <c>LEFT JOIN</c> 並填入一對多的集合導覽屬性，例如
+        ///     <c>Include(x =&gt; x.ManagedDepartments, (x, d) =&gt; x.Id == d.ManagerId)</c>。
+        ///     <para>
+        ///         同一筆資料會出現在多個資料列，依鍵（<c>[Key]</c>，沒有時是 <c>Id</c>）合併成一個物件，所以結果會先全部讀進記憶體。
+        ///         集合屬性的型別要能指定 <see cref="List{T}" />（例如 <c>List&lt;T&gt;</c>、<c>IList&lt;T&gt;</c>、<c>IEnumerable&lt;T&gt;</c>）。
+        ///     </para>
+        ///     <para>
+        ///         查詢結果必須是實體本身；<c>Count</c>、<c>Any</c>、<c>All</c> 不受影響。
+        ///         <c>First</c>、<c>Single</c>、<c>Skip</c> / <c>Take</c>、<c>Distinct</c> 會套用在 Join 之後的資料列上，目前丟出 <see cref="NotSupportedException" />。
+        ///     </para>
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TElement>(
+            this IQueryable<TSource> source,
+            Expression<Func<TSource, IEnumerable<TElement>>> navigation,
+            Expression<Func<TSource, TElement, bool>> condition)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+            if (condition == null) throw new ArgumentNullException(nameof(condition));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(
+                    null,
+                    IncludeCollectionMethod.MakeGenericMethod(typeof(TSource), typeof(TElement)),
                     source.Expression,
                     Expression.Quote(navigation),
                     Expression.Quote(condition)));

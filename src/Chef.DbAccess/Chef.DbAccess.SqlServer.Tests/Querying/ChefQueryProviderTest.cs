@@ -223,6 +223,29 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             act.Should().Throw<InvalidOperationException>();
         }
 
+        [TestMethod]
+        public async Task Collection_include_merges_rows_for_sync_and_async()
+        {
+            // 執行端回傳 Shaper 組好的每一列：同一位會員出現兩次，各帶一個部門。
+            Member Row(int id, params Department[] departments) => new Member { Id = id, Name = "M" + id, ManagedDepartments = departments.ToList() };
+
+            this.executor.Rows = new object[]
+                                 {
+                                     Row(1, new Department { Id = 10 }),
+                                     Row(2),
+                                     Row(1, new Department { Id = 11 })
+                                 };
+
+            var query = this.Members.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.ManagerId);
+
+            foreach (var results in new[] { query.ToList(), await query.ToListAsync() })
+            {
+                results.Select(m => m.Id).Should().Equal(1, 2);
+                results[0].ManagedDepartments.Select(d => d.Id).Should().Equal(10, 11);
+                results[1].ManagedDepartments.Should().BeEmpty();
+            }
+        }
+
         [Table("tbl_member")]
         private class Member
         {
@@ -232,6 +255,16 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int Age { get; set; }
+
+            public List<Department> ManagedDepartments { get; set; }
+        }
+
+        [Table("tbl_department")]
+        private class Department
+        {
+            public int Id { get; set; }
+
+            public int ManagerId { get; set; }
         }
 
         private sealed class FakeQueryExecutor : IQueryExecutor

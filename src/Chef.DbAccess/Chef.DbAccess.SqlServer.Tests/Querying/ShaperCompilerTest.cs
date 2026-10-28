@@ -152,6 +152,36 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             results[1].Department.Should().BeNull();
         }
 
+        [TestMethod]
+        public void Collection_include_merges_rows_by_key()
+        {
+            var query = new Department[0].AsQueryable().Include(d => d.Staffs, (d, s) => d.Id == s.DepartmentId);
+
+            // SELECT [dep_1].[Id], [dep_1].[Name], [dep_1].[ManagerId], [sta_2].[Id] AS [Id1], [sta_2].[Name] AS [Name1], [sta_2].[DepartmentId]
+            var table = Table(
+                ("Id", typeof(int)),
+                ("Name", typeof(string)),
+                ("ManagerId", typeof(int)),
+                ("Id1", typeof(int)),
+                ("Name1", typeof(string)),
+                ("DepartmentId", typeof(int)));
+
+            table.Rows.Add(1, "業務", 10, 100, "Johnny", 1);
+            table.Rows.Add(2, "人資", 20, DBNull.Value, DBNull.Value, DBNull.Value);
+            table.Rows.Add(1, "業務", 10, 101, "Amy", 1);
+            table.Rows.Add(3, "研發", 30, 102, "Bob", 3);
+
+            // 有兩個集合 Include 時會出現重複的子資料，依鍵去除。
+            table.Rows.Add(1, "業務", 10, 100, "Johnny", 1);
+
+            var results = Shape(query, table);
+
+            results.Select(d => d.Id).Should().Equal(1, 2, 3);
+            results[0].Staffs.Select(s => s.Name).Should().Equal("Johnny", "Amy");
+            results[1].Staffs.Should().BeEmpty();
+            results[2].Staffs.Select(s => s.Id).Should().Equal(102);
+        }
+
         private static List<T> Shape<T>(IQueryable<T> query, DataTable table)
         {
             var parameterized = PartialEvaluator.Evaluate(query.Expression);
@@ -161,7 +191,9 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
                     SqlServerTranslators.MethodCalls)
                 .Translate(parameterized.Expression);
 
-            return ReadAll(ShaperCompiler.Compile<T>(translated.Shaper), table, parameterized.ParameterValues);
+            var rows = ReadAll(ShaperCompiler.Compile<T>(translated.Shaper), table, parameterized.ParameterValues);
+
+            return translated.Resolver == null ? rows : translated.Resolver.Resolve(rows);
         }
 
         private static List<T> ReadAll<T>(
@@ -226,6 +258,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int ManagerId { get; set; }
+
+            public List<Staff> Staffs { get; set; }
         }
 
         [Table("tbl_staff")]

@@ -50,11 +50,15 @@ namespace Chef.DbAccess.Querying
             return (IQueryable)Activator.CreateInstance(typeof(ChefQueryable<>).MakeGenericType(elementType), this, expression);
         }
 
+        /// <summary>
+        ///     一般查詢一邊讀一邊回傳；有一對多 <c>Include</c> 時要讀完所有資料列才能合併（<see cref="IdentityResolver" />）。
+        /// </summary>
         public IEnumerable<T> ExecuteSequence<T>(Expression expression)
         {
             var prepared = this.Compiler.Prepare(expression);
+            var rows = this.executor.Query<T>(prepared);
 
-            return this.executor.Query<T>(prepared);
+            return prepared.Compiled.Resolver == null ? rows : prepared.Compiled.Resolver.Resolve(rows);
         }
 
         /// <summary>
@@ -81,11 +85,14 @@ namespace Chef.DbAccess.Querying
             }
         }
 
-        public Task<List<T>> ToListAsync<T>(Expression expression, CancellationToken cancellationToken)
+        public async Task<List<T>> ToListAsync<T>(Expression expression, CancellationToken cancellationToken)
         {
             if (expression == null) throw new ArgumentNullException(nameof(expression));
 
-            return this.executor.QueryAsync<T>(this.Compiler.Prepare(expression), cancellationToken);
+            var prepared = this.Compiler.Prepare(expression);
+            var rows = await this.executor.QueryAsync<T>(prepared, cancellationToken).ConfigureAwait(false);
+
+            return prepared.Compiled.Resolver == null ? rows : prepared.Compiled.Resolver.Resolve(rows);
         }
 
         /// <summary>

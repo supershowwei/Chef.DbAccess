@@ -10,12 +10,13 @@ namespace Chef.DbAccess.Querying
     /// </summary>
     internal sealed class CompiledQuery
     {
-        public CompiledQuery(string sql, IReadOnlyList<CompiledParameter> parameters, QueryResultKind resultKind, Delegate shaper)
+        public CompiledQuery(string sql, IReadOnlyList<CompiledParameter> parameters, QueryResultKind resultKind, Delegate shaper, IdentityResolver resolver = null)
         {
             this.Sql = sql;
             this.Parameters = parameters;
             this.ResultKind = resultKind;
             this.Shaper = shaper;
+            this.Resolver = resolver;
         }
 
         public string Sql { get; }
@@ -31,6 +32,11 @@ namespace Chef.DbAccess.Querying
         ///     <c>Func&lt;DbDataReader, IReadOnlyDictionary&lt;string, object&gt;, T&gt;</c>；<see cref="QueryResultKind.Any" /> 與 <see cref="QueryResultKind.All" /> 為 <c>null</c>。
         /// </summary>
         public Delegate Shaper { get; }
+
+        /// <summary>
+        ///     見 <see cref="TranslatedQuery.Resolver" />。
+        /// </summary>
+        public IdentityResolver Resolver { get; }
 
         public Func<DbDataReader, IReadOnlyDictionary<string, object>, T> GetShaper<T>()
         {

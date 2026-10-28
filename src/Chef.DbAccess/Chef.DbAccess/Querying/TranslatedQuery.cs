@@ -54,12 +54,14 @@ namespace Chef.DbAccess.Querying
             SelectExpression select,
             Expression shaper,
             QueryResultKind resultKind,
-            IReadOnlyDictionary<string, Func<IReadOnlyDictionary<string, object>, object>> parameterBindings)
+            IReadOnlyDictionary<string, Func<IReadOnlyDictionary<string, object>, object>> parameterBindings,
+            IdentityResolver resolver = null)
         {
             this.Select = select;
             this.Shaper = shaper;
             this.ResultKind = resultKind;
             this.ParameterBindings = parameterBindings;
+            this.Resolver = resolver;
         }
 
         public SelectExpression Select { get; }
@@ -79,5 +81,10 @@ namespace Chef.DbAccess.Querying
         ///     快取命中時用新的查詢參數值重新算出每個 SQL 參數的值。
         /// </summary>
         public IReadOnlyDictionary<string, Func<IReadOnlyDictionary<string, object>, object>> ParameterBindings { get; }
+
+        /// <summary>
+        ///     有一對多 <c>Include</c> 時，把 Shaper 組出的每一列合併成父資料；沒有時為 <c>null</c>。
+        /// </summary>
+        public IdentityResolver Resolver { get; }
     }
 }

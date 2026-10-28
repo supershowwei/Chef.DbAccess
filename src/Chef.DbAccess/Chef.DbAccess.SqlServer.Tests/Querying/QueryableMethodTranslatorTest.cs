@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Linq.Expressions;
@@ -927,6 +928,78 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             alreadyJoined.Should().Throw<NotSupportedException>().WithMessage("*already joined*");
         }
 
+        [TestMethod]
+        public void Collection_include_left_joins_children()
+        {
+            var translated = TranslateQuery(
+                Members.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.ManagerId).Where(m => m.Age > 30).OrderBy(m => m.Name));
+
+            Sql(translated)
+                .Should()
+                .Be(
+                    "SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [mem_1].[Age], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]\n" +
+                    "WHERE [mem_1].[Age] > {=Age_0}\n" +
+                    "ORDER BY [mem_1].[Name] ASC");
+
+            translated.Resolver.Should().NotBeNull();
+
+            // 每列的集合只有 0 或 1 筆子資料，子資料以 ON 條件中的 [dep_2].[ManagerId] 判斷有沒有對應的資料。
+            var departments = ((MemberInitExpression)translated.Shaper).Bindings.Cast<MemberAssignment>().Last();
+            departments.Member.Name.Should().Be(nameof(Member.ManagedDepartments));
+            departments.Expression.Should().BeAssignableTo<MethodCallExpression>().Which.Method.Name.Should().Be(nameof(IdentityResolver.CreateCollection));
+        }
+
+        [TestMethod]
+        public void Collection_include_does_not_affect_count()
+        {
+            var translated = TranslateResult(Members.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.ManagerId), q => q.Count(m => m.Age > 30));
+
+            Sql(translated).Should().Be("SELECT COUNT(*) AS [Value]\nFROM [tbl_member] [mem_1] WITH (NOLOCK)\nWHERE [mem_1].[Age] > {=Age_0}");
+            translated.Resolver.Should().BeNull();
+        }
+
+        [TestMethod]
+        public void Collection_include_with_reference_include()
+        {
+            // 一對多的 Join 等到最後才加入，所以排在參考導覽屬性的 Join 之後。
+            Translate(Members.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.ManagerId).Include(m => m.ManagedDepartment, (m, d) => m.Id == d.Id))
+                .Sql.Should()
+                .EndWith(
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_3] WITH (NOLOCK) ON [mem_1].[No] = [dep_3].[Id]\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [mem_1].[No] = [dep_2].[ManagerId]");
+        }
+
+        [TestMethod]
+        public void Collection_include_that_needs_subquery_is_not_supported()
+        {
+            var included = Members.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.ManagerId);
+
+            Action first = () => TranslateResult(included, q => q.First());
+            Action take = () => Translate(included.OrderBy(m => m.Id).Take(10));
+            Action distinct = () => Translate(included.Distinct());
+            Action projection = () => Translate(included.Select(m => new { m.Name, m.ManagedDepartments }));
+            Action twice = () => Translate(included.Include(m => m.ManagedDepartments, (m, d) => m.Id == d.Id));
+            Action array = () => Translate(Members.Include(m => m.ArchivedDepartments, (m, d) => m.Id == d.ManagerId));
+            Action keyless = () => Translate(Members.Include(m => m.Notes, (m, n) => m.Name == n.Text));
+            Action withoutCondition = () => Translate(Members.Include(m => m.ManagedDepartments));
+            Action collectionInWhere = () => Translate(Members.Where(m => m.ManagedDepartments.Any()));
+
+            first.Should().Throw<NotSupportedException>().WithMessage("*First, Single, Skip, Take or Distinct*");
+            take.Should().Throw<NotSupportedException>().WithMessage("*First, Single, Skip, Take or Distinct*");
+            distinct.Should().Throw<NotSupportedException>().WithMessage("*First, Single, Skip, Take or Distinct*");
+            projection.Should().Throw<NotSupportedException>().WithMessage("*return 'Member' itself*");
+            twice.Should().Throw<NotSupportedException>().WithMessage("*already joined*");
+            array.Should().Throw<NotSupportedException>().WithMessage("*accept List<Department>*");
+            keyless.Should().Throw<NotSupportedException>().WithMessage("*keys of 'Note'*");
+            withoutCondition.Should().Throw<NotSupportedException>().WithMessage("*Include of a collection must specify the join condition*");
+
+            // 集合的 Any / Count 需要子查詢，在 Phase 4 處理。
+            collectionInWhere.Should().Throw<NotSupportedException>();
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);
@@ -980,6 +1053,19 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
             // 沒有 [ForeignKey]，只能以 Include 指定條件 Join。
             public Department ManagedDepartment { get; set; }
+
+            public List<Department> ManagedDepartments { get; set; }
+
+            public Department[] ArchivedDepartments { get; set; }
+
+            public List<Note> Notes { get; set; }
+        }
+
+        // 沒有 [Key] 也沒有 Id，不能合併一對多的資料列。
+        [Table("tbl_note")]
+        private class Note
+        {
+            public string Text { get; set; }
         }
 
         [Table("tbl_department")]
@@ -993,6 +1079,7 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
             [ForeignKey(nameof(ManagerId))]
             public Employee Manager { get; set; }
+
         }
 
         [Table("tbl_employee")]

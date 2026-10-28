@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -75,13 +76,22 @@ namespace Chef.DbAccess.Querying
             }
         }
 
-        private TranslatedQuery Build(QueryBuilder source, IEnumerable<ProjectionExpression> projections, Expression shaper, QueryResultKind resultKind)
+        /// <summary>
+        ///     <c>Count</c>、<c>Any</c> 等不組出實體的結果用這個多載，一對多的 <c>Include</c> 不會 Join，不影響筆數。
+        /// </summary>
+        private TranslatedQuery Build(
+            QueryBuilder source,
+            IEnumerable<ProjectionExpression> projections,
+            Expression shaper,
+            QueryResultKind resultKind,
+            IdentityResolver resolver = null)
         {
             return new TranslatedQuery(
                 new SelectExpression(projections, source.Sources, source.Predicate, source.Orderings, source.Offset, source.Limit, source.IsDistinct),
                 shaper,
                 resultKind,
-                this.context.ParameterBindings.ToDictionary(b => b.Key, b => b.Value));
+                this.context.ParameterBindings.ToDictionary(b => b.Key, b => b.Value),
+                resolver);
         }
 
         /// <summary>
@@ -89,9 +99,58 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private TranslatedQuery Build(QueryBuilder source, QueryResultKind resultKind)
         {
+            var resolver = this.PrepareCollectionIncludes(source, resultKind);
             var projection = new ProjectionBuilder(this.context, this.translator, source);
 
-            return this.Build(source, projection.Projections, projection.Shaper, resultKind);
+            // 一對多的 Join 在組出 Shaper 之後才加入，投影的參數不需要對應這些資料表。
+            foreach (var include in source.CollectionIncludes)
+            {
+                source.Sources.Add(new JoinExpression(JoinType.Left, include.Table, include.Predicate));
+            }
+
+            return this.Build(source, projection.Projections, projection.Shaper, resultKind, resolver);
+        }
+
+        /// <summary>
+        ///     一對多的 <c>Include</c> 只有查詢結果是實體本身時才能合併資料列（見 <see cref="IdentityResolver" />）；
+        ///     <c>First</c>、<c>Single</c>、分頁與 <c>Distinct</c> 會套用在 Join 之後的資料列上，需要子查詢，目前不支援。
+        /// </summary>
+        /// <returns>沒有一對多的 <c>Include</c> 時為 <c>null</c>。</returns>
+        private IdentityResolver PrepareCollectionIncludes(QueryBuilder source, QueryResultKind resultKind)
+        {
+            if (source.CollectionIncludes.Count == 0) return null;
+
+            var owner = source.CollectionIncludes[0].Owner;
+            var isEntity = source.Selector == null ? source.Tables[0] == owner : source.Selector.Body == source.Selector.Parameters[Array.IndexOf(source.Tables, owner)];
+
+            if (resultKind != QueryResultKind.Sequence || source.Offset != null || source.Limit != null || source.IsDistinct)
+            {
+                throw new NotSupportedException("Include of a collection can not be combined with First, Single, Skip, Take or Distinct yet.");
+            }
+
+            if (!isEntity || source.CollectionIncludes.Any(i => i.Owner != owner))
+            {
+                throw new NotSupportedException($"Include of a collection requires the query to return '{owner.Entity.ClrType.Name}' itself.");
+            }
+
+            var keys = GetIdentityKeys(owner);
+            var collections = source.CollectionIncludes.Select(i => (i.Navigation, GetIdentityKeys(i.Table))).ToList();
+
+            foreach (var include in source.CollectionIncludes) source.OptionalTables.Add(include.Table, include.Marker);
+
+            return new IdentityResolver(keys, collections);
+        }
+
+        private static IReadOnlyList<PropertyInfo> GetIdentityKeys(TableExpression table)
+        {
+            var keys = table.Entity.IdentityKeys;
+
+            if (keys.Count == 0)
+            {
+                throw new NotSupportedException($"Include of a collection needs the keys of '{table.Entity.ClrType.Name}' to merge rows. Mark them with [Key].");
+            }
+
+            return keys.Select(k => k.Property).ToList();
         }
 
         /// <summary>
@@ -538,7 +597,7 @@ namespace Chef.DbAccess.Querying
 
             var principalKeys = navigation.PrincipalKeys;
 
-            joined = this.CreateNavigationTable(table, navigation.Property);
+            joined = this.CreateNavigationTable(table, navigation.TargetType);
 
             SqlExpression predicate = null;
 
@@ -557,9 +616,9 @@ namespace Chef.DbAccess.Querying
         /// <summary>
         ///     導覽屬性指到的資料表，與來源在同一個資料庫。
         /// </summary>
-        private TableExpression CreateNavigationTable(TableExpression table, PropertyInfo property)
+        private TableExpression CreateNavigationTable(TableExpression table, Type entityType)
         {
-            var target = EntityMetadata.For(property.PropertyType);
+            var target = EntityMetadata.For(entityType);
 
             return new TableExpression(target.TableName, target.Schema, CreateAlias(target.ClrType, ++this.tableCount), target, table.Database);
         }
@@ -586,6 +645,10 @@ namespace Chef.DbAccess.Querying
         ///             <c>Include(x =&gt; x.Department, (x, d) =&gt; x.DepartmentId == d.Id)</c> 以條件 <c>LEFT JOIN</c>，只能有一層。
         ///             條件中要有被 Join 資料表的欄位與其他值相等（例如 <c>d.Id</c>），用來判斷有沒有對應的資料；同一個導覽屬性已經 Join 過時不能再指定條件。
         ///         </item>
+        ///         <item>
+        ///             一對多的集合只能以條件 Include，例如 <c>Include(x =&gt; x.ManagedDepartments, (x, d) =&gt; x.Id == d.ManagerId)</c>，
+        ///             記錄在 <see cref="QueryBuilder.CollectionIncludes" />，見 <see cref="AddCollectionInclude" /> 與 <see cref="PrepareCollectionIncludes" />。
+        ///         </item>
         ///     </list>
         ///     <para>導覽屬性要屬於查詢中的實體（例如 <c>Select</c> 成匿名型別之後就不行），否則丟出 <see cref="NotSupportedException" />。</para>
         /// </summary>
@@ -593,7 +656,9 @@ namespace Chef.DbAccess.Querying
         {
             var navigation = source.Compose(GetLambda(methodCall.Arguments[1]));
             var members = new Stack<MemberExpression>();
-            var expression = navigation.Body;
+
+            // 集合的 Include 是 Func<T, IEnumerable<TElement>>，屬性外面可能包著轉型。
+            var expression = navigation.Body.NodeType == ExpressionType.Convert ? ((UnaryExpression)navigation.Body).Operand : navigation.Body;
 
             while (expression is MemberExpression member && member.Member is PropertyInfo)
             {
@@ -614,14 +679,29 @@ namespace Chef.DbAccess.Querying
             {
                 var property = (PropertyInfo)members.Pop().Member;
 
-                if (source.Navigations.ContainsKey((table, property))) throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: '{property.Name}' is already joined.");
+                // 條件的第二個參數是被 Join 的實體；與屬性的型別不同時，屬性是它的集合。
+                var conditionLambda = GetLambda(methodCall.Arguments[2]);
+                var entityType = conditionLambda.Parameters[1].Type;
+                var isCollection = property.PropertyType != entityType;
 
-                var joined = this.CreateNavigationTable(table, property);
-                var target = Expression.Parameter(property.PropertyType, property.Name);
-                var condition = LambdaComposer.Compose(GetLambda(methodCall.Arguments[2]), source.GetSelector(), Expression.Lambda(target, target));
+                if (source.Navigations.ContainsKey((table, property)) || source.CollectionIncludes.Any(i => i.Owner == table && i.Navigation == property))
+                {
+                    throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: '{property.Name}' is already joined.");
+                }
+
+                var joined = this.CreateNavigationTable(table, entityType);
+                var target = Expression.Parameter(entityType, property.Name);
+                var condition = LambdaComposer.Compose(conditionLambda, source.GetSelector(), Expression.Lambda(target, target));
                 var predicate = this.translator.TranslatePredicate(condition, source.Tables.Concat(new[] { joined }).ToArray());
                 var marker = FindEqualColumn(predicate, joined)
-                             ?? throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: the condition must compare a column of '{property.PropertyType.Name}' for equality.");
+                             ?? throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: the condition must compare a column of '{entityType.Name}' for equality.");
+
+                if (isCollection)
+                {
+                    AddCollectionInclude(source, table, property, joined, predicate, marker);
+
+                    return source;
+                }
 
                 AddNavigationJoin(source, table, property, joined, predicate, marker);
                 source.AddInclude(table, property, joined);
@@ -631,6 +711,14 @@ namespace Chef.DbAccess.Querying
 
             foreach (var member in members)
             {
+                // 集合（List<T> 等，string 除外）只能以條件 Include。
+                if (member.Type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(member.Type))
+                {
+                    throw new NotSupportedException(
+                        $"Can not translate '{methodCall}' to SQL: Include of a collection must specify the join condition, " +
+                        $"for example 'Include(x => x.{member.Member.Name}, (x, y) => x.Id == y.ParentId)'.");
+                }
+
                 var metadata = table.Entity.FindNavigation(member.Member.Name)
                                ?? throw new NotSupportedException(
                                    $"Can not translate '{methodCall}' to SQL: '{member}' must be configured with [ForeignKey], or specify the join condition.");
@@ -642,6 +730,22 @@ namespace Chef.DbAccess.Querying
             }
 
             return source;
+        }
+
+        /// <summary>
+        ///     一對多的 Join 會增加筆數，記錄在 <see cref="QueryBuilder.CollectionIncludes" />，等到產生 SELECT 清單時才加入（見 <see cref="Build(QueryBuilder, QueryResultKind)" />），
+        ///     所以 <c>Count</c> 等不受影響。集合屬性要有 setter，並且能指定 <see cref="List{T}" />。
+        /// </summary>
+        private static void AddCollectionInclude(QueryBuilder source, TableExpression owner, PropertyInfo property, TableExpression children, SqlExpression predicate, ColumnExpression marker)
+        {
+            var elementType = children.Entity.ClrType;
+
+            if (!property.CanWrite || !property.PropertyType.IsAssignableFrom(typeof(List<>).MakeGenericType(elementType)))
+            {
+                throw new NotSupportedException($"Can not include '{property.Name}': the collection property must have a setter and accept List<{elementType.Name}>.");
+            }
+
+            source.CollectionIncludes.Add((owner, property, children, predicate, marker));
         }
 
         /// <summary>
@@ -815,6 +919,13 @@ namespace Chef.DbAccess.Querying
             public Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>> Includes { get; } =
                 new Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>>();
 
+            /// <summary>
+            ///     一對多集合的 <c>Include</c>：<see cref="Owner" /> 的實體以 <c>LEFT JOIN</c> <see cref="Table" /> 的資料填入集合 <see cref="Navigation" />。
+            ///     Join 等到產生 <c>SELECT</c> 清單時才加入，<see cref="Marker" /> 用來判斷有沒有對應的資料。
+            /// </summary>
+            public List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker)> CollectionIncludes { get; } =
+                new List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker)>();
+
             public void AddInclude(TableExpression table, PropertyInfo navigation, TableExpression joined)
             {
                 if (!this.Includes.TryGetValue(table, out var includes)) this.Includes.Add(table, includes = new List<(PropertyInfo Navigation, TableExpression Table)>());
@@ -886,6 +997,8 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private sealed class ProjectionBuilder
         {
+            private static readonly MethodInfo CreateCollectionMethod = typeof(IdentityResolver).GetMethod(nameof(IdentityResolver.CreateCollection));
+
             private readonly SqlTranslationContext context;
             private readonly SqlExpressionTranslator translator;
             private readonly TableExpression[] tables;
@@ -984,6 +1097,15 @@ namespace Chef.DbAccess.Querying
 
                         bindings.Add(Expression.Bind(navigation, this.BuildEntityShaper(navigation.PropertyType, joined)));
                     }
+                }
+
+                // 一對多：每列的集合只有 0 或 1 筆子資料，之後由 IdentityResolver 合併。
+                foreach (var include in this.source.CollectionIncludes.Where(i => i.Owner == table))
+                {
+                    var elementType = include.Table.Entity.ClrType;
+                    var child = this.BuildEntityShaper(elementType, include.Table);
+
+                    bindings.Add(Expression.Bind(include.Navigation, Expression.Call(CreateCollectionMethod.MakeGenericMethod(elementType), child)));
                 }
 
                 var memberInit = Expression.MemberInit(Expression.New(constructor), bindings);

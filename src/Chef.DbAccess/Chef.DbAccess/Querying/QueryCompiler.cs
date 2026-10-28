@@ -65,7 +65,7 @@ namespace Chef.DbAccess.Querying
 
             var shaper = translated.Shaper == null ? null : CompileShaper(translated.Shaper);
 
-            return new CompiledQuery(generated.Sql, parameters, translated.ResultKind, shaper);
+            return new CompiledQuery(generated.Sql, parameters, translated.ResultKind, shaper, translated.Resolver);
         }
 
         /// <summary>

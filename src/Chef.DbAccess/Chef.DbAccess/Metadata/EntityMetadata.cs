@@ -62,6 +62,8 @@ namespace Chef.DbAccess.Metadata
             // 以 new 遮蔽基底屬性時會出現同名屬性，取衍生類別宣告的那一個（GetProperties 會先列出）。
             this.columnMap = this.Columns.GroupBy(c => c.PropertyName).ToDictionary(g => g.Key, g => g.First());
 
+            this.IdentityKeys = this.Keys.Count > 0 ? this.Keys : new[] { this.FindColumn("Id") }.Where(k => k != null).ToList();
+
             this.Navigations = this.CreateNavigations(properties);
             this.navigationMap = this.Navigations.GroupBy(n => n.PropertyName).ToDictionary(g => g.Key, g => g.First());
         }
@@ -87,6 +89,12 @@ namespace Chef.DbAccess.Metadata
         ///     標註 <c>[Key]</c> 的欄位。
         /// </summary>
         public IReadOnlyList<PropertyMetadata> Keys { get; }
+
+        /// <summary>
+        ///     識別一筆資料的鍵：<see cref="Keys" />；沒有 <c>[Key]</c> 時是名為 <c>Id</c> 的欄位；都沒有時是空的。
+        ///     導覽屬性參考的鍵、一對多 <c>Include</c> 合併資料列時使用。
+        /// </summary>
+        public IReadOnlyList<PropertyMetadata> IdentityKeys { get; }
 
         /// <summary>
         ///     以 <c>[ForeignKey]</c> 設定的參考導覽屬性，見 <see cref="NavigationMetadata" />。

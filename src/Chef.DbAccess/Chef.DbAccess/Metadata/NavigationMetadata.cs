@@ -40,7 +40,7 @@ namespace Chef.DbAccess.Metadata
         public EntityMetadata TargetEntity => EntityMetadata.For(this.TargetType);
 
         /// <summary>
-        ///     被參考的鍵：<see cref="TargetEntity" /> 的 <c>[Key]</c>；沒有 <c>[Key]</c> 時是名為 <c>Id</c> 的欄位。數量必須與 <see cref="ForeignKeys" /> 相同。
+        ///     被參考的鍵：<see cref="TargetEntity" /> 的 <see cref="EntityMetadata.IdentityKeys" />（<c>[Key]</c>，沒有時是名為 <c>Id</c> 的欄位）。數量必須與 <see cref="ForeignKeys" /> 相同。
         /// </summary>
         public IReadOnlyList<PropertyMetadata> PrincipalKeys => this.principalKeys.Value;
 
@@ -51,8 +51,7 @@ namespace Chef.DbAccess.Metadata
 
         private IReadOnlyList<PropertyMetadata> ResolvePrincipalKeys()
         {
-            var target = this.TargetEntity;
-            var keys = target.Keys.Count > 0 ? target.Keys : new[] { target.FindColumn("Id") }.Where(k => k != null).ToList();
+            var keys = this.TargetEntity.IdentityKeys;
 
             if (keys.Count != this.ForeignKeys.Count)
             {
