@@ -144,7 +144,7 @@ PartialEvaluator 把 `DateTime.Today.AddDays(-7)`、`GetId()`、閉包變數等�
 2. `[ForeignKey]` 慣例：`x.Department.Name` 可以直接用在 Where 或 Select，會自動產生 Join。
 3. 延續 3.x 的寫法：`.Include(x => x.Department, (x, d) => x.DepartmentId == d.Id)`，把結果填回導覽屬性，一對多集合以 identity resolution 合併。
 
-Join 兩端的 `IDataAccess` 必須是同一個連線字串，否則丟出明確的例外。跨資料庫（同一台伺服器）則沿用現有的 `[Database].[Schema].[Table]` 寫法。
+Join 兩端的 `IDataAccess` 必須在同一台伺服器，否則丟出明確的例外。跨資料庫（同一台伺服器）則沿用現有的 `[Database].[Schema].[Table]` 寫法。
 
 **Materializer（Shaper）**
 翻譯器知道每個欄位的 ordinal，所以直接把 `DbDataReader → 結果` 編譯成 delegate，支援匿名型別、DTO、巢狀導覽屬性。Dapper 只保留給 raw SQL API（`QueryAsync(sql, param)`）和參數處理。
@@ -218,9 +218,23 @@ Change Tracking、`SaveChanges`、Migration、Lazy Loading、Identity Map、DbCo
   - 查詢快取沒有數量上限，每種形狀會保留第一次執行的查詢根；Shaper 讀值時會裝箱。在 Phase 6 跑 benchmark 時一併檢討。
   - 沿用 SQL Server 行為、與 C# 不同的語意：兩個可為 null 的欄位互相比較、`All` 的條件結果為 NULL、`LEN` 不計結尾空白、`Math.Round` 為四捨五入、`DateTime` 加減只精確到毫秒、`DateTime.Now` 在用戶端求值。
 
-### Phase 3：Join 與導覽屬性
-- `Join`、`SelectMany`＋`DefaultIfEmpty`、`[ForeignKey]` 導覽、`Include`、一對多的 identity resolution。
-- 沒有表數上限（取代 3.x 的 7 表限制）。**出 preview2**。
+### Phase 3：Join 與導覽屬性 ✅ 已完成
+- `Join` 輸出 `INNER JOIN`；`GroupJoin`＋`SelectMany`＋`DefaultIfEmpty` 輸出 `LEFT JOIN`（沒有 `DefaultIfEmpty` 時是 `INNER JOIN`），右邊沒有資料時選出的實體是 `null`；不相關的 `SelectMany`（兩個 `from`）輸出 `CROSS JOIN`（新增 AST 節點 `CrossJoinExpression`）。支援複合鍵，被 Join 一方的 `Where` 放進 `ON`，沒有表數上限。（3.1、3.2、3.2b）
+- Join 的來源必須在同一台伺服器；不同資料庫時輸出 `[db].[schema].[table]`，沒有 schema 時用 `dbo`。連線字串改以 `SqlConnectionStringBuilder` 解析，查詢快取依伺服器與資料庫區分。（3.3）
+- `[ForeignKey]` 參考導覽屬性：`x.Department.Name` 自動 `LEFT JOIN`，可以連續導覽，同一個導覽屬性只 Join 一次；被參考的鍵是 `[Key]`，沒有時用名為 `Id` 的欄位。（3.4）
+- `Include`：參考導覽屬性（`[ForeignKey]` 或 3.x 的條件寫法）；一對多集合（只能用條件寫法，`[ForeignKey]` 只用於參考導覽屬性），依鍵合併資料列（identity resolution），一對多的 Join 不影響 `Count`。三種都可以指定只取部分欄位，集合會自動帶入子資料的鍵。（3.5、3.6、3.6b）
+- LocalDB 整合測試（含跨資料庫），版本 **4.0.0-preview2**。（3.7）
+- 與 3.x 的差異：
+  - `Include` 一律 `LEFT JOIN`（3.x 的 `InnerJoin`／`LeftJoin` 由呼叫端選擇）；需要 `INNER JOIN` 時用 `Join`。
+  - Join 的來源不在同一台伺服器時丟出 `InvalidOperationException`（3.x 是 `ArgumentException`）。
+  - 跨資料庫的 schema 取自 `[Table(Schema = ...)]`，沒有時用 `dbo`（3.x 取自 `[ConnectionString(Schema = ...)]`）。
+  - 連線字串的 `Initial Catalog` 放在最後、後面沒有分號時，3.x 取不到資料庫，4.0 可以。
+- 延後：
+  - 需要子查詢的組合，在 Phase 4 處理：相關的 `SelectMany`（例如 `m => departments.Where(d => d.ManagerId == m.Id)`，方法語法的 Left Join）、被 Join 的一方本身已經有 Join、Join 前已經分頁或 `Distinct`；集合的條件（`x.ManagedDepartments.Any(...)`）。
+  - 集合 `Include` 搭配 `First`、`Single`、`Skip`／`Take`、`Distinct`、投影，以及下一層的集合（`x.Department.Members`）：需要子查詢或巢狀合併，在 Phase 4 處理。
+  - 導覽屬性或 Left Join 的實體與 `null` 比較（例如 anti-join 的 `where d == null`）、被 Join 一方的鍵使用導覽屬性。
+  - 只有一個集合 `Include` 時，子資料其實不需要鍵（目前一律需要 `[Key]` 或 `Id`）。
+  - 父資料只取部分欄位、仍然回傳 `T`（3.x 的 `SelectColumns`）。
 
 ### Phase 4：聚合與子查詢
 - `GroupBy`＋聚合＋Having、`Sum`、`Min`、`Max`、`Average`、EXISTS／IN 子查詢、Contains 的大量值策略（OPENJSON 或 TVP）。
