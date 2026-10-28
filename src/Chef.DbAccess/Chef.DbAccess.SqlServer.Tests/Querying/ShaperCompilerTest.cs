@@ -130,6 +130,28 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             results[1].Department.Should().BeNull();
         }
 
+        [TestMethod]
+        public void Include_fills_navigation_or_null()
+        {
+            // SELECT [sta_1].[Id], [sta_1].[Name], [sta_1].[DepartmentId], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]
+            var table = Table(
+                ("Id", typeof(int)),
+                ("Name", typeof(string)),
+                ("DepartmentId", typeof(int)),
+                ("Id1", typeof(int)),
+                ("Name1", typeof(string)),
+                ("ManagerId", typeof(int)));
+
+            table.Rows.Add(1, "Johnny", 3, 3, "業務", 1);
+            table.Rows.Add(2, "Amy", 9, DBNull.Value, DBNull.Value, DBNull.Value);
+
+            var results = Shape(new Staff[0].AsQueryable().Include(s => s.Department), table);
+
+            results[0].Should().BeEquivalentTo(new Staff { Id = 1, Name = "Johnny", DepartmentId = 3, Department = new Department { Id = 3, Name = "業務", ManagerId = 1 } });
+            results[1].Name.Should().Be("Amy");
+            results[1].Department.Should().BeNull();
+        }
+
         private static List<T> Shape<T>(IQueryable<T> query, DataTable table)
         {
             var parameterized = PartialEvaluator.Evaluate(query.Expression);
@@ -204,6 +226,19 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int ManagerId { get; set; }
+        }
+
+        [Table("tbl_staff")]
+        private class Staff
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
+
+            public int DepartmentId { get; set; }
+
+            [ForeignKey(nameof(DepartmentId))]
+            public Department Department { get; set; }
         }
     }
 }

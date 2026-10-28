@@ -10,7 +10,8 @@ using Chef.DbAccess.Querying;
 namespace Chef.DbAccess
 {
     /// <summary>
-    ///     Chef.DbAccess 查詢（<c>dataAccess.Query()</c>）的擴充方法：非同步運算子與 <see cref="ToQueryString" />。
+    ///     Chef.DbAccess 查詢（<c>dataAccess.Query()</c>）的擴充方法：<c>Include</c>、非同步運算子與 <see cref="ToQueryString" />。
+    ///     <para><c>Include</c> 和 <see cref="Queryable" /> 的運算子一樣組進運算式樹，由翻譯器處理。</para>
     ///     <para>
     ///         非同步運算子組出與同步版相同的 <see cref="Queryable" /> 呼叫（例如 <c>Queryable.First(source, predicate)</c>），
     ///         所以翻譯與快取完全相同；<see cref="CancellationToken" /> 會傳給開啟連線、執行命令與讀取資料列。
@@ -33,6 +34,54 @@ namespace Chef.DbAccess
         private static readonly MethodInfo AnyMethod = GetMethod<bool>(Queryable.Any);
         private static readonly MethodInfo AnyWithPredicateMethod = GetMethodWithPredicate<bool>(Queryable.Any);
         private static readonly MethodInfo AllMethod = GetMethodWithPredicate<bool>(Queryable.All);
+
+        private static readonly MethodInfo IncludeMethod =
+            new Func<IQueryable<object>, Expression<Func<object, object>>, IQueryable<object>>(Include).GetMethodInfo().GetGenericMethodDefinition();
+
+        private static readonly MethodInfo IncludeWithConditionMethod =
+            new Func<IQueryable<object>, Expression<Func<object, object>>, Expression<Func<object, object, bool>>, IQueryable<object>>(Include).GetMethodInfo()
+                .GetGenericMethodDefinition();
+
+        /// <summary>
+        ///     查詢實體時一併填入以 <c>[ForeignKey]</c> 設定的參考導覽屬性，例如 <c>employees.Query().Include(x =&gt; x.Department)</c>：
+        ///     <c>LEFT JOIN</c> 被參考的資料表，沒有對應的資料時導覽屬性是 <c>null</c>。
+        ///     可以連續導覽，例如 <c>Include(x =&gt; x.Department.Manager)</c> 會一併填入 <c>Department</c> 與 <c>Department.Manager</c>。
+        ///     <para>
+        ///         與 <c>Where(x =&gt; x.Department.Name == ...)</c> 用到的導覽屬性共用同一個 Join。
+        ///         查詢結果沒有選出這個實體（例如 <c>Select(x =&gt; x.Name)</c>）時不影響結果。
+        ///     </para>
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TProperty>(this IQueryable<TSource> source, Expression<Func<TSource, TProperty>> navigation)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(null, IncludeMethod.MakeGenericMethod(typeof(TSource), typeof(TProperty)), source.Expression, Expression.Quote(navigation)));
+        }
+
+        /// <summary>
+        ///     延續 3.x 的寫法，以條件 <c>LEFT JOIN</c> 並填入參考導覽屬性，導覽屬性不需要 <c>[ForeignKey]</c>，例如
+        ///     <c>Include(x =&gt; x.Department, (x, d) =&gt; x.DepartmentId == d.Id)</c>。
+        ///     <para>之後的 <c>Where(x =&gt; x.Department.Name == ...)</c> 也會使用這個 Join。</para>
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TProperty>(
+            this IQueryable<TSource> source,
+            Expression<Func<TSource, TProperty>> navigation,
+            Expression<Func<TSource, TProperty, bool>> condition)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+            if (condition == null) throw new ArgumentNullException(nameof(condition));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(
+                    null,
+                    IncludeWithConditionMethod.MakeGenericMethod(typeof(TSource), typeof(TProperty)),
+                    source.Expression,
+                    Expression.Quote(navigation),
+                    Expression.Quote(condition)));
+        }
 
         /// <summary>
         ///     除錯用：不執行查詢，回傳產生的 SQL 與參數值，例如

@@ -234,14 +234,16 @@ namespace Chef.DbAccess.Querying
             }
 
             /// <summary>
-            ///     查詢的根（值是 <see cref="IQueryable" /> 的常數、自訂節點）或 <see cref="Queryable" /> 的運算子。
+            ///     查詢的根（值是 <see cref="IQueryable" /> 的常數、自訂節點）或查詢運算子（<see cref="Queryable" /> 與 <see cref="ChefQueryableExtensions.Include{TSource,TProperty}(IQueryable{TSource},Expression{Func{TSource,TProperty}})" />）。
+            ///     <para><c>Include</c> 求值的結果是包含同一個 <c>Include</c> 的查詢，所以不能在用戶端求值。</para>
             /// </summary>
             private static bool IsQueryNode(Expression node)
             {
                 switch (node)
                 {
                     case ConstantExpression constant: return constant.Value is IQueryable;
-                    case MethodCallExpression methodCall: return methodCall.Method.DeclaringType == typeof(Queryable);
+                    case MethodCallExpression methodCall:
+                        return methodCall.Method.DeclaringType == typeof(Queryable) || methodCall.Method.DeclaringType == typeof(ChefQueryableExtensions);
                     default: return node.NodeType == ExpressionType.Extension;
                 }
             }

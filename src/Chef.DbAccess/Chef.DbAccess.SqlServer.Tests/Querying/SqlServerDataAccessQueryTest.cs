@@ -160,6 +160,26 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
                     "LEFT JOIN [Organization].[dbo].[tbl_team] [tea_3] WITH (NOLOCK) ON [sta_2].[TeamId] = [tea_3].[Id]");
         }
 
+        [TestMethod]
+        public void Include_through_query_provider()
+        {
+            // 經過 PartialEvaluator、快取與 ChefQueryProvider 的完整流程；Include 不能在用戶端求值。
+            var staffs = new SqlServerDataAccess<Staff>(null, UnreachableConnectionString);
+
+            staffs.Query()
+                .Include(s => s.Team)
+                .Where(s => s.Id > 1)
+                .ToQueryString()
+                .Should()
+                .Be(
+                    "SELECT [sta_1].[Id], [sta_1].[TeamId], [tea_2].[Id] AS [Id1], [tea_2].[Name]\n" +
+                    "FROM [tbl_staff] [sta_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_team] [tea_2] WITH (NOLOCK) ON [sta_1].[TeamId] = [tea_2].[Id]\n" +
+                    "WHERE [sta_1].[Id] > {=Id_0}\n\n" +
+                    "-- Parameters\n" +
+                    "-- @Id_0 = 1 (Int32)");
+        }
+
         [Table("tbl_staff")]
         private class Staff
         {

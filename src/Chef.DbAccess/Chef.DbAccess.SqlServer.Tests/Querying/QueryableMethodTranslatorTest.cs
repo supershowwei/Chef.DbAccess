@@ -835,6 +835,98 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             innerKey.Should().Throw<NotSupportedException>();
         }
 
+        [TestMethod]
+        public void Include_fills_reference_navigation()
+        {
+            var translated = TranslateQuery(Employees.Include(e => e.Department).Where(e => e.Name == "Johnny"));
+
+            Sql(translated)
+                .Should()
+                .Be(
+                    "SELECT [emp_1].[Id], [emp_1].[Name], [emp_1].[DepartmentId], [emp_1].[ManagerId], " +
+                    "[dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId] AS [ManagerId1]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "WHERE [emp_1].[Name] = @Name_0");
+
+            var employee = translated.Shaper.Should().BeAssignableTo<MemberInitExpression>().Which;
+            var department = employee.Bindings.Cast<MemberAssignment>().Last();
+
+            department.Member.Name.Should().Be(nameof(Employee.Department));
+
+            // 沒有對應的部門時是 null，以 ON 條件中的 [dep_2].[Id] 判斷。
+            var condition = department.Expression.Should().BeAssignableTo<ConditionalExpression>().Which;
+            ProjectionIndex(((BinaryExpression)condition.Test).Left).Should().Be(4);
+            condition.IfFalse.Should().BeAssignableTo<MemberInitExpression>().Which.Bindings.Select(b => b.Member.Name).Should().NotContain(nameof(Department.Manager));
+        }
+
+        [TestMethod]
+        public void Include_path_shares_join_with_where()
+        {
+            var translated = TranslateQuery(Employees.Where(e => e.Department.Name == "業務").Include(e => e.Department.Manager));
+
+            Sql(translated)
+                .Should()
+                .EndWith(
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "LEFT JOIN [tbl_employee] [emp_3] WITH (NOLOCK) ON [dep_2].[ManagerId] = [emp_3].[Id]\n" +
+                    "WHERE [dep_2].[Name] = @Name_0");
+
+            // Department 與 Department.Manager 都會填入，Employee.Manager 沒有 Include 所以不填。
+            var employee = (MemberInitExpression)translated.Shaper;
+            var department = (MemberInitExpression)((ConditionalExpression)employee.Bindings.Cast<MemberAssignment>().Last().Expression).IfFalse;
+
+            employee.Bindings.Select(b => b.Member.Name).Should().NotContain(nameof(Employee.Manager));
+            department.Bindings.Select(b => b.Member.Name).Should().EndWith(nameof(Department.Manager));
+        }
+
+        [TestMethod]
+        public void Include_with_condition_like_3x()
+        {
+            var name = "業務";
+
+            var generated = Translate(
+                Members.Include(m => m.ManagedDepartment, (m, d) => m.Id == d.ManagerId && d.Name == name).Where(m => m.ManagedDepartment.Name != null));
+
+            generated.Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [mem_1].[Age], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON ([mem_1].[No] = [dep_2].[ManagerId]) AND ([dep_2].[Name] = @Name_0)\n" +
+                    "WHERE [dep_2].[Name] IS NOT NULL");
+            generated.Parameters.Single().Value.Should().Be("業務");
+        }
+
+        [TestMethod]
+        public void Include_on_joined_entity()
+        {
+            Translate(Members.Join(Employees, m => m.Id, e => e.Id, (m, e) => e).Include(e => e.Manager))
+                .Sql.Should()
+                .EndWith(
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [tbl_employee] [emp_2] WITH (NOLOCK) ON [mem_1].[No] = [emp_2].[Id]\n" +
+                    "LEFT JOIN [tbl_employee] [emp_3] WITH (NOLOCK) ON [emp_2].[ManagerId] = [emp_3].[Id]");
+        }
+
+        [TestMethod]
+        public void Invalid_include_is_not_supported()
+        {
+            Action notNavigation = () => Translate(Employees.Include(e => e.Name));
+            Action withoutForeignKey = () => Translate(Members.Include(m => m.ManagedDepartment));
+            Action afterProjection = () => Translate(Employees.Select(e => new { e.Name }).Include(a => a.Name.Length));
+            Action conditionWithPath = () => Translate(Employees.Include(e => e.Department.Manager, (e, m) => e.ManagerId == m.Id));
+            Action conditionWithoutEquality = () => Translate(Members.Include(m => m.ManagedDepartment, (m, d) => m.Age > d.ManagerId));
+            Action alreadyJoined = () => Translate(Employees.Where(e => e.Department.Name == "業務").Include(e => e.Department, (e, d) => e.DepartmentId == d.Id));
+
+            notNavigation.Should().Throw<NotSupportedException>().WithMessage("*[ForeignKey]*");
+            withoutForeignKey.Should().Throw<NotSupportedException>().WithMessage("*[ForeignKey]*");
+            afterProjection.Should().Throw<NotSupportedException>();
+            conditionWithPath.Should().Throw<NotSupportedException>().WithMessage("*navigation property of the entity*");
+            conditionWithoutEquality.Should().Throw<NotSupportedException>().WithMessage("*for equality*");
+            alreadyJoined.Should().Throw<NotSupportedException>().WithMessage("*already joined*");
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);
@@ -885,6 +977,9 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int Age { get; set; }
+
+            // 沒有 [ForeignKey]，只能以 Include 指定條件 Join。
+            public Department ManagedDepartment { get; set; }
         }
 
         [Table("tbl_department")]

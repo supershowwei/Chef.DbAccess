@@ -89,7 +89,7 @@ namespace Chef.DbAccess.Querying
         /// </summary>
         private TranslatedQuery Build(QueryBuilder source, QueryResultKind resultKind)
         {
-            var projection = new ProjectionBuilder(this.context, this.translator, source.Tables, source.OptionalTables, source.Selector);
+            var projection = new ProjectionBuilder(this.context, this.translator, source);
 
             return this.Build(source, projection.Projections, projection.Shaper, resultKind);
         }
@@ -205,6 +205,10 @@ namespace Chef.DbAccess.Querying
 
                 case MethodCallExpression methodCall when methodCall.Method.DeclaringType == typeof(Queryable):
                     return this.VisitQueryableMethod(methodCall);
+
+                case MethodCallExpression methodCall when methodCall.Method.DeclaringType == typeof(ChefQueryableExtensions)
+                                                          && methodCall.Method.Name == nameof(ChefQueryableExtensions.Include):
+                    return this.TranslateInclude(this.Visit(methodCall.Arguments[0]), methodCall);
 
                 default: throw NotTranslatable(expression);
             }
@@ -532,11 +536,9 @@ namespace Chef.DbAccess.Querying
         {
             if (source.Navigations.TryGetValue((table, navigation.Property), out var joined)) return joined;
 
-            var target = navigation.TargetEntity;
             var principalKeys = navigation.PrincipalKeys;
-            var selector = source.GetSelector();
 
-            joined = new TableExpression(target.TableName, target.Schema, CreateAlias(target.ClrType, ++this.tableCount), target, table.Database);
+            joined = this.CreateNavigationTable(table, navigation.Property);
 
             SqlExpression predicate = null;
 
@@ -547,14 +549,118 @@ namespace Chef.DbAccess.Querying
                     new SqlBinaryExpression(SqlBinaryOperator.Equal, table.Column(navigation.ForeignKeys[i]), joined.Column(principalKeys[i]), typeof(bool)));
             }
 
-            source.Sources.Add(new JoinExpression(JoinType.Left, joined, predicate));
-            source.OptionalTables.Add(joined, joined.Column(principalKeys[0]));
-            source.Navigations.Add((table, navigation.Property), joined);
-
-            // 投影的參數要一直對應所有的資料表。
-            source.Selector = Expression.Lambda(selector.Body, selector.Parameters.Concat(new[] { Expression.Parameter(target.ClrType, navigation.PropertyName) }));
+            AddNavigationJoin(source, table, navigation.Property, joined, predicate, joined.Column(principalKeys[0]));
 
             return joined;
+        }
+
+        /// <summary>
+        ///     導覽屬性指到的資料表，與來源在同一個資料庫。
+        /// </summary>
+        private TableExpression CreateNavigationTable(TableExpression table, PropertyInfo property)
+        {
+            var target = EntityMetadata.For(property.PropertyType);
+
+            return new TableExpression(target.TableName, target.Schema, CreateAlias(target.ClrType, ++this.tableCount), target, table.Database);
+        }
+
+        /// <param name="marker">有對應的資料時一定不是 <c>NULL</c> 的欄位，見 <see cref="QueryBuilder.OptionalTables" />。</param>
+        private static void AddNavigationJoin(QueryBuilder source, TableExpression table, PropertyInfo property, TableExpression joined, SqlExpression predicate, ColumnExpression marker)
+        {
+            var selector = source.GetSelector();
+
+            source.Sources.Add(new JoinExpression(JoinType.Left, joined, predicate));
+            source.OptionalTables.Add(joined, marker);
+            source.Navigations.Add((table, property), joined);
+
+            // 投影的參數要一直對應所有的資料表。
+            source.Selector = Expression.Lambda(selector.Body, selector.Parameters.Concat(new[] { Expression.Parameter(joined.Entity.ClrType, property.Name) }));
+        }
+
+        /// <summary>
+        ///     <c>Include</c>（見 <see cref="ChefQueryableExtensions" />）：Join 導覽屬性指到的資料表，並記錄在 <see cref="QueryBuilder.Includes" />，
+        ///     組出實體時一併填入導覽屬性。
+        ///     <list type="bullet">
+        ///         <item><c>Include(x =&gt; x.Department.Manager)</c> 依序 Join 以 <c>[ForeignKey]</c> 設定的每一層導覽屬性，與 <see cref="ExpandNavigations" /> 共用 Join。</item>
+        ///         <item>
+        ///             <c>Include(x =&gt; x.Department, (x, d) =&gt; x.DepartmentId == d.Id)</c> 以條件 <c>LEFT JOIN</c>，只能有一層。
+        ///             條件中要有被 Join 資料表的欄位與其他值相等（例如 <c>d.Id</c>），用來判斷有沒有對應的資料；同一個導覽屬性已經 Join 過時不能再指定條件。
+        ///         </item>
+        ///     </list>
+        ///     <para>導覽屬性要屬於查詢中的實體（例如 <c>Select</c> 成匿名型別之後就不行），否則丟出 <see cref="NotSupportedException" />。</para>
+        /// </summary>
+        private QueryBuilder TranslateInclude(QueryBuilder source, MethodCallExpression methodCall)
+        {
+            var navigation = source.Compose(GetLambda(methodCall.Arguments[1]));
+            var members = new Stack<MemberExpression>();
+            var expression = navigation.Body;
+
+            while (expression is MemberExpression member && member.Member is PropertyInfo)
+            {
+                members.Push(member);
+                expression = member.Expression;
+            }
+
+            var index = expression is ParameterExpression parameter ? navigation.Parameters.IndexOf(parameter) : -1;
+
+            if (index < 0 || members.Count == 0 || (methodCall.Arguments.Count == 3 && members.Count > 1))
+            {
+                throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: Include must specify a navigation property of the entity, for example 'x => x.Department'.");
+            }
+
+            var table = source.Tables[index];
+
+            if (methodCall.Arguments.Count == 3)
+            {
+                var property = (PropertyInfo)members.Pop().Member;
+
+                if (source.Navigations.ContainsKey((table, property))) throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: '{property.Name}' is already joined.");
+
+                var joined = this.CreateNavigationTable(table, property);
+                var target = Expression.Parameter(property.PropertyType, property.Name);
+                var condition = LambdaComposer.Compose(GetLambda(methodCall.Arguments[2]), source.GetSelector(), Expression.Lambda(target, target));
+                var predicate = this.translator.TranslatePredicate(condition, source.Tables.Concat(new[] { joined }).ToArray());
+                var marker = FindEqualColumn(predicate, joined)
+                             ?? throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: the condition must compare a column of '{property.PropertyType.Name}' for equality.");
+
+                AddNavigationJoin(source, table, property, joined, predicate, marker);
+                source.AddInclude(table, property, joined);
+
+                return source;
+            }
+
+            foreach (var member in members)
+            {
+                var metadata = table.Entity.FindNavigation(member.Member.Name)
+                               ?? throw new NotSupportedException(
+                                   $"Can not translate '{methodCall}' to SQL: '{member}' must be configured with [ForeignKey], or specify the join condition.");
+
+                var joined = this.JoinNavigation(source, table, metadata);
+
+                source.AddInclude(table, metadata.Property, joined);
+                table = joined;
+            }
+
+            return source;
+        }
+
+        /// <summary>
+        ///     <c>AND</c> 串起來的條件中，與其他值比較是否相等的 <paramref name="table" /> 的欄位，例如 <c>[mem_1].[No] = [dep_2].[ManagerId]</c> 的 <c>[dep_2].[ManagerId]</c>。
+        /// </summary>
+        private static ColumnExpression FindEqualColumn(SqlExpression predicate, TableExpression table)
+        {
+            if (!(predicate is SqlBinaryExpression binary)) return null;
+
+            switch (binary.Operator)
+            {
+                case SqlBinaryOperator.AndAlso:
+                    return FindEqualColumn(binary.Left, table) ?? FindEqualColumn(binary.Right, table);
+
+                case SqlBinaryOperator.Equal:
+                    return new[] { binary.Left, binary.Right }.OfType<ColumnExpression>().FirstOrDefault(c => c.Table == table);
+
+                default: return null;
+            }
         }
 
         private OrderingExpression TranslateOrdering(MethodCallExpression methodCall, QueryBuilder source)
@@ -627,11 +733,15 @@ namespace Chef.DbAccess.Querying
             {
                 var instance = this.Visit(node.Expression);
 
-                if (instance is ParameterExpression parameter
-                    && this.tables.TryGetValue(parameter, out var table)
-                    && table.Entity.FindNavigation(node.Member.Name) is NavigationMetadata navigation)
+                if (instance is ParameterExpression parameter && this.tables.TryGetValue(parameter, out var table) && node.Member is PropertyInfo property)
                 {
-                    return this.GetParameter(this.owner.JoinNavigation(this.source, table, navigation));
+                    // 已經 Join 過（包含 Include 以條件 Join、沒有 [ForeignKey] 的導覽屬性）就沿用。
+                    if (this.source.Navigations.TryGetValue((table, property), out var joined)) return this.GetParameter(joined);
+
+                    if (table.Entity.FindNavigation(property.Name) is NavigationMetadata navigation)
+                    {
+                        return this.GetParameter(this.owner.JoinNavigation(this.source, table, navigation));
+                    }
                 }
 
                 return node.Update(instance);
@@ -698,6 +808,19 @@ namespace Chef.DbAccess.Querying
             /// </summary>
             public Dictionary<(TableExpression Table, PropertyInfo Navigation), TableExpression> Navigations { get; } =
                 new Dictionary<(TableExpression Table, PropertyInfo Navigation), TableExpression>();
+
+            /// <summary>
+            ///     <c>Include</c> 的導覽屬性：組出資料表的實體時，一併以 Join 進來的資料表填入導覽屬性。
+            /// </summary>
+            public Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>> Includes { get; } =
+                new Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>>();
+
+            public void AddInclude(TableExpression table, PropertyInfo navigation, TableExpression joined)
+            {
+                if (!this.Includes.TryGetValue(table, out var includes)) this.Includes.Add(table, includes = new List<(PropertyInfo Navigation, TableExpression Table)>());
+
+                if (!includes.Contains((navigation, joined))) includes.Add((navigation, joined));
+            }
 
             public SqlExpression Predicate { get; private set; }
 
@@ -766,29 +889,27 @@ namespace Chef.DbAccess.Querying
             private readonly SqlTranslationContext context;
             private readonly SqlExpressionTranslator translator;
             private readonly TableExpression[] tables;
-            private readonly IReadOnlyDictionary<TableExpression, ColumnExpression> optionalTables;
+            private readonly QueryBuilder source;
             private readonly ReadOnlyCollection<ParameterExpression> parameters;
             private readonly List<ProjectionExpression> projections = new List<ProjectionExpression>();
             private readonly HashSet<string> aliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            /// <param name="tables">依序對應 <paramref name="selector" /> 的參數。</param>
-            /// <param name="optionalTables">Left Join 右邊的資料表，以及判斷有沒有資料的欄位。</param>
-            /// <param name="selector">目前的投影；<c>null</c> 時元素就是唯一一張資料表的實體。</param>
-            public ProjectionBuilder(
-                SqlTranslationContext context,
-                SqlExpressionTranslator translator,
-                TableExpression[] tables,
-                IReadOnlyDictionary<TableExpression, ColumnExpression> optionalTables,
-                LambdaExpression selector)
+            /// <param name="source">
+            ///     依 <see cref="QueryBuilder.Selector" />（<c>null</c> 時元素就是唯一一張資料表的實體）產生，
+            ///     並用到 Left Join 右邊的資料表（<see cref="QueryBuilder.OptionalTables" />）與 <see cref="QueryBuilder.Includes" />。
+            /// </param>
+            public ProjectionBuilder(SqlTranslationContext context, SqlExpressionTranslator translator, QueryBuilder source)
             {
                 this.context = context;
                 this.translator = translator;
-                this.tables = tables;
-                this.optionalTables = optionalTables;
+                this.source = source;
+                this.tables = source.Tables;
+
+                var selector = source.Selector;
 
                 if (selector == null)
                 {
-                    var parameter = Expression.Parameter(tables[0].Entity.ClrType, "x");
+                    var parameter = Expression.Parameter(this.tables[0].Entity.ClrType, "x");
                     selector = Expression.Lambda(parameter, parameter);
                 }
 
@@ -808,7 +929,7 @@ namespace Chef.DbAccess.Querying
                 switch (expression)
                 {
                     case ParameterExpression parameterExpr when this.parameters.Contains(parameterExpr):
-                        return this.BuildEntityShaper(parameterExpr, this.tables[this.parameters.IndexOf(parameterExpr)]);
+                        return this.BuildEntityShaper(parameterExpr.Type, this.tables[this.parameters.IndexOf(parameterExpr)]);
 
                     case NewExpression @new:
                         var parameters = @new.Constructor?.GetParameters();
@@ -842,18 +963,32 @@ namespace Chef.DbAccess.Querying
                 }
             }
 
-            private Expression BuildEntityShaper(Expression entity, TableExpression table)
+            /// <summary>
+            ///     <c>new Member { Id = Projection(0), ..., Department = ... }</c>：先選出所有可寫入的欄位，再以同樣方式組出 <c>Include</c> 的導覽屬性。
+            /// </summary>
+            private Expression BuildEntityShaper(Type type, TableExpression table)
             {
-                var constructor = entity.Type.GetConstructor(Type.EmptyTypes);
+                var constructor = type.GetConstructor(Type.EmptyTypes);
 
-                if (constructor == null) throw new NotSupportedException($"'{entity.Type}' must have a parameterless constructor to be materialized.");
+                if (constructor == null) throw new NotSupportedException($"'{type}' must have a parameterless constructor to be materialized.");
 
                 var bindings = table.Entity.Columns.Where(c => c.Property.CanWrite)
-                    .Select(c => Expression.Bind(c.Property, this.AddProjection(table.Column(c), c.PropertyName, c.ClrType)));
+                    .Select(c => Expression.Bind(c.Property, this.AddProjection(table.Column(c), c.PropertyName, c.ClrType)))
+                    .ToList();
+
+                if (this.source.Includes.TryGetValue(table, out var includes))
+                {
+                    foreach (var (navigation, joined) in includes)
+                    {
+                        if (!navigation.CanWrite) throw new NotSupportedException($"Can not include '{type.Name}.{navigation.Name}': the property must have a setter.");
+
+                        bindings.Add(Expression.Bind(navigation, this.BuildEntityShaper(navigation.PropertyType, joined)));
+                    }
+                }
 
                 var memberInit = Expression.MemberInit(Expression.New(constructor), bindings);
 
-                if (!this.optionalTables.TryGetValue(table, out var marker)) return memberInit;
+                if (!this.source.OptionalTables.TryGetValue(table, out var marker)) return memberInit;
 
                 // Left Join 的右邊沒有資料時是 null；判斷用的欄位已經在 SELECT 清單中就直接沿用。
                 var index = this.projections.FindIndex(p => p.Expression is ColumnExpression column && column.Table == table && column.Name == marker.Name);
@@ -862,7 +997,7 @@ namespace Chef.DbAccess.Querying
 
                 return Expression.Condition(
                     Expression.Equal(new ProjectionBindingExpression(index, typeof(object)), Expression.Constant(null)),
-                    Expression.Constant(null, entity.Type),
+                    Expression.Constant(null, type),
                     memberInit);
             }
 
