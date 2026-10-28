@@ -142,6 +142,57 @@ namespace Chef.DbAccess.SqlServer.Tests.Metadata
             act.Should().Throw<ArgumentNullException>();
         }
 
+        [TestMethod]
+        public void Navigations_come_from_ForeignKey_on_navigation_or_foreign_key()
+        {
+            var metadata = EntityMetadata.For<Order>();
+
+            // 沒有 [ForeignKey] 的 Referrer、集合 Others 都不是導覽屬性。
+            metadata.Navigations.Select(n => n.PropertyName).Should().BeEquivalentTo(nameof(Order.Customer), nameof(Order.Product), nameof(Order.Region), nameof(Order.Parent));
+            metadata.FindNavigation(nameof(Order.Referrer)).Should().BeNull();
+            metadata.FindColumn(nameof(Order.Customer)).Should().BeNull();
+
+            var customer = metadata.FindNavigation(nameof(Order.Customer));
+            customer.TargetType.Should().Be(typeof(Customer));
+            customer.ForeignKeys.Select(k => k.ColumnName).Should().Equal("customer_id");
+
+            metadata.FindNavigation(nameof(Order.Product)).ForeignKeys.Select(k => k.PropertyName).Should().Equal(nameof(Order.ProductCode));
+        }
+
+        [TestMethod]
+        public void Principal_keys_are_Key_columns_or_Id()
+        {
+            var metadata = EntityMetadata.For<Order>();
+
+            metadata.FindNavigation(nameof(Order.Customer)).PrincipalKeys.Select(k => k.PropertyName).Should().Equal(nameof(Customer.Id));
+            metadata.FindNavigation(nameof(Order.Product)).PrincipalKeys.Select(k => k.PropertyName).Should().Equal(nameof(Product.Code));
+
+            var region = metadata.FindNavigation(nameof(Order.Region));
+            region.ForeignKeys.Select(k => k.PropertyName).Should().Equal(nameof(Order.RegionCountry), nameof(Order.RegionCode));
+            region.PrincipalKeys.Select(k => k.PropertyName).Should().Equal(nameof(Region.Country), nameof(Region.Code));
+        }
+
+        [TestMethod]
+        public void Self_reference_does_not_recurse()
+        {
+            var parent = EntityMetadata.For<Order>().FindNavigation(nameof(Order.Parent));
+
+            parent.TargetEntity.Should().BeSameAs(EntityMetadata.For<Order>());
+            parent.PrincipalKeys.Select(k => k.PropertyName).Should().Equal(nameof(Order.Id));
+        }
+
+        [TestMethod]
+        public void Invalid_ForeignKey_throws()
+        {
+            Action missingForeignKey = () => EntityMetadata.For<OrderWithMissingForeignKey>();
+            Action missingNavigation = () => EntityMetadata.For<OrderWithMissingNavigation>();
+            Action keyCountMismatch = () => _ = EntityMetadata.For<OrderWithKeyCountMismatch>().FindNavigation(nameof(OrderWithKeyCountMismatch.Region)).PrincipalKeys;
+
+            missingForeignKey.Should().Throw<InvalidOperationException>().WithMessage("*refers to 'Missing'*");
+            missingNavigation.Should().Throw<InvalidOperationException>().WithMessage("*[ForeignKey(\"Nope\")]*");
+            keyCountMismatch.Should().Throw<InvalidOperationException>().WithMessage("*has 1 foreign key(s), but 'Region' has 2 key(s)*");
+        }
+
         private enum EmployeeStatus
         {
             Active,
@@ -206,6 +257,78 @@ namespace Chef.DbAccess.SqlServer.Tests.Metadata
         {
             [Column("team_name")]
             public new string Name { get; set; }
+        }
+
+        private class Order
+        {
+            public int Id { get; set; }
+
+            [Column("customer_id")]
+            public int CustomerId { get; set; }
+
+            [ForeignKey(nameof(CustomerId))]
+            public Customer Customer { get; set; }
+
+            [ForeignKey(nameof(Product))]
+            public int ProductCode { get; set; }
+
+            public Product Product { get; set; }
+
+            public string RegionCountry { get; set; }
+
+            public string RegionCode { get; set; }
+
+            [ForeignKey("RegionCountry, RegionCode")]
+            public Region Region { get; set; }
+
+            public int? ParentId { get; set; }
+
+            [ForeignKey(nameof(ParentId))]
+            public Order Parent { get; set; }
+
+            public Customer Referrer { get; set; }
+
+            public List<Customer> Others { get; set; }
+        }
+
+        private class Customer
+        {
+            public int Id { get; set; }
+        }
+
+        private class Product
+        {
+            [Key]
+            public int Code { get; set; }
+        }
+
+        private class Region
+        {
+            [Key]
+            public string Country { get; set; }
+
+            [Key]
+            public string Code { get; set; }
+        }
+
+        private class OrderWithMissingForeignKey
+        {
+            [ForeignKey("Missing")]
+            public Customer Customer { get; set; }
+        }
+
+        private class OrderWithMissingNavigation
+        {
+            [ForeignKey("Nope")]
+            public int CustomerId { get; set; }
+        }
+
+        private class OrderWithKeyCountMismatch
+        {
+            public string RegionCode { get; set; }
+
+            [ForeignKey(nameof(RegionCode))]
+            public Region Region { get; set; }
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -38,6 +39,8 @@ namespace Chef.DbAccess.Metadata
 
         private readonly Dictionary<string, PropertyMetadata> columnMap;
 
+        private readonly Dictionary<string, NavigationMetadata> navigationMap;
+
         private EntityMetadata(Type clrType)
         {
             this.ClrType = clrType;
@@ -47,17 +50,20 @@ namespace Chef.DbAccess.Metadata
             this.TableName = string.IsNullOrEmpty(tableAttribute?.Name) ? clrType.Name : tableAttribute.Name;
             this.Schema = string.IsNullOrEmpty(tableAttribute?.Schema) ? null : tableAttribute.Schema;
 
-            this.Columns = clrType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            var properties = clrType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.GetIndexParameters().Length == 0)
                 .Where(p => !Attribute.IsDefined(p, typeof(NotMappedAttribute)))
-                .Where(p => IsScalar(p.PropertyType))
-                .Select(p => new PropertyMetadata(p))
                 .ToList();
+
+            this.Columns = properties.Where(p => IsScalar(p.PropertyType)).Select(p => new PropertyMetadata(p)).ToList();
 
             this.Keys = this.Columns.Where(c => c.IsKey).ToList();
 
             // 以 new 遮蔽基底屬性時會出現同名屬性，取衍生類別宣告的那一個（GetProperties 會先列出）。
             this.columnMap = this.Columns.GroupBy(c => c.PropertyName).ToDictionary(g => g.Key, g => g.First());
+
+            this.Navigations = this.CreateNavigations(properties);
+            this.navigationMap = this.Navigations.GroupBy(n => n.PropertyName).ToDictionary(g => g.Key, g => g.First());
         }
 
         public Type ClrType { get; }
@@ -82,6 +88,11 @@ namespace Chef.DbAccess.Metadata
         /// </summary>
         public IReadOnlyList<PropertyMetadata> Keys { get; }
 
+        /// <summary>
+        ///     以 <c>[ForeignKey]</c> 設定的參考導覽屬性，見 <see cref="NavigationMetadata" />。
+        /// </summary>
+        public IReadOnlyList<NavigationMetadata> Navigations { get; }
+
         public static EntityMetadata For<T>()
         {
             return For(typeof(T));
@@ -100,6 +111,51 @@ namespace Chef.DbAccess.Metadata
         public PropertyMetadata FindColumn(string propertyName)
         {
             return this.columnMap.TryGetValue(propertyName, out var column) ? column : null;
+        }
+
+        /// <summary>
+        ///     依屬性名稱找出導覽屬性，找不到時回傳 <c>null</c>。
+        /// </summary>
+        public NavigationMetadata FindNavigation(string propertyName)
+        {
+            return this.navigationMap.TryGetValue(propertyName, out var navigation) ? navigation : null;
+        }
+
+        /// <summary>
+        ///     參考導覽屬性是型別為類別、不是欄位也不是集合的屬性。<c>[ForeignKey]</c> 指到不存在或不是欄位的屬性時丟出 <see cref="InvalidOperationException" />。
+        /// </summary>
+        private List<NavigationMetadata> CreateNavigations(IReadOnlyList<PropertyInfo> properties)
+        {
+            var references = properties.Where(p => !IsScalar(p.PropertyType) && p.PropertyType.IsClass && !typeof(IEnumerable).IsAssignableFrom(p.PropertyType))
+                .GroupBy(p => p.Name)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // 標在外鍵屬性上的 [ForeignKey("Department")]
+            var keysByNavigation = this.Columns.Select(c => (Column: c, Name: c.Property.GetCustomAttribute<ForeignKeyAttribute>()?.Name))
+                .Where(x => x.Name != null)
+                .GroupBy(x => x.Name, x => x.Column)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var unknown = keysByNavigation.Keys.FirstOrDefault(n => !references.ContainsKey(n));
+
+            if (unknown != null) throw new InvalidOperationException($"[ForeignKey(\"{unknown}\")] on '{this.ClrType.Name}' must refer to a reference navigation property.");
+
+            var navigations = new List<NavigationMetadata>();
+
+            foreach (var property in references.Values)
+            {
+                // 標在導覽屬性上的 [ForeignKey("DepartmentId")] 優先。
+                var names = property.GetCustomAttribute<ForeignKeyAttribute>()?.Name.Split(',').Select(n => n.Trim()).ToList();
+                var foreignKeys = names?.Select(n => this.FindColumn(n) ?? throw new InvalidOperationException(
+                                                          $"[ForeignKey] on '{this.ClrType.Name}.{property.Name}' refers to '{n}', which is not a mapped property."))
+                                      .ToList();
+
+                if (foreignKeys == null && !keysByNavigation.TryGetValue(property.Name, out foreignKeys)) continue;
+
+                navigations.Add(new NavigationMetadata(property, foreignKeys));
+            }
+
+            return navigations;
         }
 
         private static bool IsScalar(Type type)
