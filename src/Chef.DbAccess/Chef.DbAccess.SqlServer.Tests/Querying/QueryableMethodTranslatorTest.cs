@@ -24,6 +24,8 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
 
         private static IQueryable<Department> Departments => new Department[0].AsQueryable();
 
+        private static IQueryable<Employee> Employees => new Employee[0].AsQueryable();
+
         [TestMethod]
         public void Query_root_selects_all_mapped_columns()
         {
@@ -709,6 +711,130 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             withIndex.Should().Throw<NotSupportedException>();
         }
 
+        [TestMethod]
+        public void Navigation_in_where_becomes_left_join()
+        {
+            Translate(Employees.Where(e => e.Department.Name == "業務").Select(e => e.Name))
+                .Sql.Should()
+                .Be(
+                    "SELECT [emp_1].[Name]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "WHERE [dep_2].[Name] = @Name_0");
+        }
+
+        [TestMethod]
+        public void Same_navigation_is_joined_once()
+        {
+            var query = Employees.Where(e => e.Department.Name != null)
+                .OrderBy(e => e.Department.Name)
+                .Select(e => new { e.Name, DepartmentName = e.Department.Name })
+                .Where(a => a.DepartmentName.StartsWith("業"));
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [emp_1].[Name], [dep_2].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "WHERE [dep_2].[Name] IS NOT NULL AND ([dep_2].[Name] LIKE (@Name_0 + '%'))\n" +
+                    "ORDER BY [dep_2].[Name] ASC");
+        }
+
+        [TestMethod]
+        public void Nested_and_self_referencing_navigations()
+        {
+            Translate(Employees.Select(e => new { e.Name, ManagerName = e.Manager.Name, DepartmentManager = e.Department.Manager.Name }))
+                .Sql.Should()
+                .Be(
+                    "SELECT [emp_1].[Name], [emp_2].[Name] AS [ManagerName], [emp_4].[Name] AS [DepartmentManager]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_employee] [emp_2] WITH (NOLOCK) ON [emp_1].[ManagerId] = [emp_2].[Id]\n" +
+                    "LEFT JOIN [tbl_department] [dep_3] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_3].[Id]\n" +
+                    "LEFT JOIN [tbl_employee] [emp_4] WITH (NOLOCK) ON [dep_3].[ManagerId] = [emp_4].[Id]");
+        }
+
+        [TestMethod]
+        public void Selected_navigation_entity_is_null_checked()
+        {
+            var translated = TranslateQuery(Employees.Select(e => new { e.Name, e.Department }).Where(a => a.Department.Name == "業務"));
+
+            Sql(translated)
+                .Should()
+                .Be(
+                    "SELECT [emp_1].[Name], [dep_2].[Id], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "WHERE [dep_2].[Name] = @Name_0");
+
+            // 以 ON 條件中右邊的 [dep_2].[Id] 判斷有沒有資料。
+            var department = ((NewExpression)translated.Shaper).Arguments[1].Should().BeAssignableTo<ConditionalExpression>().Which;
+            ProjectionIndex(((BinaryExpression)department.Test).Left).Should().Be(1);
+        }
+
+        [TestMethod]
+        public void Navigation_after_paging_and_in_result_operators()
+        {
+            // 多對一的 LEFT JOIN 不會增加筆數，可以接在 Take 之後。
+            Translate(Employees.OrderBy(e => e.Id).Take(10).Select(e => e.Department.Name))
+                .Sql.Should()
+                .Be(
+                    "SELECT TOP({=Take_0}) [dep_2].[Name]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "ORDER BY [emp_1].[Id] ASC");
+
+            Sql(TranslateResult(Employees, q => q.Count(e => e.Department.Name == "業務")))
+                .Should()
+                .Be(
+                    "SELECT COUNT(*) AS [Value]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_2] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_2].[Id]\n" +
+                    "WHERE [dep_2].[Name] = @Name_0");
+        }
+
+        [TestMethod]
+        public void Navigation_in_join_key_and_result_selector()
+        {
+            var query = from e in Employees
+                        join m in Members on e.Department.ManagerId equals m.Id
+                        select new { e.Name, Member = m.Name, ManagerName = e.Manager.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [emp_1].[Name], [mem_2].[Name] AS [Member], [emp_4].[Name] AS [ManagerName]\n" +
+                    "FROM [tbl_employee] [emp_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_department] [dep_3] WITH (NOLOCK) ON [emp_1].[DepartmentId] = [dep_3].[Id]\n" +
+                    "INNER JOIN [tbl_member] [mem_2] WITH (NOLOCK) ON [dep_3].[ManagerId] = [mem_2].[No]\n" +
+                    "LEFT JOIN [tbl_employee] [emp_4] WITH (NOLOCK) ON [emp_1].[ManagerId] = [emp_4].[Id]");
+        }
+
+        [TestMethod]
+        public void Navigation_in_left_join_result()
+        {
+            var query = from m in Members
+                        join e in Employees on m.Id equals e.Id into g
+                        from e in g.DefaultIfEmpty()
+                        select new { m.Name, DepartmentName = e.Department.Name };
+
+            Translate(query)
+                .Sql.Should()
+                .Be(
+                    "SELECT [mem_1].[Name], [dep_3].[Name] AS [DepartmentName]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_employee] [emp_2] WITH (NOLOCK) ON [mem_1].[No] = [emp_2].[Id]\n" +
+                    "LEFT JOIN [tbl_department] [dep_3] WITH (NOLOCK) ON [emp_2].[DepartmentId] = [dep_3].[Id]");
+        }
+
+        [TestMethod]
+        public void Navigation_on_joined_side_key_is_not_supported()
+        {
+            Action innerKey = () => Translate(Members.Join(Employees, m => m.Id, e => e.Department.ManagerId, (m, e) => e.Name));
+
+            innerKey.Should().Throw<NotSupportedException>();
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);
@@ -769,6 +895,27 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             public string Name { get; set; }
 
             public int ManagerId { get; set; }
+
+            [ForeignKey(nameof(ManagerId))]
+            public Employee Manager { get; set; }
+        }
+
+        [Table("tbl_employee")]
+        private class Employee
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
+
+            public int DepartmentId { get; set; }
+
+            [ForeignKey(nameof(DepartmentId))]
+            public Department Department { get; set; }
+
+            public int? ManagerId { get; set; }
+
+            [ForeignKey(nameof(ManagerId))]
+            public Employee Manager { get; set; }
         }
 
         private class MemberProfile

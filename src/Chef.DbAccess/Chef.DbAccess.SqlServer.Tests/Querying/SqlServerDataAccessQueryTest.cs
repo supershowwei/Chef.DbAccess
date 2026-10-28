@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -140,6 +141,42 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             Sql("tbl_member_archive").Should().Contain("FROM [tbl_member_archive] ");
             Sql(null).Should().Contain("FROM [tbl_member] ");
             Sql("tbl_member_archive").Should().Contain("FROM [tbl_member_archive] ");
+        }
+
+        [TestMethod]
+        public void Navigation_of_table_in_other_database_joins_that_database()
+        {
+            var members = new SqlServerDataAccess<Member>(null, UnreachableConnectionString);
+            var staffs = new SqlServerDataAccess<Staff>(null, "Data Source=127.0.0.1,1;Initial Catalog=Organization;");
+
+            members.Query()
+                .Join(staffs.Query(), m => m.Id, s => s.Id, (m, s) => s.Team.Name)
+                .ToQueryString()
+                .Should()
+                .Be(
+                    "SELECT [tea_3].[Name]\n" +
+                    "FROM [tbl_member] [mem_1] WITH (NOLOCK)\n" +
+                    "INNER JOIN [Organization].[dbo].[tbl_staff] [sta_2] WITH (NOLOCK) ON [mem_1].[No] = [sta_2].[Id]\n" +
+                    "LEFT JOIN [Organization].[dbo].[tbl_team] [tea_3] WITH (NOLOCK) ON [sta_2].[TeamId] = [tea_3].[Id]");
+        }
+
+        [Table("tbl_staff")]
+        private class Staff
+        {
+            public int Id { get; set; }
+
+            public int TeamId { get; set; }
+
+            [ForeignKey(nameof(TeamId))]
+            public Team Team { get; set; }
+        }
+
+        [Table("tbl_team")]
+        private class Team
+        {
+            public int Id { get; set; }
+
+            public string Name { get; set; }
         }
     }
 }

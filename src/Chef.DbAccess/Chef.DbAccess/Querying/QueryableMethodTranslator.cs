@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Chef.DbAccess.Metadata;
 using Chef.DbAccess.SqlExpressions;
 
@@ -113,7 +114,8 @@ namespace Chef.DbAccess.Querying
             {
                 source.EnsureNotPaged(methodCall);
 
-                var predicate = this.translator.TranslatePredicate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Tables);
+                var lambda = this.Prepare(source, methodCall.Arguments[1]);
+                var predicate = this.translator.TranslatePredicate(lambda, source.Tables);
 
                 source.AddPredicate(resultKind == QueryResultKind.All ? new SqlUnaryExpression(SqlUnaryOperator.Not, predicate, typeof(bool)) : predicate);
             }
@@ -269,7 +271,8 @@ namespace Chef.DbAccess.Querying
             {
                 case nameof(Queryable.Where) when arguments.Count == 2 && GetLambda(arguments[1]).Parameters.Count == 1:
                     source.EnsureNotPaged(methodCall);
-                    source.AddPredicate(this.translator.TranslatePredicate(source.Compose(GetLambda(arguments[1])), source.Tables));
+                    var predicate = this.Prepare(source, arguments[1]);
+                    source.AddPredicate(this.translator.TranslatePredicate(predicate, source.Tables));
                     return source;
 
                 case nameof(Queryable.OrderBy) when arguments.Count == 2:
@@ -287,7 +290,7 @@ namespace Chef.DbAccess.Querying
 
                 case nameof(Queryable.Select) when arguments.Count == 2 && GetLambda(arguments[1]).Parameters.Count == 1:
                     // 投影不改變筆數，可以接在 Skip / Take 之後。
-                    source.Selector = source.Compose(GetLambda(arguments[1]));
+                    source.Selector = this.Prepare(source, arguments[1]);
                     return source;
 
                 case nameof(Queryable.Skip) when arguments.Count == 2:
@@ -334,11 +337,11 @@ namespace Chef.DbAccess.Querying
         private QueryBuilder TranslateJoin(QueryBuilder outer, MethodCallExpression methodCall)
         {
             var inner = this.Visit(methodCall.Arguments[1]);
-            var outerSelector = outer.GetSelector();
 
             this.AddJoin(outer, inner, methodCall, JoinType.Inner);
 
-            outer.Selector = LambdaComposer.Compose(GetLambda(methodCall.Arguments[4]), outerSelector, inner.GetSelector());
+            // AddJoin 可能因為鍵用到導覽屬性而加入資料表，之後才取外側的投影。
+            outer.Selector = this.ExpandNavigations(outer, LambdaComposer.Compose(GetLambda(methodCall.Arguments[4]), outer.GetSelector(), inner.GetSelector()));
 
             return outer;
         }
@@ -364,25 +367,27 @@ namespace Chef.DbAccess.Querying
             var groupJoin = (MethodCallExpression)selectMany.Arguments[0];
             var outer = this.Visit(groupJoin.Arguments[0]);
             var inner = this.Visit(groupJoin.Arguments[1]);
-            var outerSelector = outer.GetSelector();
-            var innerSelector = inner.GetSelector();
 
             // (m, g) => new { m, g } 以左邊的資料表與群組 g 為參數。
             var groupSelector = GetLambda(groupJoin.Arguments[4]);
             var group = groupSelector.Parameters[1];
-            var intermediate = LambdaComposer.Compose(groupSelector, outerSelector, Expression.Lambda(group, group));
+            var collection = LambdaComposer.Compose(GetLambda(selectMany.Arguments[1]), groupSelector).Body;
 
-            var joinType = GetGroupJoinType(LambdaComposer.Compose(GetLambda(selectMany.Arguments[1]), intermediate).Body, group)
-                           ?? throw NotTranslatable(selectMany);
+            var joinType = GetGroupJoinType(collection, group) ?? throw NotTranslatable(selectMany);
+
+            this.AddJoin(outer, inner, groupJoin, joinType);
+
+            // AddJoin 可能因為鍵用到導覽屬性而加入資料表，之後才取外側的投影。
+            var outerSelector = outer.GetSelector();
+            var innerSelector = inner.GetSelector();
+            var intermediate = LambdaComposer.Compose(groupSelector, outerSelector, Expression.Lambda(group, group));
 
             // 結果選擇器可能還留著群組 g（例如中間有 where 時的 (t, d) => new { t, d }），之後的投影真的用到 g 時，翻譯器才丟出例外。
             var body = selectMany.Arguments.Count == 3
                            ? LambdaComposer.Compose(GetLambda(selectMany.Arguments[2]), intermediate, innerSelector).Body
                            : innerSelector.Body;
 
-            this.AddJoin(outer, inner, groupJoin, joinType);
-
-            outer.Selector = Expression.Lambda(body, outerSelector.Parameters.Concat(innerSelector.Parameters));
+            outer.Selector = this.ExpandNavigations(outer, Expression.Lambda(body, outerSelector.Parameters.Concat(innerSelector.Parameters)));
 
             return outer;
         }
@@ -419,9 +424,11 @@ namespace Chef.DbAccess.Querying
 
             if (inner.Predicate != null) outer.AddPredicate(inner.Predicate);
 
-            outer.Selector = selectMany.Arguments.Count == 3
-                                 ? LambdaComposer.Compose(GetLambda(selectMany.Arguments[2]), outerSelector, innerSelector)
-                                 : Expression.Lambda(innerSelector.Body, outerSelector.Parameters.Concat(innerSelector.Parameters));
+            outer.Selector = this.ExpandNavigations(
+                outer,
+                selectMany.Arguments.Count == 3
+                    ? LambdaComposer.Compose(GetLambda(selectMany.Arguments[2]), outerSelector, innerSelector)
+                    : Expression.Lambda(innerSelector.Body, outerSelector.Parameters.Concat(innerSelector.Parameters)));
 
             return outer;
         }
@@ -456,10 +463,11 @@ namespace Chef.DbAccess.Querying
             if (outer.Offset != null || outer.Limit != null || outer.IsDistinct) throw NotTranslatable(joinCall);
             if (inner.Sources.Count > 1 || inner.Offset != null || inner.Limit != null || inner.IsDistinct) throw NotTranslatable(joinCall);
 
+            // 外側的鍵可以用導覽屬性（例如 m.Department.ManagerId），展開後才取資料表。
+            var outerKey = this.Prepare(outer, joinCall.Arguments[2]);
+            var innerKey = inner.Compose(GetLambda(joinCall.Arguments[3]));
             var outerTables = outer.Tables;
             var innerTable = inner.Tables[0];
-            var outerKey = outer.Compose(GetLambda(joinCall.Arguments[2]));
-            var innerKey = inner.Compose(GetLambda(joinCall.Arguments[3]));
             var outerParts = SplitKey(outerKey.Body);
             var innerParts = SplitKey(innerKey.Body);
 
@@ -490,9 +498,69 @@ namespace Chef.DbAccess.Querying
             outer.Sources.Add(new JoinExpression(joinType, inner.Sources[0], AndAlso(predicate, inner.Predicate)));
         }
 
+        /// <summary>
+        ///     運算子的 lambda 改寫成以所有資料表為參數（<see cref="QueryBuilder.Compose" />），再展開導覽屬性（<see cref="ExpandNavigations" />）。
+        /// </summary>
+        private LambdaExpression Prepare(QueryBuilder source, Expression argument)
+        {
+            return this.ExpandNavigations(source, source.Compose(GetLambda(argument)));
+        }
+
+        /// <summary>
+        ///     把 lambda 中以 <c>[ForeignKey]</c> 設定的導覽屬性換成 Join 進來的資料表，例如 <c>x =&gt; x.Department.Name</c> 的 <c>x.Department</c>
+        ///     換成 <c>LEFT JOIN [tbl_department] [dep_2] ON [mem_1].[DepartmentId] = [dep_2].[Id]</c> 的參數；可以連續導覽，例如 <c>x.Department.Manager.Name</c>。
+        ///     <list type="bullet">
+        ///         <item>
+        ///             一律用 <c>LEFT JOIN</c>：資料庫不一定有外鍵約束，<c>INNER JOIN</c> 會讓找不到對應資料的列消失。
+        ///             多對一的 Join 不會增加筆數，所以可以接在 <c>Skip</c> / <c>Take</c> 之後。
+        ///         </item>
+        ///         <item>同一張資料表的同一個導覽屬性只 Join 一次，之後的運算子共用；被 Join 的資料表與來源在同一個資料庫。</item>
+        ///         <item>選出導覽屬性本身（例如 <c>new { x.Name, x.Department }</c>）時，沒有對應的資料就是 <c>null</c>。</item>
+        ///     </list>
+        /// </summary>
+        /// <param name="lambda">參數依序對應 <paramref name="source" /> 的資料表。</param>
+        /// <returns>參數依序對應展開後所有資料表的 lambda。</returns>
+        private LambdaExpression ExpandNavigations(QueryBuilder source, LambdaExpression lambda)
+        {
+            var expander = new NavigationExpander(this, source, lambda.Parameters);
+            var body = expander.Visit(lambda.Body);
+
+            return Expression.Lambda(body, source.Tables.Select(expander.GetParameter));
+        }
+
+        private TableExpression JoinNavigation(QueryBuilder source, TableExpression table, NavigationMetadata navigation)
+        {
+            if (source.Navigations.TryGetValue((table, navigation.Property), out var joined)) return joined;
+
+            var target = navigation.TargetEntity;
+            var principalKeys = navigation.PrincipalKeys;
+            var selector = source.GetSelector();
+
+            joined = new TableExpression(target.TableName, target.Schema, CreateAlias(target.ClrType, ++this.tableCount), target, table.Database);
+
+            SqlExpression predicate = null;
+
+            for (var i = 0; i < principalKeys.Count; i++)
+            {
+                predicate = AndAlso(
+                    predicate,
+                    new SqlBinaryExpression(SqlBinaryOperator.Equal, table.Column(navigation.ForeignKeys[i]), joined.Column(principalKeys[i]), typeof(bool)));
+            }
+
+            source.Sources.Add(new JoinExpression(JoinType.Left, joined, predicate));
+            source.OptionalTables.Add(joined, joined.Column(principalKeys[0]));
+            source.Navigations.Add((table, navigation.Property), joined);
+
+            // 投影的參數要一直對應所有的資料表。
+            source.Selector = Expression.Lambda(selector.Body, selector.Parameters.Concat(new[] { Expression.Parameter(target.ClrType, navigation.PropertyName) }));
+
+            return joined;
+        }
+
         private OrderingExpression TranslateOrdering(MethodCallExpression methodCall, QueryBuilder source)
         {
-            var key = this.translator.Translate(source.Compose(GetLambda(methodCall.Arguments[1])), source.Tables);
+            var lambda = this.Prepare(source, methodCall.Arguments[1]);
+            var key = this.translator.Translate(lambda, source.Tables);
 
             // SQL Server 不能直接以條件排序，例如 OrderBy(x => x.Age > 18)。
             if (SqlExpressionTranslator.IsPredicate(key)) throw NotTranslatable(methodCall);
@@ -516,6 +584,57 @@ namespace Chef.DbAccess.Querying
                     return this.context.CreateParameter(parameter, typeof(int), null);
 
                 default: throw NotTranslatable(methodCall);
+            }
+        }
+
+        /// <summary>
+        ///     見 <see cref="ExpandNavigations" />。lambda 的參數依序對應資料表；Join 進來的資料表各自建立新的參數。
+        /// </summary>
+        private sealed class NavigationExpander : ExpressionVisitor
+        {
+            private readonly QueryableMethodTranslator owner;
+            private readonly QueryBuilder source;
+            private readonly Dictionary<TableExpression, ParameterExpression> parameters = new Dictionary<TableExpression, ParameterExpression>();
+            private readonly Dictionary<ParameterExpression, TableExpression> tables = new Dictionary<ParameterExpression, TableExpression>();
+
+            public NavigationExpander(QueryableMethodTranslator owner, QueryBuilder source, IReadOnlyList<ParameterExpression> lambdaParameters)
+            {
+                this.owner = owner;
+                this.source = source;
+
+                var sourceTables = source.Tables;
+
+                for (var i = 0; i < lambdaParameters.Count; i++)
+                {
+                    this.parameters.Add(sourceTables[i], lambdaParameters[i]);
+                    this.tables.Add(lambdaParameters[i], sourceTables[i]);
+                }
+            }
+
+            public ParameterExpression GetParameter(TableExpression table)
+            {
+                if (this.parameters.TryGetValue(table, out var parameter)) return parameter;
+
+                parameter = Expression.Parameter(table.Entity.ClrType, table.Alias);
+
+                this.parameters.Add(table, parameter);
+                this.tables.Add(parameter, table);
+
+                return parameter;
+            }
+
+            protected override Expression VisitMember(MemberExpression node)
+            {
+                var instance = this.Visit(node.Expression);
+
+                if (instance is ParameterExpression parameter
+                    && this.tables.TryGetValue(parameter, out var table)
+                    && table.Entity.FindNavigation(node.Member.Name) is NavigationMetadata navigation)
+                {
+                    return this.GetParameter(this.owner.JoinNavigation(this.source, table, navigation));
+                }
+
+                return node.Update(instance);
             }
         }
 
@@ -573,6 +692,12 @@ namespace Chef.DbAccess.Querying
             ///     Left Join 的右邊可能沒有資料：資料表對應到一個有資料時一定不是 <c>NULL</c> 的欄位。
             /// </summary>
             public Dictionary<TableExpression, ColumnExpression> OptionalTables { get; } = new Dictionary<TableExpression, ColumnExpression>();
+
+            /// <summary>
+            ///     已經 Join 進來的導覽屬性：同一張資料表的同一個導覽屬性只 Join 一次。
+            /// </summary>
+            public Dictionary<(TableExpression Table, PropertyInfo Navigation), TableExpression> Navigations { get; } =
+                new Dictionary<(TableExpression Table, PropertyInfo Navigation), TableExpression>();
 
             public SqlExpression Predicate { get; private set; }
 
