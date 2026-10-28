@@ -182,6 +182,28 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             results[2].Staffs.Select(s => s.Id).Should().Equal(102);
         }
 
+        [TestMethod]
+        public void Collection_include_with_columns_fills_only_selected_columns_and_keys()
+        {
+            var query = new Department[0].AsQueryable().Include(d => d.Staffs, (d, s) => d.Id == s.DepartmentId, s => s.Name);
+
+            // SELECT 清單與完整的 Include 相同（Id 是自動加入的鍵，DepartmentId 用來判斷有沒有對應的資料），但 DepartmentId 不填入。
+            var table = Table(
+                ("Id", typeof(int)),
+                ("Name", typeof(string)),
+                ("ManagerId", typeof(int)),
+                ("Id1", typeof(int)),
+                ("Name1", typeof(string)),
+                ("DepartmentId", typeof(int)));
+
+            table.Rows.Add(1, "業務", 10, 100, "Johnny", 1);
+            table.Rows.Add(1, "業務", 10, 101, "Amy", 1);
+
+            var staffs = Shape(query, table).Single().Staffs;
+
+            staffs.Select(s => (s.Id, s.Name, s.DepartmentId)).Should().Equal((100, "Johnny", 0), (101, "Amy", 0));
+        }
+
         private static List<T> Shape<T>(IQueryable<T> query, DataTable table)
         {
             var parameterized = PartialEvaluator.Evaluate(query.Expression);

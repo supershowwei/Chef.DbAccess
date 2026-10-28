@@ -47,6 +47,22 @@ namespace Chef.DbAccess
                 .GetMethodInfo()
                 .GetGenericMethodDefinition();
 
+        private static readonly MethodInfo IncludeColumnsMethod =
+            new Func<IQueryable<object>, Expression<Func<object, object>>, Expression<Func<object, object>>, IQueryable<object>>(Include)
+                .GetMethodInfo()
+                .GetGenericMethodDefinition();
+
+        private static readonly MethodInfo IncludeWithConditionColumnsMethod =
+            new Func<IQueryable<object>, Expression<Func<object, object>>, Expression<Func<object, object, bool>>, Expression<Func<object, object>>, IQueryable<object>>(Include)
+                .GetMethodInfo()
+                .GetGenericMethodDefinition();
+
+        private static readonly MethodInfo IncludeCollectionColumnsMethod =
+            new Func<IQueryable<object>, Expression<Func<object, IEnumerable<object>>>, Expression<Func<object, object, bool>>, Expression<Func<object, object>>, IQueryable<object>>(
+                    Include)
+                .GetMethodInfo()
+                .GetGenericMethodDefinition();
+
         /// <summary>
         ///     查詢實體時一併填入以 <c>[ForeignKey]</c> 設定的參考導覽屬性，例如 <c>employees.Query().Include(x =&gt; x.Department)</c>：
         ///     <c>LEFT JOIN</c> 被參考的資料表，沒有對應的資料時導覽屬性是 <c>null</c>。
@@ -116,6 +132,83 @@ namespace Chef.DbAccess
                     source.Expression,
                     Expression.Quote(navigation),
                     Expression.Quote(condition)));
+        }
+
+        /// <summary>
+        ///     與 <see cref="Include{TSource,TProperty}(IQueryable{TSource},Expression{Func{TSource,TProperty}})" /> 相同，但導覽屬性只取部分欄位，例如
+        ///     <c>Include(x =&gt; x.Department, d =&gt; new { d.Id, d.Name })</c>；沒有選出的屬性維持預設值。
+        ///     <para>
+        ///         <paramref name="columns" /> 是導覽屬性的欄位：<c>d =&gt; new { d.Id, d.Name }</c> 或 <c>d =&gt; d.Name</c>。
+        ///         連續導覽（例如 <c>x =&gt; x.Department.Manager</c>）時只限制最後一層。同一個導覽屬性 Include 多次時，欄位取聯集。
+        ///     </para>
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TProperty, TColumns>(
+            this IQueryable<TSource> source,
+            Expression<Func<TSource, TProperty>> navigation,
+            Expression<Func<TProperty, TColumns>> columns)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+            if (columns == null) throw new ArgumentNullException(nameof(columns));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(
+                    null,
+                    IncludeColumnsMethod.MakeGenericMethod(typeof(TSource), typeof(TProperty), typeof(TColumns)),
+                    source.Expression,
+                    Expression.Quote(navigation),
+                    Expression.Quote(columns)));
+        }
+
+        /// <summary>
+        ///     與 <see cref="Include{TSource,TProperty}(IQueryable{TSource},Expression{Func{TSource,TProperty}},Expression{Func{TSource,TProperty,bool}})" /> 相同，
+        ///     但導覽屬性只取部分欄位，例如 <c>Include(x =&gt; x.Department, (x, d) =&gt; x.DepartmentId == d.Id, d =&gt; new { d.Id, d.Name })</c>。
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TProperty, TColumns>(
+            this IQueryable<TSource> source,
+            Expression<Func<TSource, TProperty>> navigation,
+            Expression<Func<TSource, TProperty, bool>> condition,
+            Expression<Func<TProperty, TColumns>> columns)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+            if (condition == null) throw new ArgumentNullException(nameof(condition));
+            if (columns == null) throw new ArgumentNullException(nameof(columns));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(
+                    null,
+                    IncludeWithConditionColumnsMethod.MakeGenericMethod(typeof(TSource), typeof(TProperty), typeof(TColumns)),
+                    source.Expression,
+                    Expression.Quote(navigation),
+                    Expression.Quote(condition),
+                    Expression.Quote(columns)));
+        }
+
+        /// <summary>
+        ///     與 <see cref="Include{TSource,TElement}(IQueryable{TSource},Expression{Func{TSource,IEnumerable{TElement}}},Expression{Func{TSource,TElement,bool}})" /> 相同，
+        ///     但集合中的子資料只取部分欄位，例如 <c>Include(x =&gt; x.ManagedDepartments, (x, d) =&gt; x.Id == d.ManagerId, d =&gt; new { d.Id, d.Name })</c>。
+        ///     <para>合併資料列需要子資料的鍵，沒有寫在 <paramref name="columns" /> 中也會一併選出並填入。</para>
+        /// </summary>
+        public static IQueryable<TSource> Include<TSource, TElement, TColumns>(
+            this IQueryable<TSource> source,
+            Expression<Func<TSource, IEnumerable<TElement>>> navigation,
+            Expression<Func<TSource, TElement, bool>> condition,
+            Expression<Func<TElement, TColumns>> columns)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (navigation == null) throw new ArgumentNullException(nameof(navigation));
+            if (condition == null) throw new ArgumentNullException(nameof(condition));
+            if (columns == null) throw new ArgumentNullException(nameof(columns));
+
+            return source.Provider.CreateQuery<TSource>(
+                Expression.Call(
+                    null,
+                    IncludeCollectionColumnsMethod.MakeGenericMethod(typeof(TSource), typeof(TElement), typeof(TColumns)),
+                    source.Expression,
+                    Expression.Quote(navigation),
+                    Expression.Quote(condition),
+                    Expression.Quote(columns)));
         }
 
         /// <summary>

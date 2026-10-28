@@ -666,22 +666,27 @@ namespace Chef.DbAccess.Querying
                 expression = member.Expression;
             }
 
+            // 之後的引數依參數個數區分：條件是 (x, d) => ...，欄位是 d => new { ... }。
+            var lambdas = methodCall.Arguments.Skip(2).Select(GetLambda).ToList();
+            var conditionLambda = lambdas.FirstOrDefault(l => l.Parameters.Count == 2);
+            var columnsLambda = lambdas.FirstOrDefault(l => l.Parameters.Count == 1);
+
             var index = expression is ParameterExpression parameter ? navigation.Parameters.IndexOf(parameter) : -1;
 
-            if (index < 0 || members.Count == 0 || (methodCall.Arguments.Count == 3 && members.Count > 1))
+            if (index < 0 || members.Count == 0 || (conditionLambda != null && members.Count > 1))
             {
                 throw new NotSupportedException($"Can not translate '{methodCall}' to SQL: Include must specify a navigation property of the entity, for example 'x => x.Department'.");
             }
 
             var table = source.Tables[index];
 
-            if (methodCall.Arguments.Count == 3)
+            if (conditionLambda != null)
             {
                 var property = (PropertyInfo)members.Pop().Member;
 
                 // 條件的第二個參數是被 Join 的實體；與屬性的型別不同時，屬性是它的集合。
-                var conditionLambda = GetLambda(methodCall.Arguments[2]);
                 var entityType = conditionLambda.Parameters[1].Type;
+                var columns = ParseIncludeColumns(columnsLambda, entityType, methodCall);
                 var isCollection = property.PropertyType != entityType;
 
                 if (source.Navigations.ContainsKey((table, property)) || source.CollectionIncludes.Any(i => i.Owner == table && i.Navigation == property))
@@ -698,18 +703,20 @@ namespace Chef.DbAccess.Querying
 
                 if (isCollection)
                 {
-                    AddCollectionInclude(source, table, property, joined, predicate, marker);
+                    AddCollectionInclude(source, table, property, joined, predicate, marker, columns);
 
                     return source;
                 }
 
                 AddNavigationJoin(source, table, property, joined, predicate, marker);
-                source.AddInclude(table, property, joined);
+                source.AddInclude(table, property, joined, columns);
 
                 return source;
             }
 
-            foreach (var member in members)
+            var path = members.ToList();
+
+            foreach (var member in path)
             {
                 // 集合（List<T> 等，string 除外）只能以條件 Include。
                 if (member.Type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(member.Type))
@@ -725,7 +732,10 @@ namespace Chef.DbAccess.Querying
 
                 var joined = this.JoinNavigation(source, table, metadata);
 
-                source.AddInclude(table, metadata.Property, joined);
+                // 連續導覽時，欄位只限制最後一層。
+                var columns = member == path[path.Count - 1] ? ParseIncludeColumns(columnsLambda, metadata.TargetType, methodCall) : null;
+
+                source.AddInclude(table, metadata.Property, joined, columns);
                 table = joined;
             }
 
@@ -735,8 +745,16 @@ namespace Chef.DbAccess.Querying
         /// <summary>
         ///     一對多的 Join 會增加筆數，記錄在 <see cref="QueryBuilder.CollectionIncludes" />，等到產生 SELECT 清單時才加入（見 <see cref="Build(QueryBuilder, QueryResultKind)" />），
         ///     所以 <c>Count</c> 等不受影響。集合屬性要有 setter，並且能指定 <see cref="List{T}" />。
+        ///     <para>只取部分欄位時，合併資料列需要的子資料鍵也會一併選出並填入。</para>
         /// </summary>
-        private static void AddCollectionInclude(QueryBuilder source, TableExpression owner, PropertyInfo property, TableExpression children, SqlExpression predicate, ColumnExpression marker)
+        private static void AddCollectionInclude(
+            QueryBuilder source,
+            TableExpression owner,
+            PropertyInfo property,
+            TableExpression children,
+            SqlExpression predicate,
+            ColumnExpression marker,
+            HashSet<PropertyMetadata> columns)
         {
             var elementType = children.Entity.ClrType;
 
@@ -745,7 +763,38 @@ namespace Chef.DbAccess.Querying
                 throw new NotSupportedException($"Can not include '{property.Name}': the collection property must have a setter and accept List<{elementType.Name}>.");
             }
 
-            source.CollectionIncludes.Add((owner, property, children, predicate, marker));
+            columns?.UnionWith(children.Entity.IdentityKeys);
+
+            source.CollectionIncludes.Add((owner, property, children, predicate, marker, columns));
+        }
+
+        /// <summary>
+        ///     <c>Include</c> 指定的欄位，例如 <c>d =&gt; new { d.Id, d.Name }</c> 或 <c>d =&gt; d.Name</c>，只能是 <paramref name="entityType" /> 對應到欄位的屬性。
+        /// </summary>
+        /// <returns>沒有指定時為 <c>null</c>，表示所有欄位。</returns>
+        private static HashSet<PropertyMetadata> ParseIncludeColumns(LambdaExpression columns, Type entityType, MethodCallExpression methodCall)
+        {
+            if (columns == null) return null;
+
+            var entity = EntityMetadata.For(entityType);
+            var parts = columns.Body is NewExpression @new && @new.Members != null ? (IEnumerable<Expression>)@new.Arguments : new[] { columns.Body };
+            var result = new HashSet<PropertyMetadata>();
+
+            foreach (var part in parts)
+            {
+                var member = (part.NodeType == ExpressionType.Convert ? ((UnaryExpression)part).Operand : part) as MemberExpression;
+                var column = member?.Expression == columns.Parameters[0] ? entity.FindColumn(member.Member.Name) : null;
+
+                if (column == null)
+                {
+                    throw new NotSupportedException(
+                        $"Can not translate '{methodCall}' to SQL: the columns of Include must be mapped properties of '{entityType.Name}', for example 'd => new {{ d.Id, d.Name }}'.");
+                }
+
+                result.Add(column);
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -915,22 +964,41 @@ namespace Chef.DbAccess.Querying
 
             /// <summary>
             ///     <c>Include</c> 的導覽屬性：組出資料表的實體時，一併以 Join 進來的資料表填入導覽屬性。
+            ///     <c>Columns</c> 是只取部分欄位時的欄位，<c>null</c> 表示所有欄位。
             /// </summary>
-            public Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>> Includes { get; } =
-                new Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table)>>();
+            public Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table, HashSet<PropertyMetadata> Columns)>> Includes { get; } =
+                new Dictionary<TableExpression, List<(PropertyInfo Navigation, TableExpression Table, HashSet<PropertyMetadata> Columns)>>();
 
             /// <summary>
-            ///     一對多集合的 <c>Include</c>：<see cref="Owner" /> 的實體以 <c>LEFT JOIN</c> <see cref="Table" /> 的資料填入集合 <see cref="Navigation" />。
-            ///     Join 等到產生 <c>SELECT</c> 清單時才加入，<see cref="Marker" /> 用來判斷有沒有對應的資料。
+            ///     一對多集合的 <c>Include</c>：<c>Owner</c> 的實體以 <c>LEFT JOIN</c> <c>Table</c> 的資料填入集合 <c>Navigation</c>。
+            ///     Join 等到產生 <c>SELECT</c> 清單時才加入，<c>Marker</c> 用來判斷有沒有對應的資料；<c>Columns</c> 同 <see cref="Includes" />。
             /// </summary>
-            public List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker)> CollectionIncludes { get; } =
-                new List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker)>();
+            public List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker,
+                HashSet<PropertyMetadata> Columns)> CollectionIncludes { get; } =
+                new List<(TableExpression Owner, PropertyInfo Navigation, TableExpression Table, SqlExpression Predicate, ColumnExpression Marker,
+                    HashSet<PropertyMetadata> Columns)>();
 
-            public void AddInclude(TableExpression table, PropertyInfo navigation, TableExpression joined)
+            /// <summary>
+            ///     同一個導覽屬性 Include 多次時，欄位取聯集；任何一次沒有指定欄位就是所有欄位。
+            /// </summary>
+            public void AddInclude(TableExpression table, PropertyInfo navigation, TableExpression joined, HashSet<PropertyMetadata> columns)
             {
-                if (!this.Includes.TryGetValue(table, out var includes)) this.Includes.Add(table, includes = new List<(PropertyInfo Navigation, TableExpression Table)>());
+                if (!this.Includes.TryGetValue(table, out var includes))
+                {
+                    this.Includes.Add(table, includes = new List<(PropertyInfo Navigation, TableExpression Table, HashSet<PropertyMetadata> Columns)>());
+                }
 
-                if (!includes.Contains((navigation, joined))) includes.Add((navigation, joined));
+                var index = includes.FindIndex(i => i.Navigation == navigation && i.Table == joined);
+
+                if (index < 0)
+                {
+                    includes.Add((navigation, joined, columns));
+                }
+                else if (includes[index].Columns != null)
+                {
+                    if (columns == null) includes[index] = (navigation, joined, null);
+                    else includes[index].Columns.UnionWith(columns);
+                }
             }
 
             public SqlExpression Predicate { get; private set; }
@@ -1077,25 +1145,26 @@ namespace Chef.DbAccess.Querying
             }
 
             /// <summary>
-            ///     <c>new Member { Id = Projection(0), ..., Department = ... }</c>：先選出所有可寫入的欄位，再以同樣方式組出 <c>Include</c> 的導覽屬性。
+            ///     <c>new Member { Id = Projection(0), ..., Department = ... }</c>：先選出所有可寫入的欄位（<paramref name="columns" /> 不是 <c>null</c> 時只選出這些欄位），
+            ///     再以同樣方式組出 <c>Include</c> 的導覽屬性。判斷 Left Join 有沒有資料的欄位不在 <paramref name="columns" /> 中時仍會選出，但不填入屬性。
             /// </summary>
-            private Expression BuildEntityShaper(Type type, TableExpression table)
+            private Expression BuildEntityShaper(Type type, TableExpression table, HashSet<PropertyMetadata> columns = null)
             {
                 var constructor = type.GetConstructor(Type.EmptyTypes);
 
                 if (constructor == null) throw new NotSupportedException($"'{type}' must have a parameterless constructor to be materialized.");
 
-                var bindings = table.Entity.Columns.Where(c => c.Property.CanWrite)
+                var bindings = table.Entity.Columns.Where(c => c.Property.CanWrite && (columns == null || columns.Contains(c)))
                     .Select(c => Expression.Bind(c.Property, this.AddProjection(table.Column(c), c.PropertyName, c.ClrType)))
                     .ToList();
 
                 if (this.source.Includes.TryGetValue(table, out var includes))
                 {
-                    foreach (var (navigation, joined) in includes)
+                    foreach (var (navigation, joined, includeColumns) in includes)
                     {
                         if (!navigation.CanWrite) throw new NotSupportedException($"Can not include '{type.Name}.{navigation.Name}': the property must have a setter.");
 
-                        bindings.Add(Expression.Bind(navigation, this.BuildEntityShaper(navigation.PropertyType, joined)));
+                        bindings.Add(Expression.Bind(navigation, this.BuildEntityShaper(navigation.PropertyType, joined, includeColumns)));
                     }
                 }
 
@@ -1103,7 +1172,7 @@ namespace Chef.DbAccess.Querying
                 foreach (var include in this.source.CollectionIncludes.Where(i => i.Owner == table))
                 {
                     var elementType = include.Table.Entity.ClrType;
-                    var child = this.BuildEntityShaper(elementType, include.Table);
+                    var child = this.BuildEntityShaper(elementType, include.Table, include.Columns);
 
                     bindings.Add(Expression.Bind(include.Navigation, Expression.Call(CreateCollectionMethod.MakeGenericMethod(elementType), child)));
                 }

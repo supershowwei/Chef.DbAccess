@@ -1000,6 +1000,74 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             collectionInWhere.Should().Throw<NotSupportedException>();
         }
 
+        [TestMethod]
+        public void Collection_include_with_columns_adds_keys()
+        {
+            var translated = TranslateQuery(Departments.Include(d => d.Staffs, (d, e) => d.Id == e.DepartmentId, e => new { e.Name }));
+
+            // [emp_2].[Id] 是合併資料列需要的鍵，自動選出並填入；[emp_2].[DepartmentId] 用來判斷有沒有對應的資料，只選出不填入；[emp_2].[ManagerId] 不選出。
+            Sql(translated)
+                .Should()
+                .Be(
+                    "SELECT [dep_1].[Id], [dep_1].[Name], [dep_1].[ManagerId], [emp_2].[Id] AS [Id1], [emp_2].[Name] AS [Name1], [emp_2].[DepartmentId]\n" +
+                    "FROM [tbl_department] [dep_1] WITH (NOLOCK)\n" +
+                    "LEFT JOIN [tbl_employee] [emp_2] WITH (NOLOCK) ON [dep_1].[Id] = [emp_2].[DepartmentId]");
+
+            var staffs = (MethodCallExpression)((MemberAssignment)((MemberInitExpression)translated.Shaper).Bindings.Last()).Expression;
+            var staff = (MemberInitExpression)((ConditionalExpression)staffs.Arguments[0]).IfFalse;
+
+            staff.Bindings.Select(b => b.Member.Name).Should().Equal(nameof(Employee.Id), nameof(Employee.Name));
+        }
+
+        [TestMethod]
+        public void Reference_include_with_columns()
+        {
+            // 參考導覽屬性不需要合併，只填入指定的欄位；[dep_2].[Id] 用來判斷有沒有對應的資料，只選出不填入。
+            var translated = TranslateQuery(Employees.Include(e => e.Department, d => d.Name));
+
+            Sql(translated)
+                .Should()
+                .StartWith("SELECT [emp_1].[Id], [emp_1].[Name], [emp_1].[DepartmentId], [emp_1].[ManagerId], [dep_2].[Name] AS [Name1], [dep_2].[Id] AS [Id1]\n");
+
+            var department = (ConditionalExpression)((MemberAssignment)((MemberInitExpression)translated.Shaper).Bindings.Last()).Expression;
+            ((MemberInitExpression)department.IfFalse).Bindings.Select(b => b.Member.Name).Should().Equal(nameof(Department.Name));
+
+            Translate(Members.Include(m => m.ManagedDepartment, (m, d) => m.Id == d.ManagerId, d => new { d.Id, d.Name }))
+                .Sql.Should()
+                .StartWith("SELECT [mem_1].[No] AS [Id], [mem_1].[Name], [mem_1].[Age], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId]\n");
+        }
+
+        [TestMethod]
+        public void Include_columns_apply_to_last_navigation_and_are_merged()
+        {
+            // 連續導覽時只限制最後一層：Department 選出所有欄位，Manager 只有 Name（加上判斷用的 Id）。
+            Translate(Employees.Include(e => e.Department.Manager, m => m.Name))
+                .Sql.Should()
+                .StartWith(
+                    "SELECT [emp_1].[Id], [emp_1].[Name], [emp_1].[DepartmentId], [emp_1].[ManagerId], " +
+                    "[dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId] AS [ManagerId1], [emp_3].[Name] AS [Name2], [emp_3].[Id] AS [Id2]\n");
+
+            // 同一個導覽屬性 Include 多次時欄位取聯集，沒有指定欄位就是所有欄位。
+            Translate(Employees.Include(e => e.Department, d => d.Name).Include(e => e.Department, d => d.ManagerId))
+                .Sql.Should()
+                .StartWith("SELECT [emp_1].[Id], [emp_1].[Name], [emp_1].[DepartmentId], [emp_1].[ManagerId], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId] AS [ManagerId1], [dep_2].[Id] AS [Id1]\n");
+            Translate(Employees.Include(e => e.Department, d => d.Name).Include(e => e.Department))
+                .Sql.Should()
+                .StartWith("SELECT [emp_1].[Id], [emp_1].[Name], [emp_1].[DepartmentId], [emp_1].[ManagerId], [dep_2].[Id] AS [Id1], [dep_2].[Name] AS [Name1], [dep_2].[ManagerId] AS [ManagerId1]\n");
+        }
+
+        [TestMethod]
+        public void Include_columns_must_be_mapped_properties()
+        {
+            Action expression = () => Translate(Employees.Include(e => e.Department, d => d.Name.Length));
+            Action constant = () => Translate(Employees.Include(e => e.Department, d => new { d.Name, Fixed = 1 }));
+            Action navigation = () => Translate(Employees.Include(e => e.Department, d => d.Manager));
+
+            expression.Should().Throw<NotSupportedException>().WithMessage("*mapped properties of 'Department'*");
+            constant.Should().Throw<NotSupportedException>().WithMessage("*mapped properties of 'Department'*");
+            navigation.Should().Throw<NotSupportedException>().WithMessage("*mapped properties of 'Department'*");
+        }
+
         private static GeneratedSql Translate<T>(IQueryable<T> query)
         {
             return new SqlServerSqlGenerator().Generate(TranslateQuery(query).Select);
@@ -1080,6 +1148,7 @@ namespace Chef.DbAccess.SqlServer.Tests.Querying
             [ForeignKey(nameof(ManagerId))]
             public Employee Manager { get; set; }
 
+            public List<Employee> Staffs { get; set; }
         }
 
         [Table("tbl_employee")]
