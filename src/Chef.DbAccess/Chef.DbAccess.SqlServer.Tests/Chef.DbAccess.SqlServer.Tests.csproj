@@ -6,6 +6,8 @@
          v5 的 Contains 翻譯要支援 C# 14，v5 的測試開始時移除這個設定。 -->
     <LangVersion>13</LangVersion>
     <IsPackable>false</IsPackable>
+    <!-- 各目標框架共用同一組測試資料庫，平行執行會互相刪除對方的測試資料 -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
   </PropertyGroup>
