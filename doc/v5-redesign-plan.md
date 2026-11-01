@@ -1,6 +1,6 @@
 # Chef.DbAccess 5.0 改版規劃：沒有 DbContext 的 LINQ Provider
 
-> 狀態：草案（2026-11-01）；§12 的 D1～D14 已定案
+> 狀態：草案（2026-11-01）；§12 的 D1～D15 已定案
 > 分支：`v5/redesign`（由本機 `master` @ `044280a`，也就是 3.x 開出）
 > 範圍：Chef.DbAccess（核心）、Chef.DbAccess.SqlServer（SQL Server 實作）、DI 擴充套件與測試專案
 > 參考：`efcore/`（Entity Framework Core 原始碼，只作為設計參考，不引用、不複製）
@@ -793,6 +793,7 @@ members.Where(x => ids.Contains(x.Id));
 
 - 暫存資料表模式多兩趟往返，但不受參數上限限制，也避免超長 `IN` 清單拖慢編譯或觸發錯誤 8623；`value` 欄位加上主鍵（值在用戶端先去除重複），讓 SQL Server 有正確的基數與排序資訊。
 - 查詢以 `AsAsyncEnumerable()` 串流時，暫存資料表在列舉結束（`DisposeAsync`）時才刪除。
+- **支援 C# 14 的 first-class span（D15）**：專案以 .NET 10／C# 14 編譯時，運算式樹中的 `ids.Contains(x.Id)` 會綁定到 `MemoryExtensions.Contains(ReadOnlySpan<T>, T)`，集合外面再包一層 `Span<T>`／`ReadOnlySpan<T>` 的 `op_Implicit` 呼叫，而不是 `Enumerable.Contains`。span 是 ref struct，無法裝箱，也無法以 `Expression.Compile()` 求值，所以 `ParameterExtractor` 必須在求值**之前**剝掉 `op_Implicit`，把呼叫改寫回 `Enumerable.Contains`；`MemoryExtensions.SequenceEqual` 同樣改寫。帶第三個參數（比較子）的多載不改寫，視為無法翻譯。作法比照 EF Core 10 的 `ExpressionTreeFuncletizer`。3.x 不支援這種形狀，也不會修正。
 - 空集合輸出 `1 = 0`；集合含 null 時，null 移出清單並另外補 `OR [m].[No] IS NULL`（§5.7.3）。
 - 可以用 `CollectionTranslationMode`（`Constant`／`MultipleParameters`／`TempTable`）在全域、單一查詢（`.WithCollectionMode(...)`）或單一運算式（`ChefFunctions.Constant(ids)`／`ChefFunctions.Parameter(ids)`）覆寫，門檻也可以調整。
 
@@ -1056,7 +1057,7 @@ DROP TABLE [#chef_3f2a…];
 | # | 工作 | 規模 |
 |---|---|---|
 | 0.1 | `Directory.Build.props`（`LangVersion`、`Nullable`、`TreatWarningsAsErrors`、版本號 `5.0.0-alpha`）、`Directory.Packages.props`（Central Package Management） | S |
-| 0.2 | `Chef.DbAccess.SqlServer` 改成 ProjectReference；函式庫只以 `netstandard2.0` 為目標（D6）；移除 Dapper 套件參考（D7） | S |
+| 0.2 | `Chef.DbAccess.SqlServer` 改成 ProjectReference；函式庫只以 `netstandard2.0` 為目標（D6）。Dapper 套件參考此時**保留**：3.x 程式碼建立在 Dapper 上，0.4 的快照與 0.8 的基準數字都需要 3.x 能執行；移除時機改到 6.6 | S |
 | 0.3 | 測試專案改成 SDK-style（MSTest v3，D9）、拆成 `Chef.DbAccess.Tests`（純單元）與 `Chef.DbAccess.SqlServer.Tests`（快照＋整合） | M |
 | 0.4 | **3.x 特徵化測試**：把各種 API 產生的 SQL 與參數錄成快照（不需要資料庫），再把整合測試結果錄成「資料快照」。5.0 不相容 3.x API，這些快照的用途是：同一個情境用 5.0 改寫後，**資料結果**要一致（SQL 文字可以不同） | M |
 | 0.5 | 整合測試基礎設施：Windows 開發機用 LocalDB（沿用 `test/SampleDB.sql`），CI 用 Testcontainers（`mcr.microsoft.com/mssql/server`，最舊 2017）；以 `[TestCategory("Integration")]` 區隔 | M |
@@ -1096,7 +1097,7 @@ DROP TABLE [#chef_3f2a…];
 | # | 工作 | EF Core 參考 | 規模 |
 |---|---|---|---|
 | 3.1 | `DataAccessQueryRootExpression`、`ChefQueryable<T>`、`ChefQueryProvider`、`IAsyncQueryProvider`；`SqlServerDataAccess<T>` 實作 `IOrderedQueryable<T>` | `EntityQueryable\`.cs`、`EntityQueryProvider.cs`、`EntityQueryRootExpression.cs` | M |
-| 3.2 | `ParameterExtractor`（閉包、可求值子樹、依型別標記內嵌或參數化、`ChefFunctions.Constant`／`Parameter`、`DateTime.Now` 用戶端求值與 `ChefFunctions.Server*`、閉包中的 `IQueryable` 內嵌） | `ExpressionTreeFuncletizer.cs` | L |
+| 3.2 | `ParameterExtractor`（閉包、可求值子樹、依型別標記內嵌或參數化、`ChefFunctions.Constant`／`Parameter`、`DateTime.Now` 用戶端求值與 `ChefFunctions.Server*`、閉包中的 `IQueryable` 內嵌、C# 14 的 `MemoryExtensions.Contains`／`SequenceEqual` 改寫回 `Enumerable`，§5.8、D15） | `ExpressionTreeFuncletizer.cs` | L |
 | 3.3 | `ExpressionShapeComparer`、`QueryCacheKey`、有上限的 `QueryCache` | `ExpressionEqualityComparer.cs`、`CompiledQueryCacheKeyGenerator.cs` | M |
 | 3.4 | `SqlTranslator`：比較、邏輯、算術、位元、null、布林欄位、列舉、`Nullable`、`Equals`、`?:`、`??`、轉型 | `RelationalSqlTranslatingExpressionVisitor.cs` | L |
 | 3.5 | 翻譯器：字串、日期時間、數學、轉型、全文檢索（SQL Server） | `efcore/src/EFCore.SqlServer/Query/Internal/Translators/` | L |
@@ -1140,7 +1141,7 @@ DROP TABLE [#chef_3f2a…];
 | 6.3 | `UpsertAsync`：UPDLOCK＋SERIALIZABLE 策略與 MERGE 策略 | 同上（MERGE 產生方式） | M |
 | 6.4 | Bulk：`EntityDataReader<T>`、`SqlBulkCopy`、`#暫存資料表`流程（定序、清理、交易）、`BulkInsert／Update／Upsert／Delete` | — | L |
 | 6.5 | `ChefTransaction`（AsyncLocal）、`TransactionScope` 相容、`IExecutionStrategy` | `efcore/src/EFCore.SqlServer/Storage/Internal/SqlServerTransientExceptionDetector.cs` | M |
-| 6.6 | `FromSql`（可組合、插值依 §5.7 處理）；`RawSqlParser`（`@name`、`{=name}`、`IN @list`）與 `QueryAsync<T>`／`ExecuteAsync`，取代 Dapper（§5.12.4） | `FromSqlExpression.cs`、`Internal/FromSqlQueryRootExpression.cs` | M |
+| 6.6 | `FromSql`（可組合、插值依 §5.7 處理）；`RawSqlParser`（`@name`、`{=name}`、`IN @list`）與 `QueryAsync<T>`／`ExecuteAsync`，取代 Dapper（§5.12.4）；移除 `Chef.DbAccess.SqlServer` 的 Dapper 套件參考，連同仍依賴 Dapper 的 3.x 程式碼一起刪除（D7） | `FromSqlExpression.cs`、`Internal/FromSqlQueryRootExpression.cs` | M |
 | 6.7 | 跑 §10.2 Raw SQL 與寫入的放行條件，通過後才發 preview4 | S |
 
 ### Phase 7：文件、範例與試升級 → **5.0.0-rc1**
@@ -1181,6 +1182,7 @@ DROP TABLE [#chef_3f2a…];
 - 測試資料：以 `test/SampleDB.sql` 為基礎擴充（會員、部門、多對一、一對多、可為 null 的外鍵、`varchar` 欄位、全文檢索索引、跨資料庫）。
 - 涵蓋率目標：核心 85％ 以上；每個翻譯器至少一個快照＋一個功能測試。
 - 從 EF Core 的 `NorthwindWhereQueryTestBase.cs` 等規格測試挑選情境改寫（只取情境，不複製程式碼）。
+- C# 版本：v5 的測試以 C# 14 編譯，並在 `net10.0` 上執行，才能涵蓋 first-class span 產生的運算式樹（D15）。`Chef.DbAccess.SqlServer.Tests` 目前為了 3.x 特徵化測試暫時固定 `LangVersion` 13，v5 的測試開始加入時移除。
 
 ---
 
@@ -1270,6 +1272,7 @@ DROP TABLE [#chef_3f2a…];
 | D12 | SQLite 方言時程 | 5.x | 5.0 聚焦 SQL Server；抽象設計以單元測試保證 |
 | D13 | 工廠設定 | 保留 `SqlServerDataAccessFactory.Instance`，另外可以 `new SqlServerDataAccessFactory(options)` | 測試與多租戶情境需要獨立實例 |
 | D14 | SQL Server 版本基準 | **SQL Server 2016 SP1，任何資料庫相容性層級** | 不使用 `OPENJSON`、`STRING_SPLIT`（需要相容性層級 130）與 2017 之後的語法；大量 `Contains` 改用 `#暫存資料表`（§5.8、§5.16） |
+| D15 | C# 14 first-class span（2026-11-02） | **v5 的 `Contains` 支援 C# 14；3.x 不修正** | `MemoryExtensions.Contains`／`SequenceEqual` 在參數抽取階段改寫回 `Enumerable`（§5.8）；v5 的測試以 C# 14 編譯（§9） |
 
 ---
 
