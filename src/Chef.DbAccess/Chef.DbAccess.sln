@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess.SqlServer", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chef.DbAccess.SqlServer.Tests", "Chef.DbAccess.SqlServer.Tests\Chef.DbAccess.SqlServer.Tests.csproj", "{BCE552E5-B629-44E3-999F-C72DC0CB14AB}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chef.DbAccess.Tests", "Chef.DbAccess.Tests\Chef.DbAccess.Tests.csproj", "{9CC64A14-78A8-4A78-8DCA-938C189CDE9D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{BCE552E5-B629-44E3-999F-C72DC0CB14AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCE552E5-B629-44E3-999F-C72DC0CB14AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCE552E5-B629-44E3-999F-C72DC0CB14AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CC64A14-78A8-4A78-8DCA-938C189CDE9D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CC64A14-78A8-4A78-8DCA-938C189CDE9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CC64A14-78A8-4A78-8DCA-938C189CDE9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CC64A14-78A8-4A78-8DCA-938C189CDE9D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
