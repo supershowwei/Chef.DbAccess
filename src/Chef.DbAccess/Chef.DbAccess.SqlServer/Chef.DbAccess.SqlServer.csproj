@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.0.4" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
-    <PackageReference Include="System.ComponentModel.Annotations" Version="4.4.0" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="System.ComponentModel.Annotations" />
   </ItemGroup>
 
   <ItemGroup>
