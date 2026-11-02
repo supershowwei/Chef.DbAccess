@@ -30,6 +30,26 @@ namespace Chef.DbAccess.SqlServer.Tests
 
             // Clear temp clubs
             await DataAccessFactory.Create<Club>().Where(x => x.Id >= 100).DeleteAsync();
+
+            await RestoreSeedDataAsync();
+        }
+
+        /// <summary>
+        /// 還原 Update 系列測試改過、沒有改回來的種子資料（名稱會被加上亂數後綴），
+        /// 資料快照測試才能在種子資料上比對。
+        /// </summary>
+        internal static Task RestoreSeedDataAsync()
+        {
+            return DataAccessFactory.Create<Club>()
+                .UpdateAsync(
+                    x => x.Id == default(int),
+                    () => new Club { Name = default(string) },
+                    new List<Club>
+                    {
+                        new Club { Id = 15, Name = "歐陽邦瑋" },
+                        new Club { Id = 16, Name = "羅怡君" },
+                        new Club { Id = 19, Name = "楊翊貴" }
+                    });
         }
 
         [TestMethod]

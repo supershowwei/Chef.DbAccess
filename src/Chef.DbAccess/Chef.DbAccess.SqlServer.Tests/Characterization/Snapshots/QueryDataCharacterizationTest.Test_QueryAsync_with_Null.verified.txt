@@ -1,0 +1,47 @@
+﻿[
+  {
+    Id: 15,
+    Name: null,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  },
+  {
+    Id: 16,
+    Name: null,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  },
+  {
+    Id: 17,
+    Name: null,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  },
+  {
+    Id: 24,
+    Name: null,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  },
+  {
+    Id: 25,
+    Name: null,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  }
+]
