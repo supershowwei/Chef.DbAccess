@@ -84,6 +84,15 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             return Task.FromResult(0);
         }
 
+        protected override Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
+        {
+            this.commands.Add(BeginTransaction);
+            this.Capture(sql, param);
+            this.commands.Add(CommitTransaction);
+
+            return Task.FromResult(default(TResult));
+        }
+
         protected override Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(
             string sql,
             object param,

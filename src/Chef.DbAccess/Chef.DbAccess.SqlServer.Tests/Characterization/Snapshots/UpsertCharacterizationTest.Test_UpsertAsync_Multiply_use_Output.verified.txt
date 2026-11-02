@@ -1,0 +1,65 @@
+﻿-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name] INTO [#_TempTable1]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable1]
+WHERE [ClubID] = {=Id}
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [ClubID])
+        OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable1]
+            SELECT @Name, {=Id}
+    END
+-- [0] @Id = 101 (Int32)
+-- [0] @Name = 'TestClub1' (String)
+-- [1] @Id = 501 (Int32)
+-- [1] @Name = 'TestClub2' (String)
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+
+-- COMMIT TRANSACTION
+
+-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name] INTO [#_TempTable2]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable2]
+WHERE [ClubID] = {=Id}
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [ClubID])
+        OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable2]
+            SELECT @Name, {=Id}
+    END
+-- [0] @Id = 101 (Int32)
+-- [0] @Name = 'TestClub3' (String)
+-- [1] @Id = 501 (Int32)
+-- [1] @Name = 'TestClub4' (String)
+
+SELECT
+    *
+FROM [#_TempTable2]
+
+DROP TABLE [#_TempTable2]
+
+-- COMMIT TRANSACTION

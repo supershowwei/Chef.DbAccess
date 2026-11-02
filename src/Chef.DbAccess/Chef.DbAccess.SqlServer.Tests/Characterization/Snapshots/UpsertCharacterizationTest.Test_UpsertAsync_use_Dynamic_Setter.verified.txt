@@ -1,0 +1,18 @@
+﻿-- BEGIN TRANSACTION
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name_0, [Intro] = @Intro_0
+WHERE [ClubID] = {=Id_0}
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [Intro], [ClubID])
+            SELECT @Name_0, @Intro_0, {=Id_0}
+    END;
+-- @Name_0 = 'test37name' (String)
+-- @Intro_0 = 'test37intro' (String)
+-- @Id_0 = 37 (Int32)
+
+-- COMMIT TRANSACTION

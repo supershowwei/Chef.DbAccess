@@ -1,0 +1,37 @@
+﻿-- BEGIN TRANSACTION
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name_0
+WHERE [ClubID] = {=Id_0}
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [ClubID])
+            SELECT @Name_0, {=Id_0}
+    END;
+-- @Name_0 = 'TestClub' (String)
+-- @Id_0 = 101 (Int32)
+
+-- COMMIT TRANSACTION
+
+-- BEGIN TRANSACTION
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name_0, [IsActive] = {=IsActive_0}
+WHERE ([ClubID] = {=Id_0}) AND ([IsActive] = {=IsActive_1})
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [IsActive], [ClubID])
+            SELECT @Name_0, {=IsActive_0}, {=Id_0}
+    END;
+-- @Name_0 = 'TestClub997' (String)
+-- @IsActive_0 = False (Boolean)
+-- @Id_0 = 101 (Int32)
+-- @IsActive_1 = True (Boolean)
+
+-- COMMIT TRANSACTION

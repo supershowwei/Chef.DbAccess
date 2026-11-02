@@ -1,0 +1,63 @@
+﻿-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name], [IsActive] INTO [#_TempTable1]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0;
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name_0
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name], [INSERTED].[IsActive] INTO [#_TempTable1]
+WHERE [ClubID] = {=Id_0}
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [ClubID])
+        OUTPUT [INSERTED].[ClubID], [INSERTED].[Name], [INSERTED].[IsActive] INTO [#_TempTable1]
+            SELECT @Name_0, {=Id_0}
+    END;
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @Name_0 = 'TestClub' (String)
+-- @Id_0 = 101 (Int32)
+
+-- COMMIT TRANSACTION
+
+-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name], [IsActive] INTO [#_TempTable2]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0;
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+UPDATE [Club] WITH (ROWLOCK)
+SET [Name] = @Name_0, [IsActive] = {=IsActive_0}
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name], [INSERTED].[IsActive] INTO [#_TempTable2]
+WHERE ([ClubID] = {=Id_0}) AND ([IsActive] = {=IsActive_1})
+
+IF @@rowcount = 0
+    BEGIN
+        INSERT INTO [Club]([Name], [IsActive], [ClubID])
+        OUTPUT [INSERTED].[ClubID], [INSERTED].[Name], [INSERTED].[IsActive] INTO [#_TempTable2]
+            SELECT @Name_0, {=IsActive_0}, {=Id_0}
+    END;
+
+SELECT
+    *
+FROM [#_TempTable2]
+
+DROP TABLE [#_TempTable2]
+-- @Name_0 = 'TestClub997' (String)
+-- @IsActive_0 = False (Boolean)
+-- @Id_0 = 101 (Int32)
+-- @IsActive_1 = True (Boolean)
+
+-- COMMIT TRANSACTION
