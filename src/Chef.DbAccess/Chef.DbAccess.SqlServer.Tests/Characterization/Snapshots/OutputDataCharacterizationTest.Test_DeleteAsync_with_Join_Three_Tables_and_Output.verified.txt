@@ -1,0 +1,21 @@
+﻿[
+  {
+    Id: 5555,
+    Name: 55555,
+    Age: 5555,
+    Phone: 0955555555,
+    Address: 五五五五五,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  }
+]

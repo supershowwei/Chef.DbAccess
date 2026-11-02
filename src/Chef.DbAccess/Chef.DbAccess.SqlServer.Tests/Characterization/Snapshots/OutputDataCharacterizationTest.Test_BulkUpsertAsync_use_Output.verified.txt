@@ -1,0 +1,42 @@
+﻿{
+  clubsInserted: [
+    {
+      Id: 101,
+      Name: TestClub1,
+      IsActive: false,
+      Intro: null,
+      RunningTime: null,
+      Self: null,
+      IgnoreColumn: null
+    },
+    {
+      Id: 501,
+      Name: TestClub2,
+      IsActive: false,
+      Intro: null,
+      RunningTime: null,
+      Self: null,
+      IgnoreColumn: null
+    }
+  ],
+  clubsUpserted: [
+    {
+      Id: 101,
+      Name: TestClub3,
+      IsActive: false,
+      Intro: null,
+      RunningTime: null,
+      Self: null,
+      IgnoreColumn: null
+    },
+    {
+      Id: 501,
+      Name: TestClub4,
+      IsActive: false,
+      Intro: null,
+      RunningTime: null,
+      Self: null,
+      IgnoreColumn: null
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+﻿[
+  {
+    Id: 88,
+    Name: 888,
+    Age: 88,
+    Phone: 0988888888,
+    Address: 八八八八八八八八,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  },
+  {
+    Id: 99,
+    Name: 999,
+    Age: 99,
+    Phone: 0999999999,
+    Address: 九九九九九九九九九,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  }
+]

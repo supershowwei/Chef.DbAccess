@@ -1,0 +1,20 @@
+﻿{
+  clubInserted: {
+    Id: 101,
+    Name: TestClub,
+    IsActive: true,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  },
+  clubUpserted: {
+    Id: 101,
+    Name: TestClub997,
+    IsActive: false,
+    Intro: null,
+    RunningTime: null,
+    Self: null,
+    IgnoreColumn: null
+  }
+}
