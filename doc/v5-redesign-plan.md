@@ -345,6 +345,7 @@ public class MemberService(IDataAccess<Member> members) { ... }   // 開放泛�
 ### 3.5 寫入面
 
 - Bulk 系列每次執行都 `CREATE TYPE`／`DROP TYPE`（`SqlServerDataAccess.cs:3956`、`:3962` 等）。目的是用完即刪、不留下資料庫物件，但有幾個代價：需要使用者資料庫的 `CREATE TYPE` 權限；每次都寫入使用者資料庫的系統目錄；`CREATE` 與 `DROP` 之間程序中斷（逾時、當機、部署重啟）時型別會**殘留**；一次 Bulk 要多兩趟 DDL 往返。§5.12.3 改用連線範圍的 `#暫存資料表`。
+- Bulk 系列產生 TVP 欄位定義時以**屬性型別**去除重複（`StatementExtension.ToColumnDefinitions`，`StatementExtension.cs:739`、`:773` 等），第二個同型別的屬性（例如兩個 `string`）會從 TVP 中略過，但 INSERT／UPDATE 的欄位清單仍包含它，執行時丟出 `Invalid column name`。所以寫入的欄位只要有兩個型別相同就無法使用；3.x 測試用的 `Club` 寫入的欄位型別剛好都不同，沒有發現。E2b 的 BulkInsert 基準因此只寫入型別不重複的 8 個欄位。
 - Upsert 用 `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE` 改變整個 session 的隔離等級，影響範圍超過該敘述本身；應改用只作用於該敘述的 table hint。
 - `OUTPUT` 一律走「`SELECT ... INTO #tmp WHERE 1 = 0` → `OUTPUT INTO #tmp` → `SELECT` → `DROP`」四段式，即使資料表沒有觸發程序也一樣。
 - 為了繞過 Dapper 查詢快取的問題，遇到 SqlException 137／102 時清空快取重試（`IDbConnectionExtension.cs:26`）。
@@ -912,6 +913,7 @@ DROP TABLE [#chef_3f2a…];
 - `CREATE TABLE #…` 必須以**沒有參數的命令**送出（SqlClient 會直接當成批次執行）。帶參數的命令會透過 `sp_executesql` 執行，在裡面建立的 `#` 資料表會在 `sp_executesql` 結束時被刪除，後面的 `SqlBulkCopy` 就找不到了。
 - 暫存資料表的欄位定義由 Metadata 與 `TypeMapping` 產生（和 3.x 產生 TVP 欄位定義的方式相同），Identity 欄位不帶 `IDENTITY` 屬性；字串欄位加上 `COLLATE DATABASE_DEFAULT`，避免 tempdb 與使用者資料庫定序不同時 JOIN 失敗。
 - 寫入哪些欄位：`BulkInsertAsync` 依 `[Required]`（D3）；`BulkUpdateAsync`／`BulkUpsertAsync` 依 `on:` 與 `columns:`／`update:`。
+- 暫存資料表的欄位、`ColumnMappings`、SQL 的欄位清單都由同一份欄位清單產生，以欄位（屬性）識別，不以型別識別，不能出現 3.x 同型別欄位被略過的問題（§3.5）。測試要涵蓋寫入多個同型別欄位（例如兩個 `string`、`int` 與 `int?` 並存）。
 - `SqlBulkCopy` 的 `ColumnMappings` 由 Metadata 產生，資料來源用自寫的 `IDataReader`（`EntityDataReader<T>`）串流讀取物件，不先轉成 `DataTable`。
 - 在 `ChefTransaction` 或 `TransactionScope` 中時，`SqlBulkCopy` 使用同一個交易。
 - `DROP TABLE` 放在 `finally`；失敗時不影響原本的例外。
