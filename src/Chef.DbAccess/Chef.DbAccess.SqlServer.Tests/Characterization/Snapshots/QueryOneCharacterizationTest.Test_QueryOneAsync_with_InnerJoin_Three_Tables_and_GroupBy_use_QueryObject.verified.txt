@@ -1,0 +1,10 @@
+﻿SELECT * FROM
+(
+SELECT [use_1].[Id] AS [Id], [dep_2].[Name] AS [Name], COUNT(*) AS [SubordinateCount]
+FROM [Member] [use_1] WITH (NOLOCK)
+INNER JOIN [Department] [dep_2] WITH (NOLOCK) ON [use_1].[DepartmentId] = [dep_2].[Id]
+LEFT JOIN [Member] [use_3] WITH (NOLOCK) ON [use_3].[ManagerId] = [use_1].[Id]
+WHERE [use_1].[Id] = {=Id_0}
+GROUP BY [use_1].[Id], [dep_2].[Name]
+) [__T__];
+-- @Id_0 = 1 (Int32)

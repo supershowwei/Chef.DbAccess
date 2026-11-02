@@ -1,0 +1,8 @@
+﻿SELECT [use_1].[Name], [use_1].[Id], [use_2].[Name], [use_2].[Id], [dep_3].[Name], [dep_3].[Id] AS [DepId], [dep_4].[Name], [dep_4].[Id] AS [DepId]
+FROM [Member] [use_1] WITH (NOLOCK)
+INNER JOIN [Member] [use_2] WITH (NOLOCK) ON [use_1].[ManagerId] = [use_2].[Id]
+INNER JOIN [Department] [dep_3] WITH (NOLOCK) ON [use_1].[DepartmentId] = [dep_3].[Id]
+INNER JOIN [Department] [dep_4] WITH (NOLOCK) ON [use_2].[DepartmentId] = [dep_4].[Id]
+WHERE [use_1].[Id] = {=Id_0};
+-- @Id_0 = 1 (Int32)
+-- splitOn: Name,Name,Name

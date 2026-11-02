@@ -136,6 +136,87 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             return Task.FromResult(new List<TResult>());
         }
 
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth> sixthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth> sixthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> seventhSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(default(TResult));
+        }
+
         // 和 SqlServerDataAccessFactory.Create<T>() 一樣從模型的 [ConnectionString] 取得連線字串：
         // JOIN 時 3.x 會比對兩邊的資料庫名稱，決定要不要加上 [資料庫].[結構描述] 前綴
         private static string ResolveConnectionString(string nameOrConnectionString)

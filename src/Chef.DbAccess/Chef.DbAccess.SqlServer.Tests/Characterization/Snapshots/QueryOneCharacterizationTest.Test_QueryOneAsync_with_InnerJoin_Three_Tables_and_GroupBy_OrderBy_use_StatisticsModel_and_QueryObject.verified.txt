@@ -1,0 +1,9 @@
+﻿SELECT * FROM
+(
+SELECT [us_1].[Id] AS [Id], [us_1].[Name] AS [Name], [dep_2].[Name] AS [DepartmentName], COUNT([use_3].[Name]) AS [SubordinateCount], MAX([use_3].[Id]) AS [MaxSubordinateId], MIN([use_3].[Id]) AS [MinSubordinateId], SUM([use_3].[Age]) AS [SumSubordinateAge], AVG(CAST([use_3].[Age] AS DECIMAL(38, 6))) AS [AvgSubordinateAge]
+FROM [Member] [us_1] WITH (NOLOCK)
+INNER JOIN [Department] [dep_2] WITH (NOLOCK) ON [us_1].[DepartmentId] = [dep_2].[Id]
+LEFT JOIN [Member] [use_3] WITH (NOLOCK) ON [use_3].[ManagerId] = [us_1].[Id]
+GROUP BY [us_1].[Id], [us_1].[Name], [dep_2].[Name]
+) [__T__]
+ORDER BY [Id] DESC;
