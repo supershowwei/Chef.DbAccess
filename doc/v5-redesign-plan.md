@@ -1237,7 +1237,7 @@ DROP TABLE [#chef_3f2a…];
 
 - **從 Phase 0 開始量**：基準專案與 3.x、Dapper 的基準數字在 Phase 0 就建立（0.8），不是最後才補。
 - **每個 preview 都要過關**：Phase 3（preview1）必須通過「物件產生」與「LINQ 主鍵查詢」的條件；Phase 6（preview4）必須通過 Raw SQL 與寫入的條件。沒過關就不發 preview，先調校。
-- **CI 防退化**：配置數量是固定值，每個 PR 都比對，增加就失敗。執行時間沒有固定的機器可以跨次比較，改成每次量測都與 Dapper、3.x 一起量，看同一次執行裡的比值，比值變差就是退步。
+- **CI 防退化**：配置數量不受機器影響，每個 PR 都與基準比對，增加超過量測誤差就失敗。執行時間沒有固定的機器可以跨次比較，改成每次量測都與 Dapper、3.x 一起量，看同一次執行裡的比值，比值變差就是退步。
 - **退路**：如果 Phase 8 結束時 Raw SQL 路徑仍然達不到條件，5.0 的 Raw SQL API 改成內部委派給 Dapper（`Chef.DbAccess.SqlServer` 重新相依 Dapper，API 與 `{=}` 語法不變），由專案負責人決定是否採用。所以最差的情況是和 Dapper 一樣快，不會更慢。LINQ 路徑沒有 Dapper 可以委派，對應的退路是 `ChefQuery.Compile`。
 
 ---

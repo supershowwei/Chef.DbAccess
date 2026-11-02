@@ -9,12 +9,18 @@ param(
     [Parameter(Mandatory)]
     [string]$Results,
     [string]$Baseline = (Join-Path $PSScriptRoot 'allocation-baseline.json'),
-    [string]$Output,
-    # 以基準的百分比計算
-    [double]$TolerancePercent = 0
+    [string]$Output
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 各執行環境的容許誤差：基準的百分比與位元組數，取較大的值。依 GitHub runner 上兩次執行的差異訂定：
+# - .NET 10：小情境最多差 77 B，大情境最多差 0.12%
+# - .NET Framework 4.8：配置數量的量測比較粗，小情境最多差 702 B，大情境最多差 1.18%（SqlBulkCopy，每輪只執行一次）
+$tolerances = @{
+    '.NET 10.0'          = @{ Percent = 0.5; Bytes = 256 }
+    '.NET Framework 4.8' = @{ Percent = 3; Bytes = 2048 }
+}
 
 function Get-SortedKeys {
     # 傳入一或多個字典，傳回所有鍵的聯集，以序數排序
@@ -68,10 +74,12 @@ foreach ($runtime in Get-SortedKeys $current $expected) {
     $actualValues = if ($current.Contains($runtime)) { $current[$runtime] } else { @{} }
     $expectedValues = if ($expected -and $expected.Contains($runtime)) { $expected[$runtime] } else { @{} }
 
+    if ($expected -and -not $tolerances.Contains($runtime)) { throw "沒有設定 $runtime 的容許誤差" }
+
     foreach ($name in Get-SortedKeys $actualValues $expectedValues) {
         $actual = if ($actualValues.Contains($name)) { [long]$actualValues[$name] } else { $null }
         $before = if ($expectedValues.Contains($name)) { [long]$expectedValues[$name] } else { $null }
-        $tolerance = if ($null -ne $before) { $before * $TolerancePercent / 100 } else { 0 }
+        $tolerance = if ($null -ne $before) { [math]::Max($before * $tolerances[$runtime].Percent / 100, $tolerances[$runtime].Bytes) } else { 0 }
 
         $status =
             if (-not $expected) { '記錄' }
@@ -118,7 +126,7 @@ if (-not $expected) {
     $lines.Add('')
 }
 else {
-    $lines.Add("容許誤差：基準的 $TolerancePercent％。")
+    $lines.Add('容許誤差（取較大的值）：' + ((Get-SortedKeys $tolerances | ForEach-Object { "$_ 為基準的 $($tolerances[$_].Percent)％ 或 $($tolerances[$_].Bytes.ToString('N0')) B" }) -join '；') + '。')
     $lines.Add('')
     if ($failures) { $lines.Add("**$($failures.Count) 個情境不符合基準**：配置增加，或是情境有新增、刪除。確認是預期的變化後，用這次產生的基準檔更新 ``$(Split-Path $Baseline -Leaf)``。"); $lines.Add('') }
     if ($decreases) { $lines.Add("$($decreases.Count) 個情境的配置減少了，可以用這次產生的基準檔更新基準。"); $lines.Add('') }

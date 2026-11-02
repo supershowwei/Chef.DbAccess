@@ -144,7 +144,7 @@ jobs:
           if-no-files-found: ignore
 
   benchmark-allocations:
-    # §10.3：配置數量不受機器影響，與 allocation-baseline.json 比對，增加就失敗；還沒有基準檔時只記錄。
+    # §10.3：配置數量不受機器影響，與 allocation-baseline.json 比對，增加超過容許誤差（見 compare-allocations.ps1）就失敗。
     # 要跑完所有基準情境，觸發範圍與 2016 相容性測試相同
     if: github.ref == 'refs/heads/master' || github.base_ref == 'master' || github.event_name == 'workflow_dispatch'
     runs-on: windows-2022
