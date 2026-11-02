@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Dapper;
 
 namespace Chef.DbAccess.SqlServer.Tests.Characterization
 {
@@ -25,6 +27,7 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         private const string CommitTransaction = "-- COMMIT TRANSACTION";
 
         private static readonly Regex TempTableNameRegex = new Regex("#_[0-9a-f]{32}");
+        private static readonly Regex TableTypeNameRegex = new Regex(@"(UDT_\w+?_)[0-9a-f]{32}");
 
         private readonly List<string> commands = new List<string>();
 
@@ -44,7 +47,7 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         /// <summary>
         /// 依執行順序列出攔截到的命令，每個命令是 SQL 加上參數清單（JOIN 另外附上 splitOn）。
         /// </summary>
-        public string CapturedCommands => ScrubTempTableNames(string.Join("\n\n", this.commands));
+        public string CapturedCommands => ScrubGuidNames(string.Join("\n\n", this.commands));
 
         protected override Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
@@ -67,6 +70,46 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             return Task.FromResult(0);
         }
 
+        // Bulk 系列：declarationSql 是 CREATE TYPE，retractionSql 是 DROP TYPE（在 finally 執行）
+
+        protected override Task<int> ExecuteCommandAsync(
+            string sql,
+            object param,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null,
+            string declarationSql = null,
+            string retractionSql = null)
+        {
+            this.CaptureIfAny(declarationSql, null);
+            this.CaptureIfAny(preSql, preParam);
+            this.Capture(sql, param);
+            this.CaptureIfAny(postSql, postParam);
+            this.CaptureIfAny(retractionSql, null);
+
+            return Task.FromResult(0);
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TResult>(
+            string sql,
+            object param,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null,
+            string declarationSql = null,
+            string retractionSql = null)
+        {
+            this.CaptureIfAny(declarationSql, null);
+            this.CaptureIfAny(preSql, preParam);
+            this.Capture(sql, param);
+            this.CaptureIfAny(postSql, postParam);
+            this.CaptureIfAny(retractionSql, null);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
         // 交易版本：照 3.x 的執行順序記錄，postSql／retractionSql 是在 Commit 之後、交易之外執行
 
         protected override Task<int> ExecuteTransactionalCommandAsync(
@@ -82,6 +125,21 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.CaptureIfAny(retractionSql, null);
 
             return Task.FromResult(0);
+        }
+
+        protected override Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(
+            string sql,
+            object param,
+            string declarationSql = null,
+            string retractionSql = null)
+        {
+            this.CaptureIfAny(declarationSql, null);
+            this.commands.Add(BeginTransaction);
+            this.Capture(sql, param);
+            this.commands.Add(CommitTransaction);
+            this.CaptureIfAny(retractionSql, null);
+
+            return Task.FromResult(new List<TResult>());
         }
 
         protected override Task<TResult> ExecuteTransactionalQueryOneAsync<TResult>(string sql, object param)
@@ -310,18 +368,26 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.commands.Add(builder.ToString());
         }
 
-        // 3.x 的暫存資料表名稱是 #_ 加上 Guid，每次執行都不同；依出現順序改成 #_TempTable1、#_TempTable2…
-        private static string ScrubTempTableNames(string text)
+        // 3.x 的暫存資料表與使用者定義資料表型別的名稱都帶 Guid，每次執行都不同；
+        // 依出現順序改成 #_TempTable1、#_TempTable2…與 UDT_Club_Type1、UDT_Club_Type2…
+        private static string ScrubGuidNames(string text)
+        {
+            text = ReplaceInOrder(text, TempTableNameRegex, (match, number) => $"#_TempTable{number}");
+
+            return ReplaceInOrder(text, TableTypeNameRegex, (match, number) => $"{match.Groups[1].Value}Type{number}");
+        }
+
+        private static string ReplaceInOrder(string text, Regex regex, Func<Match, int, string> rename)
         {
             var names = new Dictionary<string, string>();
 
-            return TempTableNameRegex.Replace(
+            return regex.Replace(
                 text,
                 match =>
                     {
                         if (!names.TryGetValue(match.Value, out var name))
                         {
-                            names.Add(match.Value, name = $"#_TempTable{names.Count + 1}");
+                            names.Add(match.Value, name = rename(match, names.Count + 1));
                         }
 
                         return name;
@@ -356,13 +422,34 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             }
         }
 
+        // Bulk 系列用 Dapper 的 AsTableValuedParameter 包裝資料列，型別名稱與資料列放在私有欄位，用反射取出後逐列記錄
+        private static string FormatTableValuedParameter(SqlMapper.ICustomQueryParameter parameter)
+        {
+            var fields = parameter.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+
+            var typeName = (string)fields.Single(x => x.FieldType == typeof(string)).GetValue(parameter);
+
+            var records = ((IEnumerable)fields.Single(x => x.FieldType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(x.FieldType)).GetValue(parameter))
+                .Cast<IDataRecord>()
+                .ToList();
+
+            var rows = records.Select(
+                (record, index) => $"\n--     [{index}] " + string.Join(", ", Enumerable.Range(0, record.FieldCount).Select(i => $"{record.GetName(i)} = {FormatValue(record.GetValue(i))}")));
+
+            return $"{typeName} (TableValuedParameter, {records.Count} rows)" + string.Concat(rows);
+        }
+
         // 一併記錄 CLR 型別：3.x 傳給 Dapper 的型別決定了 SqlParameter 的 SqlDbType
         private static string FormatValue(object value)
         {
             switch (value)
             {
                 case null:
+                case DBNull _:
                     return "NULL";
+
+                case SqlMapper.ICustomQueryParameter tableValuedParameter:
+                    return FormatTableValuedParameter(tableValuedParameter);
 
                 case string text:
                     return $"'{text}' (String)";

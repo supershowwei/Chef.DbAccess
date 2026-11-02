@@ -1,0 +1,25 @@
+﻿CREATE TYPE UDT_IdentityTable_Type1 AS TABLE
+(
+    [Name] NVARCHAR(MAX)
+)
+
+SELECT
+    CAST(0 AS BIGINT) AS [Id], [Name] INTO [#_TempTable1]
+FROM [IdentityTable] WITH (NOLOCK)
+WHERE 1 = 0;
+
+INSERT INTO [IdentityTable]([Name])
+OUTPUT [INSERTED].[SeqNo], [INSERTED].[Name] INTO [#_TempTable1]
+    SELECT tvp.[Name]
+    FROM @TableVariable tvp;
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @TableVariable = UDT_IdentityTable_Type1 (TableValuedParameter, 2 rows)
+--     [0] Name = 'Johnny' (String)
+--     [1] Name = 'Amy' (String)
+
+DROP TYPE [UDT_IdentityTable_Type1]

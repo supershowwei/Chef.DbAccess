@@ -1,0 +1,17 @@
+﻿CREATE TYPE UDT_Club_Type1 AS TABLE
+(
+    [ClubID] INT, [Name] NVARCHAR(MAX), [IsActive] BIT
+)
+
+INSERT INTO [Club]([ClubID], [Name], [IsActive])
+    SELECT tvp.[ClubID], tvp.[Name], tvp.[IsActive]
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [Club] [clu_1]
+            WHERE [clu_1].[ClubID] = tvp.[ClubID]);
+-- @TableVariable = UDT_Club_Type1 (TableValuedParameter, 2 rows)
+--     [0] ClubID = 29 (Int32), Name = 'TestClub1' (String), IsActive = False (Boolean)
+--     [1] ClubID = 32 (Int32), Name = 'TestClub2' (String), IsActive = True (Boolean)
+
+DROP TYPE [UDT_Club_Type1]

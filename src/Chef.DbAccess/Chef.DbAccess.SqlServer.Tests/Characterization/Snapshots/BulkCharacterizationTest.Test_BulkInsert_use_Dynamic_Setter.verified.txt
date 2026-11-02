@@ -1,0 +1,13 @@
+﻿CREATE TYPE UDT_Club_Type1 AS TABLE
+(
+    [ClubID] INT, [Name] NVARCHAR(MAX)
+)
+
+INSERT INTO [Club]([ClubID], [Name])
+    SELECT tvp.[ClubID], tvp.[Name]
+    FROM @TableVariable tvp;
+-- @TableVariable = UDT_Club_Type1 (TableValuedParameter, 2 rows)
+--     [0] ClubID = 101 (Int32), Name = 'TestClub1' (String)
+--     [1] ClubID = 501 (Int32), Name = 'TestClub2' (String)
+
+DROP TYPE [UDT_Club_Type1]

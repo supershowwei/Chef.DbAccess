@@ -1,0 +1,16 @@
+﻿CREATE TYPE UDT_Club_Type1 AS TABLE
+(
+    [Name] NVARCHAR(MAX), [ClubID] INT
+)
+
+UPDATE [Club]
+SET [Name] = tvp.[Name]
+FROM [Club] t
+INNER JOIN @TableVariable tvp
+    ON t.[ClubID] = tvp.[ClubID];
+-- @TableVariable = UDT_Club_Type1 (TableValuedParameter, 3 rows)
+--     [0] Name = '歐陽邦瑋100' (String), ClubID = 15 (Int32)
+--     [1] Name = '羅怡君100' (String), ClubID = 16 (Int32)
+--     [2] Name = '楊翊貴100' (String), ClubID = 19 (Int32)
+
+DROP TYPE [UDT_Club_Type1]

@@ -1,0 +1,81 @@
+﻿CREATE TYPE UDT_Club_Type1 AS TABLE
+(
+    [Name] NVARCHAR(MAX), [ClubID] INT
+)
+
+-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name] INTO [#_TempTable1]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0;
+
+UPDATE [Club]
+SET [Name] = tvp.[Name]
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable1]
+FROM [Club] t
+INNER JOIN @TableVariable tvp
+    ON (t.[ClubID] >= tvp.[ClubID]) AND (t.[ClubID] <= tvp.[ClubID])
+
+INSERT INTO [Club]([Name], [ClubID])
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable1]
+    SELECT tvp.[Name], tvp.[ClubID]
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [Club] t WITH (NOLOCK)
+            WHERE (t.[ClubID] >= tvp.[ClubID]) AND (t.[ClubID] <= tvp.[ClubID]));
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @TableVariable = UDT_Club_Type1 (TableValuedParameter, 2 rows)
+--     [0] Name = 'TestClub1' (String), ClubID = 101 (Int32)
+--     [1] Name = 'TestClub2' (String), ClubID = 501 (Int32)
+
+-- COMMIT TRANSACTION
+
+DROP TYPE [UDT_Club_Type1]
+
+CREATE TYPE UDT_Club_Type2 AS TABLE
+(
+    [Name] NVARCHAR(MAX), [ClubID] INT
+)
+
+-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS INT) AS [Id], [Name] INTO [#_TempTable2]
+FROM [Club] WITH (NOLOCK)
+WHERE 1 = 0;
+
+UPDATE [Club]
+SET [Name] = tvp.[Name]
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable2]
+FROM [Club] t
+INNER JOIN @TableVariable tvp
+    ON t.[ClubID] = tvp.[ClubID]
+
+INSERT INTO [Club]([Name], [ClubID])
+OUTPUT [INSERTED].[ClubID], [INSERTED].[Name] INTO [#_TempTable2]
+    SELECT tvp.[Name], tvp.[ClubID]
+    FROM @TableVariable tvp
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [Club] t WITH (NOLOCK)
+            WHERE t.[ClubID] = tvp.[ClubID]);
+
+SELECT
+    *
+FROM [#_TempTable2]
+
+DROP TABLE [#_TempTable2]
+-- @TableVariable = UDT_Club_Type2 (TableValuedParameter, 2 rows)
+--     [0] Name = 'TestClub3' (String), ClubID = 101 (Int32)
+--     [1] Name = 'TestClub4' (String), ClubID = 501 (Int32)
+
+-- COMMIT TRANSACTION
+
+DROP TYPE [UDT_Club_Type2]
