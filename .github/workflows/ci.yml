@@ -142,3 +142,51 @@ jobs:
           name: received-snapshots-sqlserver2016-${{ matrix.compatibility-level }}
           path: '**/*.received.*'
           if-no-files-found: ignore
+
+  benchmark-allocations:
+    # §10.3：配置數量不受機器影響，與 allocation-baseline.json 比對，增加就失敗；還沒有基準檔時只記錄。
+    # 要跑完所有基準情境，觸發範圍與 2016 相容性測試相同
+    if: github.ref == 'refs/heads/master' || github.base_ref == 'master' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+
+      # 依 global.json 安裝 SDK
+      - uses: actions/setup-dotnet@v6
+
+      # 與 benchmarks.yml 相同，使用映像檔內建的 LocalDB
+      - name: Start LocalDB
+        shell: pwsh
+        run: |
+          sqllocaldb start MSSQLLocalDB
+          if ($LASTEXITCODE -ne 0) { throw '啟動 LocalDB 失敗' }
+
+      # 只看配置數量：BenchmarkDotNet 在量測之後另外跑一輪取得配置數量，量測輪數不影響結果，
+      # 所以暖機 3 輪讓快取建好，量測只跑 1 輪，每輪 100 毫秒
+      - name: Run benchmarks
+        shell: pwsh
+        run: dotnet run -c Release -f net10.0 --project src/Chef.DbAccess/Chef.DbAccess.Benchmarks -- --filter '*' --runtimes net10.0 net48 --launchCount 1 --warmupCount 3 --iterationCount 1 --iterationTime 100 --exporters briefjson --artifacts (Join-Path $env:RUNNER_TEMP 'allocations')
+
+      - name: Compare allocations
+        shell: pwsh
+        run: ./src/Chef.DbAccess/Chef.DbAccess.Benchmarks/compare-allocations.ps1 -Results (Join-Path $env:RUNNER_TEMP 'allocations/results') -Output (Join-Path $env:RUNNER_TEMP 'allocation-baseline.json')
+
+      # 以這次結果產生的基準檔：配置變化符合預期時，下載下來取代 allocation-baseline.json
+      - name: Upload allocation baseline
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allocation-baseline
+          path: ${{ runner.temp }}/allocation-baseline.json
+          if-no-files-found: ignore
+
+      - name: Upload benchmark logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allocation-benchmark-logs
+          path: ${{ runner.temp }}/allocations
+          if-no-files-found: ignore
