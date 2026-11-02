@@ -1,0 +1,5 @@
+﻿SELECT [clu_1].[ClubID] AS [Id], [clu_1].[Name]
+FROM [Club] [clu_1] WITH (NOLOCK)
+WHERE ([clu_1].[RunningTime] < @RunningTime_0) AND ([clu_1].[IsActive] = {=IsActive_0});
+-- @RunningTime_0 = {DateTime.Now} (DateTime)
+-- @IsActive_0 = False (Boolean)

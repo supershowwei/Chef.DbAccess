@@ -1,0 +1,7 @@
+﻿SELECT * FROM
+(
+SELECT [clu_1].[ClubID] AS [Id]
+FROM [Club] [clu_1] WITH (NOLOCK)
+GROUP BY clu_1.[ClubID]
+) [__T__]
+ORDER BY [Id] ASC;

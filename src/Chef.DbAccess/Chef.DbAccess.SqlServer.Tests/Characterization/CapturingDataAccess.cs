@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,17 +11,18 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
 {
     /// <summary>
     /// 攔截 3.x 要送往資料庫的 SQL 與參數，不建立任何連線。
-    /// 只覆寫目前的快照測試會走到的 Execute 方法，其他方法仍然會真的連線。
+    /// 只覆寫目前的快照測試會走到的 Execute 方法；走到沒覆寫的方法會在建立連線時丟出例外。
     /// </summary>
     internal class CapturingDataAccess<T> : SqlServerDataAccess<T>
     {
-        // 不會真的連線，只是讓 3.x 有一個合法的連線字串可以解析
-        private const string UnusedConnectionString = @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True";
+        // SqlConnection 不認得這個關鍵字，沒覆寫到的 Execute 方法一建立連線就會失敗，
+        // 不會在 LocalDB 開著的時候默默查詢真正的資料庫
+        private const string NeverConnect = ";Capture Only=True";
 
         private readonly List<string> commands = new List<string>();
 
         public CapturingDataAccess()
-            : base(null, UnusedConnectionString)
+            : base(null, ResolveConnectionString() + NeverConnect)
         {
         }
 
@@ -34,6 +36,15 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.Capture(sql, param);
 
             return Task.FromResult(new List<TResult>());
+        }
+
+        // 和 SqlServerDataAccessFactory.Create<T>() 一樣從模型的 [ConnectionString] 取得連線字串：
+        // JOIN 時 3.x 會比對兩邊的資料庫名稱，決定要不要加上 [資料庫].[結構描述] 前綴
+        private static string ResolveConnectionString()
+        {
+            var attribute = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true).Single();
+
+            return SqlServerDataAccessFactory.Instance.GetConnectionString(attribute.ConnectionString);
         }
 
         private void Capture(string sql, object param)
@@ -73,6 +84,10 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
 
                 case string text:
                     return $"'{text}' (String)";
+
+                // 保留毫秒與 DateTimeKind，預設格式兩者都會遺失
+                case DateTime dateTime:
+                    return $"{dateTime:O} (DateTime)";
 
                 case IEnumerable items:
                     return $"[{string.Join(", ", items.Cast<object>().Select(FormatValue))}] ({value.GetType().Name})";
