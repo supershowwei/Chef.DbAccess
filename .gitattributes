@@ -1,0 +1,3 @@
+# Verify 快照：一律以 LF、UTF-8 存放，避免 core.autocrlf 改成 CRLF 後比對失敗
+*.verified.txt text eol=lf working-tree-encoding=UTF-8
+*.verified.json text eol=lf working-tree-encoding=UTF-8

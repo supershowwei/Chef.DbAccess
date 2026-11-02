@@ -16,6 +16,8 @@
     <PackageVersion Include="MSTest.TestAdapter" Version="3.11.1" />
     <PackageVersion Include="MSTest.TestFramework" Version="3.11.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- 31.0 起要求 MSTest v4（D9 採用 MSTest v3），30.20.1 是相容 MSTest 3.11 的最後一版 -->
+    <PackageVersion Include="Verify.MSTest" Version="30.20.1" />
   </ItemGroup>
 
 </Project>

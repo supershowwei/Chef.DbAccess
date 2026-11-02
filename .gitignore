@@ -350,3 +350,6 @@ MigrationBackup/
 .ionide/
 
 efcore
+
+# Verify 快照比對失敗時產生的檔案
+*.received.*
