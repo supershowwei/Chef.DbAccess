@@ -18,7 +18,13 @@
     <PackageReference Include="MSTest.TestAdapter" />
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Verify.MSTest" />
+  </ItemGroup>
+
+  <!-- 以 Testcontainers 啟動 SQL Server 時，用同一份腳本建立測試資料庫 -->
+  <ItemGroup>
+    <None Include="..\..\..\test\SampleDB.sql" Link="SampleDB.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">

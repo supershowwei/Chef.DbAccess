@@ -42,3 +42,28 @@ jobs:
           name: received-snapshots
           path: '**/*.received.*'
           if-no-files-found: ignore
+
+  integration-test:
+    # 需要資料庫的整合測試與資料快照：以 Testcontainers 啟動 SQL Server 容器並建立測試資料庫。
+    # Linux 無法執行 .NET Framework，只跑 net10.0
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      CHEF_TEST_SQLSERVER: container
+    steps:
+      - uses: actions/checkout@v7
+
+      # 依 global.json 安裝 SDK
+      - uses: actions/setup-dotnet@v6
+
+      - name: Test
+        run: dotnet test src/Chef.DbAccess/Chef.DbAccess.SqlServer.Tests --configuration Release --framework net10.0 --filter "TestCategory=Integration"
+
+      - name: Upload received snapshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: received-snapshots-integration
+          path: '**/*.received.*'
+          if-no-files-found: ignore

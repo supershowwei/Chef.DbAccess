@@ -17,8 +17,8 @@ foreach ($db in $databases) {
     if ($LASTEXITCODE -ne 0) { throw "刪除資料庫 $db 失敗" }
 }
 
-# SampleDB.sql 是 Big5 編碼，以字碼頁 950 讀取
-sqlcmd -S $Server -E -b -f 950 -i (Join-Path $PSScriptRoot 'SampleDB.sql') | Out-Null
+# SampleDB.sql 是 UTF-8 編碼，以字碼頁 65001 讀取
+sqlcmd -S $Server -E -b -f 65001 -i (Join-Path $PSScriptRoot 'SampleDB.sql') | Out-Null
 if ($LASTEXITCODE -ne 0) { throw '執行 SampleDB.sql 失敗' }
 
 Write-Host "已在 $Server 建立測試資料庫：$($databases -join '、')"

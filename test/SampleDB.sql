@@ -1,4 +1,4 @@
-USE [master]
+ï»¿USE [master]
 GO
 /****** Object:  Database [Club]    Script Date: 2020/01/08 11:01:07 ******/
 CREATE DATABASE [Club]
@@ -146,34 +146,34 @@ USE [Club]
 GO
 INSERT INTO [Club] (ClubID, [Name], IsActive, Intro, RunningTime, IgnoreColumn)
 VALUES
-(9, N'§d¬ü´f', CONVERT(bit, 'True'), N'§d', NULL, NULL),
-(10, N'§f¨Î¿P', CONVERT(bit, 'True'), N'§f', NULL, NULL),
-(11, N'´^§e¨k', CONVERT(bit, 'False'), N'´^', NULL, NULL),
-(12, N'¶À«G­»', CONVERT(bit, 'False'), N'¶À', NULL, NULL),
-(15, N'¼Ú¶§¨¹Ş³', CONVERT(bit, 'False'), NULL, NULL, NULL),
-(16, N'Ã¹©É§g', CONVERT(bit, 'False'), NULL, NULL, NULL),
-(17, N'§d²Q®S', CONVERT(bit, 'True'), NULL, NULL, NULL),
-(18, N'³¯ÀR©É', CONVERT(bit, 'False'), N'³¯', NULL, NULL),
-(19, N'·¨Öö¶Q', CONVERT(bit, 'False'), N'·¨', NULL, NULL),
-(20, N'±i¨Î¦m', CONVERT(bit, 'False'), N'±i', NULL, NULL),
-(21, N'³¯©{§g', CONVERT(bit, 'True'), N'³¯', NULL, NULL),
-(23, N'¤ı³Í¶v', CONVERT(bit, 'False'), N'¤ı', NULL, NULL),
-(24, N'¿c©ú½÷', CONVERT(bit, 'False'), NULL, NULL, NULL),
-(25, N'¾H°¶¦¨', CONVERT(bit, 'True'), NULL, NULL, NULL),
-(26, N'½²©¯Ê¹', CONVERT(bit, 'True'), N'½²', NULL, NULL),
-(27, N'¬x¥õ¿«', CONVERT(bit, 'False'), N'¬x', NULL, NULL),
-(28, N'¾G¨K§¡', CONVERT(bit, 'True'), N'¾G', NULL, NULL),
-(29, N'©PªY©u', CONVERT(bit, 'False'), N'©P', NULL, NULL),
-(30, N'ªL©É±d', CONVERT(bit, 'False'), N'ªL', NULL, NULL),
-(31, N'³¯«T¦¨', CONVERT(bit, 'True'), N'³¯', NULL, NULL),
-(32, N'©P©ôÅï', CONVERT(bit, 'False'), N'©P', NULL, NULL),
-(33, N'³\®a¨q', CONVERT(bit, 'True'), N'³\', NULL, NULL),
-(34, N'¶À¤h·½', CONVERT(bit, 'True'), N'¶À', NULL, NULL),
-(35, N'ÁúÀR©y', CONVERT(bit, 'True'), N'Áú', NULL, N'Ignored'),
-(36, N'³s°¶µ¾', CONVERT(bit, 'True'), N'³s', NULL, NULL),
-(37, N'¼B«a¦Ë', CONVERT(bit, 'True'), N'¼B', NULL, NULL),
-(38, N'ÁÂ¬î»ô', CONVERT(bit, 'True'), N'ÁÂ', NULL, NULL),
-(39, N'¤ı¯u§Æ', CONVERT(bit, 'True'), N'¤ı', '2020-01-01 00:00:00.000', NULL)
+(9, N'å³ç¾æƒ ', CONVERT(bit, 'True'), N'å³', NULL, NULL),
+(10, N'å‘‚ä½³ç‡•', CONVERT(bit, 'True'), N'å‘‚', NULL, NULL),
+(11, N'å½­å‘ˆç”·', CONVERT(bit, 'False'), N'å½­', NULL, NULL),
+(12, N'é»ƒäº®é¦™', CONVERT(bit, 'False'), N'é»ƒ', NULL, NULL),
+(15, N'æ­é™½é‚¦ç‘‹', CONVERT(bit, 'False'), NULL, NULL, NULL),
+(16, N'ç¾…æ€¡å›', CONVERT(bit, 'False'), NULL, NULL, NULL),
+(17, N'å³æ·‘å¨Ÿ', CONVERT(bit, 'True'), NULL, NULL, NULL),
+(18, N'é™³éœæ€¡', CONVERT(bit, 'False'), N'é™³', NULL, NULL),
+(19, N'æ¥Šç¿Šè²´', CONVERT(bit, 'False'), N'æ¥Š', NULL, NULL),
+(20, N'å¼µä½³å¦ƒ', CONVERT(bit, 'False'), N'å¼µ', NULL, NULL),
+(21, N'é™³å®›å›', CONVERT(bit, 'True'), N'é™³', NULL, NULL),
+(23, N'ç‹å‡±éˆ', CONVERT(bit, 'False'), N'ç‹', NULL, NULL),
+(24, N'ç›§æ˜è¼', CONVERT(bit, 'False'), NULL, NULL, NULL),
+(25, N'é„§å‰æˆ', CONVERT(bit, 'True'), NULL, NULL, NULL),
+(26, N'è”¡å¹¸å¦', CONVERT(bit, 'True'), N'è”¡', NULL, NULL),
+(27, N'æ´ªä»°ç¿°', CONVERT(bit, 'False'), N'æ´ª', NULL, NULL),
+(28, N'é„­æ²›å‡', CONVERT(bit, 'True'), N'é„­', NULL, NULL),
+(29, N'å‘¨æ¬£å­£', CONVERT(bit, 'False'), N'å‘¨', NULL, NULL),
+(30, N'æ—æ€¡åº·', CONVERT(bit, 'False'), N'æ—', NULL, NULL),
+(31, N'é™³ä¿Šæˆ', CONVERT(bit, 'True'), N'é™³', NULL, NULL),
+(32, N'å‘¨æ—ºéºŸ', CONVERT(bit, 'False'), N'å‘¨', NULL, NULL),
+(33, N'è¨±å®¶ç§€', CONVERT(bit, 'True'), N'è¨±', NULL, NULL),
+(34, N'é»ƒå£«æº', CONVERT(bit, 'True'), N'é»ƒ', NULL, NULL),
+(35, N'éŸ“éœå®œ', CONVERT(bit, 'True'), N'éŸ“', NULL, N'Ignored'),
+(36, N'é€£å‰ç¿”', CONVERT(bit, 'True'), N'é€£', NULL, NULL),
+(37, N'åŠ‰å† ç«¹', CONVERT(bit, 'True'), N'åŠ‰', NULL, NULL),
+(38, N'è¬ç§‹é½Š', CONVERT(bit, 'True'), N'è¬', NULL, NULL),
+(39, N'ç‹çœŸå¸Œ', CONVERT(bit, 'True'), N'ç‹', '2020-01-01 00:00:00.000', NULL)
 GO
 
 /****** Object:  Database [Advertisement]    Script Date: 2020/05/18 11:06:57 ******/
@@ -332,7 +332,7 @@ CREATE TABLE [dbo].[AdvertisementSetting](
 GO
 
 INSERT INTO [AdvertisementSetting] (id, typeId, type, titleId, title, imageName, imageId, image, linkId, linkName, link, weightId, weight, state, stateName, scheduleId, scheduleName, StartTime, EndTime, description, CreateTime, platformId, platformName, LastUpdateTime, AdCode, OwnerId) VALUES
-('df31efe5-b78f-4b4b-954a-0078328e34d2', 6, N'1000x90­º­¶¤U', 54, N'¥~³¡¼s§i', N'¥~³¡¼s§i', 92, N' ', 41, N'¥~³¡¼s§i', N' ', 10, 100, 4, N'¥~³¡¼s§i', 0, NULL, NULL, NULL, N'', CONVERT(DATETIME, '2016-02-15 12:10:38.247', 121), 1, N'PC', CONVERT(DATETIME, '2016-02-15 12:10:38.247', 121), NULL, 1)
+('df31efe5-b78f-4b4b-954a-0078328e34d2', 6, N'1000x90é¦–é ä¸‹', 54, N'å¤–éƒ¨å»£å‘Š', N'å¤–éƒ¨å»£å‘Š', 92, N' ', 41, N'å¤–éƒ¨å»£å‘Š', N' ', 10, 100, 4, N'å¤–éƒ¨å»£å‘Š', 0, NULL, NULL, NULL, N'', CONVERT(DATETIME, '2016-02-15 12:10:38.247', 121), 1, N'PC', CONVERT(DATETIME, '2016-02-15 12:10:38.247', 121), NULL, 1)
 GO
 
 /****** Object:  Database [Member]    Script Date: 2020/05/20 09:37:33 ******/
@@ -504,7 +504,7 @@ GO
 
 
 INSERT INTO [Department] (Id, Name) VALUES
-(1, N'¦æ¾P³¡'),
-(2, N'·~°È³¡'),
-(3, N'¸³¨Æªø«Ç')
+(1, N'è¡ŒéŠ·éƒ¨'),
+(2, N'æ¥­å‹™éƒ¨'),
+(3, N'è‘£äº‹é•·å®¤')
 GO
