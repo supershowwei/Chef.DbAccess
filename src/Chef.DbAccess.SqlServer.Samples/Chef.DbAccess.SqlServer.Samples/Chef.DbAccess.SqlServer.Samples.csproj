@@ -2,7 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFrameworks>net10.0;net48</TargetFrameworks>
+    <!-- 暫時固定 C# 13：C# 14 在 .NET 10 會把 array.Contains(x) 綁定到 MemoryExtensions.Contains，3.x 無法翻譯。
+         Phase 7 改寫範例時移除這個設定。 -->
+    <LangVersion>13</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,9 +19,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Chef.DbAccess.SqlServer" Version="3.0.3" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.22" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.22" />
+  </ItemGroup>
+
+  <!-- MemberForBenchmark 用到 HashCode.Combine，.NET Framework 沒有內建 -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chef.DbAccess\Chef.DbAccess.SqlServer\Chef.DbAccess.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>
