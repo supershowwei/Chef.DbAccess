@@ -1,0 +1,69 @@
+name: Benchmarks
+
+# §10.2 的基準情境。完整跑一次要一個小時以上，只在 Actions 頁面手動觸發。
+# GitHub 提供的 runner 每次的硬體與負載都不同，時間只能拿同一次執行的結果互相比較（§10.3）
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: BenchmarkDotNet 的 --filter，例如 *BulkInsert*
+        required: true
+        default: '*'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmarks:
+    # .NET Framework 4.8 只能在 Windows 上執行，兩種執行環境在同一台機器上量
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      # 經過環境變數傳入，不直接把輸入值展開在指令裡
+      BENCHMARK_FILTER: ${{ inputs.filter }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # 依 global.json 安裝 SDK
+      - uses: actions/setup-dotnet@v6
+
+      # 使用映像檔內建的 LocalDB（Visual Studio 的元件），不另外安裝；沒有設定 CHEF_BENCHMARK_SQLSERVER 時，基準程式就連 MSSQLLocalDB。
+      # 版本由映像檔決定，先印出來留在 log 裡
+      - name: Start LocalDB
+        shell: pwsh
+        run: |
+          sqllocaldb start MSSQLLocalDB
+          if ($LASTEXITCODE -ne 0) { throw '啟動 LocalDB 失敗' }
+
+          sqlcmd -S '(localdb)\MSSQLLocalDB' -E -b -Q 'SELECT @@VERSION'
+
+      - name: Run benchmarks
+        shell: pwsh
+        run: dotnet run -c Release -f net10.0 --project src/Chef.DbAccess/Chef.DbAccess.Benchmarks -- --filter $env:BENCHMARK_FILTER --runtimes net10.0 net48 --artifacts (Join-Path $env:RUNNER_TEMP 'benchmarks')
+
+      # 每個情境的 GitHub markdown 報表附加到 job summary，在執行頁面上直接看表格
+      - name: Write job summary
+        if: always()
+        shell: pwsh
+        run: |
+          $reports = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'benchmarks/results') -Filter '*-report-github.md' -ErrorAction SilentlyContinue | Sort-Object Name
+          if (-not $reports) {
+              '沒有產生任何報表，請看 log。' >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          foreach ($report in $reports) {
+              "## $($report.Name -replace '-report-github\.md$', '')`n" >> $env:GITHUB_STEP_SUMMARY
+              Get-Content $report.FullName >> $env:GITHUB_STEP_SUMMARY
+              '' >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      # 完整的報表（md、csv、html）與 log，失敗時也上傳
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmarks
+          path: ${{ runner.temp }}/benchmarks
+          if-no-files-found: warn

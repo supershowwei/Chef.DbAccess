@@ -1178,7 +1178,7 @@ DROP TABLE [#chef_3f2a…];
 | SQL 快照測試 | 每個 LINQ 情境斷言產生的 SQL 與參數（`AssertSql(...)`，比照 EF Core 的 `*SqlServerTest.cs`） | 否 | `Chef.DbAccess.SqlServer.Tests/Query` |
 | 功能測試 | `QueryAsserter`：同一個查詢對 SQL Server 與記憶體資料各執行一次並比對結果，確保語意與 LINQ to Objects 一致（null、排序、分組） | 是 | `Chef.DbAccess.SqlServer.Tests/Functional` |
 | 3.x 特徵化 | Phase 0 錄下的 SQL 快照與資料快照，給 Phase 7 改寫後比對資料結果 | 部分 | `Chef.DbAccess.SqlServer.Tests/Characterization` |
-| 效能基準 | §10.2 放行條件；CI 每個 PR 比對配置數量，每晚在固定機器量測時間 | 是 | `Chef.DbAccess.Benchmarks` |
+| 效能基準 | §10.2 放行條件；CI 每個 PR 比對配置數量，時間在 GitHub runner 上手動觸發量測（`benchmarks.yml`），只看同一次執行裡的比值 | 是 | `Chef.DbAccess.Benchmarks` |
 | SQL Server 2016 SP1 相容性 | 產生的 SQL 關鍵字掃描（不需要資料庫）＋2016 SP1 實機整合測試（相容性層級 100、130） | 部分 | `Chef.DbAccess.SqlServer.Tests` |
 
 - 測試資料：以 `test/SampleDB.sql` 為基礎擴充（會員、部門、多對一、一對多、可為 null 的外鍵、`varchar` 欄位、全文檢索索引、跨資料庫）。
@@ -1211,7 +1211,11 @@ DROP TABLE [#chef_3f2a…];
 
 ### 10.2 放行條件
 
-以 BenchmarkDotNet（`MemoryDiagnoser`）在同一台機器、本機 SQL Server 上量測，**.NET 10 與 .NET Framework 4.8 兩種執行環境都要通過**。
+以 BenchmarkDotNet（`MemoryDiagnoser`）量測，**.NET 10 與 .NET Framework 4.8 兩種執行環境都要通過**。
+
+- **在哪裡量**：GitHub 提供的 Windows runner（`.github/workflows/benchmarks.yml`，手動觸發）。資料庫是同一台機器上映像檔內建的 LocalDB，不經過網路，函式庫本身的開銷在比值裡佔得更多，條件只會更嚴格。
+- **怎麼比**：runner 每次分配到的硬體與同機負載都不同，不同次執行的時間不能互相比較。所以下表的條件都以**同一次執行**裡一起量的比較對象為準；配置數量不受機器影響，可以跨次比較。
+- **比較對象要一直能執行**：5.0 發佈之前，基準專案都要能在同一次執行裡跑 3.x 與 Dapper。6.6 從函式庫刪除 3.x 程式碼與 Dapper 之後，3.x 要從 NuGet 套件取得；3.x 與 5.0 的組件名稱相同，不能直接在同一個專案參考兩者，做法在 6.6 決定。
 
 | 情境 | 比較對象 | 條件 |
 |---|---|---|
@@ -1227,11 +1231,13 @@ DROP TABLE [#chef_3f2a…];
 
 完整量測情境：主鍵查詢、條件＋分頁、三表 JOIN＋投影、一對多 Include、GroupBy、`Contains` 10／1,000／10,000 筆、ExecuteUpdate、Insert、BulkInsert、Raw SQL。另外附上 EF Core（`AsNoTracking`）作為參考，不列入放行條件。
 
+`Contains` 10,000 筆在 3.x 與 Dapper 都會超過 SQL Server 一次 2,100 個參數的上限而無法執行，沒有比較對象，Phase 0 的基準只量 10 與 1,000 筆，10,000 筆從 5.0 開始量。
+
 ### 10.3 怎麼確保做得到
 
 - **從 Phase 0 開始量**：基準專案與 3.x、Dapper 的基準數字在 Phase 0 就建立（0.8），不是最後才補。
 - **每個 preview 都要過關**：Phase 3（preview1）必須通過「物件產生」與「LINQ 主鍵查詢」的條件；Phase 6（preview4）必須通過 Raw SQL 與寫入的條件。沒過關就不發 preview，先調校。
-- **CI 防退化**：配置數量是固定值，每個 PR 都比對，增加就失敗；執行時間在固定機器上每晚量測，退步超過 5％ 時標記。
+- **CI 防退化**：配置數量是固定值，每個 PR 都比對，增加就失敗。執行時間沒有固定的機器可以跨次比較，改成每次量測都與 Dapper、3.x 一起量，看同一次執行裡的比值，比值變差就是退步。
 - **退路**：如果 Phase 8 結束時 Raw SQL 路徑仍然達不到條件，5.0 的 Raw SQL API 改成內部委派給 Dapper（`Chef.DbAccess.SqlServer` 重新相依 Dapper，API 與 `{=}` 語法不變），由專案負責人決定是否採用。所以最差的情況是和 Dapper 一樣快，不會更慢。LINQ 路徑沒有 Dapper 可以委派，對應的退路是 `ChefQuery.Compile`。
 
 ---
