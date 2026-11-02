@@ -979,7 +979,7 @@ DROP TABLE [#chef_3f2a…];
 
 - 方言選項 `UseSqlServer(o => o.TargetVersion(SqlServerVersion.V2016))` 是預設值。5.x 之後若要使用較新的函式（`TRIM`、`STRING_AGG`、`GREATEST`），必須明確調高版本；翻譯器依版本選擇寫法，版本也納入查詢快取鍵。
 - **防退化**：SQL 快照測試另外掃描所有產生的 SQL，出現 `TRIM(`、`GREATEST(`、`LEAST(`、`STRING_AGG`、`OPENJSON`、`STRING_SPLIT`、`IS DISTINCT FROM`、`DATETRUNC`、`CONCAT_WS` 等關鍵字就失敗（基準為 V2016 時）。
-- **實機驗證**：Linux 的 SQL Server 容器最舊只有 2017，所以 CI 另外用 Windows runner 安裝 SQL Server 2016 SP1 Express，在相容性層級 100 與 130 下各跑一次完整整合測試（Phase 0.6）。
+- **實機驗證**：Linux 的 SQL Server 容器最舊只有 2017，所以 CI 另外用 Windows runner 安裝 SQL Server 2016 SP1 Express LocalDB（與 Express 同一個引擎，安裝檔只有 44 MB），在相容性層級 100 與 130 下各跑一次完整整合測試（Phase 0.6）。安裝需要時間，只在 master 的 push、PR 與手動觸發時執行。
 
 ---
 
@@ -1061,7 +1061,7 @@ DROP TABLE [#chef_3f2a…];
 | 0.3 | 測試專案改成 SDK-style（MSTest v3，D9）、拆成 `Chef.DbAccess.Tests`（純單元）與 `Chef.DbAccess.SqlServer.Tests`（快照＋整合） | M |
 | 0.4 | **3.x 特徵化測試**：把各種 API 產生的 SQL 與參數錄成快照（不需要資料庫），再把整合測試結果錄成「資料快照」。5.0 不相容 3.x API，這些快照的用途是：同一個情境用 5.0 改寫後，**資料結果**要一致（SQL 文字可以不同） | M |
 | 0.5 | 整合測試基礎設施：Windows 開發機用 LocalDB（沿用 `test/SampleDB.sql`），CI 用 Testcontainers（`mcr.microsoft.com/mssql/server`，最舊 2017）；以 `[TestCategory("Integration")]` 區隔 | M |
-| 0.6 | GitHub Actions：build、單元＋快照測試、整合測試（Linux＋容器）、**SQL Server 2016 SP1 相容性測試**（Windows runner＋2016 SP1 Express，相容性層級 100 與 130，§5.16）、`dotnet pack` | M |
+| 0.6 | GitHub Actions：build、單元＋快照測試、整合測試（Linux＋容器）、**SQL Server 2016 SP1 相容性測試**（Windows runner＋2016 SP1 Express LocalDB，相容性層級 100 與 130，§5.16）、`dotnet pack` | M |
 | 0.7 | 測試與範例專案的目標設為 `net10.0;net48`（同時驗證 .NET 與 .NET Framework），改成 ProjectReference | S |
 | 0.8 | `Chef.DbAccess.Benchmarks`（BenchmarkDotNet）：先錄下 3.x 與 Dapper 在 §10.2 各情境的基準數字（.NET 10 與 .NET Framework 4.8）；CI 加入配置數量比對 | M |
 

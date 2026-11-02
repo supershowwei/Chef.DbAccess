@@ -4,6 +4,7 @@ on:
   push:
     branches: [master, 'v5/**']
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -65,5 +66,68 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: received-snapshots-integration
+          path: '**/*.received.*'
+          if-no-files-found: ignore
+
+  sqlserver-2016-test:
+    # 最低支援版本 SQL Server 2016 SP1（§5.16）：Linux 容器最舊只有 2017，所以在 Windows 安裝 2016 SP1 LocalDB，
+    # 在相容性層級 100 與 130 下各跑一次整合測試。安裝需要時間，只在 master 的 push、PR 與手動觸發時執行
+    if: github.ref == 'refs/heads/master' || github.base_ref == 'master' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        compatibility-level: [100, 130]
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      CHEF_TEST_SQLSERVER: 'Data Source=(localdb)\Chef2016;Integrated Security=True;TrustServerCertificate=True'
+      # 微軟官方的 2016 SP1 LocalDB 安裝檔（13.1.4001.0），以 SHA256 確認檔案沒有被換掉
+      LOCALDB_URL: https://download.microsoft.com/download/9/0/7/907AD35F-9F9C-43A5-9789-52470555DB90/ENU/SqlLocalDB.msi
+      LOCALDB_SHA256: 413E739B79068BA0D91A8C62DB14BCCD37591E86515F4AE74F4C91C270F02D45
+    steps:
+      - uses: actions/checkout@v7
+
+      # 依 global.json 安裝 SDK
+      - uses: actions/setup-dotnet@v6
+
+      # 快取安裝檔：少一次下載，微軟撤掉下載連結時也還能從快取安裝（快取 7 天沒有使用會被清除）
+      - name: Cache SQL Server 2016 SP1 LocalDB installer
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/localdb-installer
+          key: sqllocaldb-2016sp1-${{ env.LOCALDB_SHA256 }}
+
+      # runner 可能已經裝了較新版的 LocalDB，建立執行個體時明確指定 13.0
+      - name: Install SQL Server 2016 SP1 LocalDB
+        shell: pwsh
+        run: |
+          $msi = Join-Path $env:RUNNER_TEMP 'localdb-installer/SqlLocalDB.msi'
+          if (-not (Test-Path $msi)) {
+              New-Item -ItemType Directory -Force (Split-Path $msi) | Out-Null
+              Invoke-WebRequest $env:LOCALDB_URL -OutFile $msi
+          }
+          if ((Get-FileHash $msi -Algorithm SHA256).Hash -ne $env:LOCALDB_SHA256) { throw 'SqlLocalDB.msi 的 SHA256 不符' }
+
+          $process = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart IACCEPTSQLLOCALDBLICENSETERMS=YES" -Wait -PassThru
+          if ($process.ExitCode -notin 0, 3010) { throw "安裝 SQL Server 2016 SP1 LocalDB 失敗（結束代碼 $($process.ExitCode)）" }
+
+          sqllocaldb create Chef2016 13.0 -s
+          if ($LASTEXITCODE -ne 0) { throw '建立 LocalDB 執行個體失敗' }
+
+          sqlcmd -S '(localdb)\Chef2016' -E -b -Q 'SELECT @@VERSION'
+
+      - name: Create test databases
+        shell: pwsh
+        run: ./test/setup-localdb.ps1 -Server '(localdb)\Chef2016' -CompatibilityLevel ${{ matrix.compatibility-level }}
+
+      - name: Test
+        run: dotnet test src/Chef.DbAccess/Chef.DbAccess.SqlServer.Tests --configuration Release --filter "TestCategory=Integration"
+
+      - name: Upload received snapshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: received-snapshots-sqlserver2016-${{ matrix.compatibility-level }}
           path: '**/*.received.*'
           if-no-files-found: ignore
