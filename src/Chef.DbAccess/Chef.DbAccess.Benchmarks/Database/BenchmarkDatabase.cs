@@ -25,7 +25,7 @@ namespace Chef.DbAccess.Benchmarks.Database
         private const string LocalDbConnectionString = @"Data Source=(LocalDb)\MSSQLLocalDB;Integrated Security=True";
 
         // 資料表結構或種子資料改變時加一，既有的基準資料庫會被刪除重建
-        private const int SchemaVersion = 1;
+        private const int SchemaVersion = 2;
 
         private static readonly object SyncRoot = new object();
 
@@ -124,6 +124,19 @@ CREATE TABLE [Department] (
 
 CREATE TABLE [Member] (
     [Id] INT NOT NULL PRIMARY KEY,
+    [Name] NVARCHAR(50) NOT NULL,
+    [Email] VARCHAR(100) NULL,
+    [Age] INT NULL,
+    [Balance] DECIMAL(18, 2) NOT NULL,
+    [IsActive] BIT NOT NULL,
+    [CreatedAt] DATETIME2 NOT NULL,
+    [UpdatedAt] DATETIME2 NULL,
+    [Token] UNIQUEIDENTIFIER NOT NULL,
+    [DepartmentId] INT NOT NULL);
+
+-- 寫入情境專用，欄位與 Member 相同，Id 由資料庫產生；查詢情境的 Member 資料因此不會被改動
+CREATE TABLE [MemberWrite] (
+    [Id] INT NOT NULL IDENTITY PRIMARY KEY,
     [Name] NVARCHAR(50) NOT NULL,
     [Email] VARCHAR(100) NULL,
     [Age] INT NULL,

@@ -21,6 +21,22 @@ namespace Chef.DbAccess.Benchmarks.Database
             var expectedRows = expected.OrderBy(x => x?.Id).Select(Describe).ToList();
             var actualRows = actual.OrderBy(x => x?.Id).Select(Describe).ToList();
 
+            AssertSame(name, expectedRows, actualRows);
+        }
+
+        /// <summary>
+        /// 比對寫入的資料。Id 由資料庫產生，而 INSERT ... SELECT 不保證產生 Id 的順序，所以不比 Id，排序後逐筆比對。
+        /// </summary>
+        public static void AssertSame(string name, IEnumerable<MemberWrite> expected, IEnumerable<MemberWrite> actual)
+        {
+            var expectedRows = expected.Select(Describe).OrderBy(x => x, StringComparer.Ordinal).ToList();
+            var actualRows = actual.Select(Describe).OrderBy(x => x, StringComparer.Ordinal).ToList();
+
+            AssertSame(name, expectedRows, actualRows);
+        }
+
+        private static void AssertSame(string name, List<string> expectedRows, List<string> actualRows)
+        {
             if (expectedRows.Count == 0 || expectedRows.Contains(null)) throw new InvalidOperationException($"{name}：基準寫法沒有查到資料");
 
             if (expectedRows.Count != actualRows.Count) throw new InvalidOperationException($"{name}：筆數不同（{expectedRows.Count}／{actualRows.Count}）");
@@ -54,6 +70,22 @@ namespace Chef.DbAccess.Benchmarks.Database
                 member.Department?.Name,
                 member.Department?.Company?.Id,
                 member.Department?.Company?.Name);
+        }
+
+        private static string Describe(MemberWrite member)
+        {
+            return string.Join(
+                " | ",
+                member.Name,
+                member.Email,
+                member.Age,
+                // 記憶體中的值與 DECIMAL(18, 2) 讀回的值小數位數可能不同（1.5 與 1.50），固定成兩位
+                member.Balance.ToString("F2", CultureInfo.InvariantCulture),
+                member.IsActive,
+                member.CreatedAt.ToString("O"),
+                member.UpdatedAt?.ToString("O"),
+                member.Token,
+                member.DepartmentId);
         }
     }
 }
