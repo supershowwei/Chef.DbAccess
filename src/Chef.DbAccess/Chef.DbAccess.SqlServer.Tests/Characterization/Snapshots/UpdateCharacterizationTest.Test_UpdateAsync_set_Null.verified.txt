@@ -1,0 +1,6 @@
+﻿UPDATE [clu_1]
+SET [clu_1].[Intro] = @Intro_0
+FROM [Club] [clu_1]
+WHERE [clu_1].[ClubID] = {=Id_0};
+-- @Intro_0 = NULL
+-- @Id_0 = 36 (Int32)

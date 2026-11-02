@@ -1,0 +1,14 @@
+﻿-- BEGIN TRANSACTION
+
+UPDATE [clu_1]
+SET [clu_1].[Name] = @Name
+FROM [Club] [clu_1]
+WHERE [clu_1].[ClubID] = {=Id};
+-- [0] @Id = 15 (Int32)
+-- [0] @Name = '歐陽邦瑋100' (String)
+-- [1] @Id = 16 (Int32)
+-- [1] @Name = '羅怡君100' (String)
+-- [2] @Id = 19 (Int32)
+-- [2] @Name = '楊翊貴100' (String)
+
+-- COMMIT TRANSACTION

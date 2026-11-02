@@ -1,0 +1,6 @@
+﻿UPDATE [clu_1]
+SET [clu_1].[Name] = @Name_0
+FROM [Club] [clu_1]
+WHERE [clu_1].[ClubID] = {=Id_0};
+-- @Name_0 = '歐陽邦瑋123' (String)
+-- @Id_0 = 15 (Int32)
