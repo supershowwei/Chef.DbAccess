@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Description>Generic Data Access Object Interfaces</Description>
+    <PackageTags>Dapper DbAccess DataAccess DataAccessObject Fluent GenericRepository</PackageTags>
   </PropertyGroup>
 
 </Project>

@@ -35,6 +35,17 @@ jobs:
       - name: Test
         run: dotnet test src/Chef.DbAccess/Chef.DbAccess.sln --configuration Release --no-build --filter "TestCategory!=Integration"
 
+      # 只產出套件供下載檢查，不發佈；測試專案不會被打包
+      - name: Pack
+        run: dotnet pack src/Chef.DbAccess/Chef.DbAccess.sln --configuration Release --no-build --output ${{ runner.temp }}/packages
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+          if-no-files-found: error
+
       # 快照比對失敗時，Verify 會在快照旁寫出 *.received.*，上傳後可以下載比對
       - name: Upload received snapshots
         if: failure()

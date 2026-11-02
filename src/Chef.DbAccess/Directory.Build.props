@@ -6,4 +6,14 @@
     <VersionSuffix>alpha</VersionSuffix>
   </PropertyGroup>
 
+  <!-- 套件 metadata；Description 與 PackageTags 寫在各專案 -->
+  <PropertyGroup>
+    <Authors>supershowwei</Authors>
+    <Copyright>Copyright (c) 2020 supershowwei</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/supershowwei/Chef.DbAccess</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/supershowwei/Chef.DbAccess</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
 </Project>
