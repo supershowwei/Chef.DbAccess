@@ -22,7 +22,15 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         private readonly List<string> commands = new List<string>();
 
         public CapturingDataAccess()
-            : base(null, ResolveConnectionString() + NeverConnect)
+            : this(null)
+        {
+        }
+
+        /// <summary>
+        /// 對應 SqlServerDataAccessFactory.Create&lt;T&gt;(null, nameOrConnectionString)。
+        /// </summary>
+        public CapturingDataAccess(string nameOrConnectionString)
+            : base(null, ResolveConnectionString(nameOrConnectionString) + NeverConnect)
         {
         }
 
@@ -36,6 +44,13 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.Capture(sql, param);
 
             return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<TResult> ExecuteQueryOneAsync<TResult>(string sql, object param)
+        {
+            this.Capture(sql, param);
+
+            return Task.FromResult(default(TResult));
         }
 
         // 以下是 JOIN 用的多表版本，setter 只負責組合物件，不影響送出的 SQL
@@ -123,11 +138,17 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
 
         // 和 SqlServerDataAccessFactory.Create<T>() 一樣從模型的 [ConnectionString] 取得連線字串：
         // JOIN 時 3.x 會比對兩邊的資料庫名稱，決定要不要加上 [資料庫].[結構描述] 前綴
-        private static string ResolveConnectionString()
+        private static string ResolveConnectionString(string nameOrConnectionString)
         {
-            var attribute = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true).Single();
+            var attributes = typeof(T).GetCustomAttributes<ConnectionStringAttribute>(true);
 
-            return SqlServerDataAccessFactory.Instance.GetConnectionString(attribute.ConnectionString);
+            var attribute = string.IsNullOrEmpty(nameOrConnectionString)
+                                ? attributes.Single()
+                                : attributes.SingleOrDefault(x => x.ConnectionString == nameOrConnectionString);
+
+            return attribute != null
+                       ? SqlServerDataAccessFactory.Instance.GetConnectionString(attribute.ConnectionString)
+                       : nameOrConnectionString;
         }
 
         private void Capture(string sql, object param, string splitOn = null)

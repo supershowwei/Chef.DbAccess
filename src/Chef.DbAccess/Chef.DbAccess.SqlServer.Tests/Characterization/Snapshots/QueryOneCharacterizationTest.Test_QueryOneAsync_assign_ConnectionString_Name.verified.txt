@@ -1,0 +1,4 @@
+﻿SELECT [as_1].[Id]
+FROM [AdvertisementSetting] [as_1] WITH (NOLOCK)
+WHERE [as_1].[Type] = @Type_0;
+-- @Type_0 = '1000x90首頁下' (String)

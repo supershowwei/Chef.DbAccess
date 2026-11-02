@@ -1,0 +1,4 @@
+﻿SELECT [use_1].[Id], [use_1].[NonExistentProp]
+FROM [Member] [use_1] WITH (NOLOCK)
+WHERE [use_1].[Id] = {=Id_0};
+-- @Id_0 = 1 (Int32)
