@@ -1,0 +1,16 @@
+﻿SELECT
+    CAST(0 AS INT) AS [Id], [Name], CAST(0 AS INT) AS [Age], [Phone], [Address] INTO [#_TempTable1]
+FROM [Member] WITH (NOLOCK)
+WHERE 1 = 0;
+
+DELETE [use_1]
+OUTPUT [DELETED].[Id], [DELETED].[Name], [DELETED].[Age], [DELETED].[Phone], [DELETED].[Address] INTO [#_TempTable1]
+FROM [Member] [use_1]
+WHERE [use_1].[Id] = {=Id_0};
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @Id_0 = 55 (Int32)

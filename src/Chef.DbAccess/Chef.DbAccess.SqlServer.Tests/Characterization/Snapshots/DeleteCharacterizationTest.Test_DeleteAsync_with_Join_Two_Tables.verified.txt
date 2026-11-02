@@ -1,0 +1,5 @@
+﻿DELETE [use_1]
+FROM [Member] [use_1]
+INNER JOIN [Member] [use_2] ON [use_1].[ManagerId] = [use_2].[Id]
+WHERE [use_2].[Id] = {=Id_0};
+-- @Id_0 = 3 (Int32)

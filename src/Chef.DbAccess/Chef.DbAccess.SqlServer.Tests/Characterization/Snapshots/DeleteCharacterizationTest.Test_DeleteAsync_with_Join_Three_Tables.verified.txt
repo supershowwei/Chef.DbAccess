@@ -1,0 +1,7 @@
+﻿DELETE [use_1]
+FROM [Member] [use_1]
+INNER JOIN [Department] [dep_2] ON [use_1].[DepartmentId] = [dep_2].[Id]
+INNER JOIN [Member] [use_3] ON [use_1].[ManagerId] = [use_3].[Id]
+WHERE ([dep_2].[Id] = {=DepId_0}) AND ([use_3].[Id] = {=Id_0});
+-- @DepId_0 = 2 (Int32)
+-- @Id_0 = 3 (Int32)

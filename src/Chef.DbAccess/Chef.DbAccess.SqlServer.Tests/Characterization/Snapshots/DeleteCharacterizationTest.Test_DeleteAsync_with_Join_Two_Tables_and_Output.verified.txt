@@ -1,0 +1,17 @@
+﻿SELECT
+    CAST(0 AS INT) AS [Id], [Name], CAST(0 AS INT) AS [Age], [Phone], [Address] INTO [#_TempTable1]
+FROM [Member]
+WHERE 1 = 0;
+
+DELETE [use_1]
+OUTPUT [DELETED].[Id], [DELETED].[Name], [DELETED].[Age], [DELETED].[Phone], [DELETED].[Address] INTO [#_TempTable1]
+FROM [Member] [use_1]
+INNER JOIN [Member] [use_2] ON [use_1].[ManagerId] = [use_2].[Id]
+WHERE [use_2].[Id] = {=Id_0};
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @Id_0 = 3 (Int32)
