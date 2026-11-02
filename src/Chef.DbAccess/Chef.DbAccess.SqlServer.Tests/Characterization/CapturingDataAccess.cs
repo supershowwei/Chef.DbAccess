@@ -27,13 +27,96 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         }
 
         /// <summary>
-        /// 依執行順序列出攔截到的命令，每個命令是 SQL 加上參數清單。
+        /// 依執行順序列出攔截到的命令，每個命令是 SQL 加上參數清單（JOIN 另外附上 splitOn）。
         /// </summary>
         public string CapturedCommands => string.Join("\n\n", this.commands);
 
         protected override Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
             this.Capture(sql, param);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        // 以下是 JOIN 用的多表版本，setter 只負責組合物件，不影響送出的 SQL
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth> sixthSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
+
+            return Task.FromResult(new List<TResult>());
+        }
+
+        protected override Task<List<TResult>> ExecuteQueryAsync<TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TResult>(
+            string sql,
+            Action<TResult, TSecond> secondSetter,
+            Action<TResult, TSecond, TThird> thirdSetter,
+            Action<TResult, TSecond, TThird, TFourth> fourthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth> fifthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth> sixthSetter,
+            Action<TResult, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh> seventhSetter,
+            object parameters,
+            string splitOn)
+        {
+            this.Capture(sql, parameters, splitOn);
 
             return Task.FromResult(new List<TResult>());
         }
@@ -47,13 +130,19 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             return SqlServerDataAccessFactory.Instance.GetConnectionString(attribute.ConnectionString);
         }
 
-        private void Capture(string sql, object param)
+        private void Capture(string sql, object param, string splitOn = null)
         {
             var builder = new StringBuilder(sql.Replace("\r\n", "\n").Trim());
 
             foreach (var parameter in GetParameters(param))
             {
                 builder.Append($"\n-- @{parameter.Key} = {FormatValue(parameter.Value)}");
+            }
+
+            // Dapper 依 splitOn 的欄位名稱把一列切成多個物件
+            if (splitOn != null)
+            {
+                builder.Append($"\n-- splitOn: {splitOn}");
             }
 
             this.commands.Add(builder.ToString());

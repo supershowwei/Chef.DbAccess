@@ -1,0 +1,9 @@
+﻿SELECT [use_1].[Id], [use_1].[Name], [use_2].[Id], [use_2].[Name], [use_3].[Id], [use_3].[Name], [use_4].[Id], [use_4].[Name]
+FROM [Member] [use_1] WITH (NOLOCK)
+LEFT JOIN [Member] [use_2] WITH (NOLOCK) ON [use_1].[Id] = [use_2].[ManagerId]
+LEFT JOIN [Member] [use_3] WITH (NOLOCK) ON [use_2].[Id] = [use_3].[ManagerId]
+LEFT JOIN [Member] [use_4] WITH (NOLOCK) ON [use_3].[Id] = [use_4].[ManagerId]
+WHERE [use_1].[Id] = {=Id_0} OR [use_1].[Id] = {=Id_1};
+-- @Id_0 = 1 (Int32)
+-- @Id_1 = 2 (Int32)
+-- splitOn: Id,Id,Id
