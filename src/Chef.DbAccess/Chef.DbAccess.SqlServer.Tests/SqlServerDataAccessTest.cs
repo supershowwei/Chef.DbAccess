@@ -22,12 +22,6 @@ namespace Chef.DbAccess.SqlServer.Tests
         [TestInitialize]
         public async Task Startup()
         {
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement2", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("WantGooConnection", @"Data Source=a.b.c.d;User ID=abc;Password=cba;Initial Catalog=AAA;Max Pool Size=50000");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("MallConnection", @"Data Source=d.c.b.a;User ID=abc;Password=cba;Initial Catalog=BBB;Max Pool Size=50000");
-
             // Clear temp clubs
             await DataAccessFactory.Create<Club>().Where(x => x.Id >= 100).DeleteAsync();
 
@@ -147,7 +141,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
     }
 
-    [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True")]
+    [ConnectionString("Club")]
     internal class Club
     {
         [Column("ClubID")]
@@ -171,7 +165,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         public string IgnoreColumn { get; set; }
     }
 
-    [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Club;Integrated Security=True")]
+    [ConnectionString("Club")]
     internal class IdentityTable
     {
         [Column("SeqNo")]
@@ -216,7 +210,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         public string Address { get; set; }
     }
 
-    [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Member;Integrated Security=True")]
+    [ConnectionString("Member")]
     [Table("Member")]
     internal class User
     {
@@ -278,7 +272,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         }
     }
 
-    [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Member;Integrated Security=True")]
+    [ConnectionString("Member")]
     [Table("Member")]
     internal class UserStatistics
     {
@@ -311,7 +305,7 @@ namespace Chef.DbAccess.SqlServer.Tests
         public User Subordinate { get; set; }
     }
 
-    [ConnectionString(@"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Member;Integrated Security=True")]
+    [ConnectionString("Member")]
     internal class Department
     {
         [Column("Id")]

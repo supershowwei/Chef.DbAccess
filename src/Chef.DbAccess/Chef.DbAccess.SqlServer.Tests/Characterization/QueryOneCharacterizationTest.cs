@@ -18,15 +18,6 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         // 與 SqlServerDataAccessTest 相同，給 use_this_Keyword 情境使用
         internal Club Club => new Club { Id = 25 };
 
-        [ClassInitialize]
-        public static void RegisterConnectionStrings(TestContext context)
-        {
-            // 與 SqlServerDataAccessTest.Startup 相同；不會真的連線，但 3.x 會從連線字串解析資料庫名稱
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement2", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-        }
-
         [TestMethod]
         public async Task Test_QueryOneAsync_use_String_Comparison()
         {

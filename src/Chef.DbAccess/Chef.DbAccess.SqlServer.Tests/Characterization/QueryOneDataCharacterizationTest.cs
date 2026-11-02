@@ -27,11 +27,6 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         [TestInitialize]
         public Task Startup()
         {
-            // 與 SqlServerDataAccessTest.Startup 相同
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement2", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-            SqlServerDataAccessFactory.Instance.AddConnectionString("Advertisement3", @"Data Source=(LocalDb)\MSSQLLocalDB;Initial Catalog=Advertisement;Integrated Security=True");
-
             return SqlServerDataAccessTest.RestoreSeedDataAsync();
         }
 
