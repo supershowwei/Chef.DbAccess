@@ -1,0 +1,20 @@
+﻿-- BEGIN TRANSACTION
+
+SELECT
+    CAST(0 AS BIGINT) AS [Id], [Name] INTO [#_TempTable1]
+FROM [IdentityTable] WITH (NOLOCK)
+WHERE 1 = 0
+
+INSERT INTO [IdentityTable]([Name])
+OUTPUT [INSERTED].[SeqNo], [INSERTED].[Name] INTO [#_TempTable1]
+    SELECT @Name
+-- [0] @Name = 'Johnny' (String)
+-- [1] @Name = 'Amy' (String)
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+
+-- COMMIT TRANSACTION

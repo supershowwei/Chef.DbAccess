@@ -1,0 +1,10 @@
+﻿INSERT INTO [Club]([ClubID], [Name], [IsActive])
+    SELECT {=Id}, @Name, {=IsActive}
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [Club] [clu_1]
+            WHERE [clu_1].[ClubID] = {=Id_0});
+-- @Id = 29 (Int32)
+-- @Name = 'TestClub' (String)
+-- @IsActive = False (Boolean)
+-- @Id_0 = 29 (Int32)

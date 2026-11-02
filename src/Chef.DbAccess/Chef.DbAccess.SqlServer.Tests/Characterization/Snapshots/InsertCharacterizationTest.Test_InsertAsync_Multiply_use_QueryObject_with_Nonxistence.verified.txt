@@ -1,0 +1,16 @@
+﻿-- BEGIN TRANSACTION
+
+INSERT INTO [Club]([ClubID], [Name], [IsActive])
+    SELECT {=Id}, @Name, {=IsActive}
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [Club] [clu_1]
+            WHERE [clu_1].[ClubID] = {=Id});
+-- [0] @Id = 32 (Int32)
+-- [0] @Name = 'TestClub999' (String)
+-- [0] @IsActive = True (Boolean)
+-- [1] @Id = 29 (Int32)
+-- [1] @Name = 'TestClub998' (String)
+-- [1] @IsActive = False (Boolean)
+
+-- COMMIT TRANSACTION

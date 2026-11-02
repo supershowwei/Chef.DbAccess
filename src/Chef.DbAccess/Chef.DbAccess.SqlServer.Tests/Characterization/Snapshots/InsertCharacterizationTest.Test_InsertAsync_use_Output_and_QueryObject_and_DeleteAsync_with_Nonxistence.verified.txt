@@ -1,0 +1,20 @@
+﻿SELECT
+    CAST(0 AS BIGINT) AS [Id], [Name] INTO [#_TempTable1]
+FROM [IdentityTable] WITH (NOLOCK)
+WHERE 1 = 0;
+
+INSERT INTO [IdentityTable]([Name])
+OUTPUT [INSERTED].[SeqNo], [INSERTED].[Name] INTO [#_TempTable1]
+    SELECT @Name_0
+    WHERE NOT EXISTS (SELECT
+                1
+            FROM [IdentityTable] [it_1]
+            WHERE [it_1].[Name] = @Name_1);
+
+SELECT
+    *
+FROM [#_TempTable1]
+
+DROP TABLE [#_TempTable1]
+-- @Name_0 = 'Johnny' (String)
+-- @Name_1 = 'Johnny' (String)

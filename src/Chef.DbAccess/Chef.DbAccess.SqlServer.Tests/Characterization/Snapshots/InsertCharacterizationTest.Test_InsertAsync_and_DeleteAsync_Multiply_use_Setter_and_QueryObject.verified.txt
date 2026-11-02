@@ -1,0 +1,10 @@
+﻿-- BEGIN TRANSACTION
+
+INSERT INTO [Club]([ClubID], [Name])
+    SELECT {=Id}, @Name;
+-- [0] @Id = 501 (Int32)
+-- [0] @Name = 'TestClub999' (String)
+-- [1] @Id = 101 (Int32)
+-- [1] @Name = 'TestClub998' (String)
+
+-- COMMIT TRANSACTION

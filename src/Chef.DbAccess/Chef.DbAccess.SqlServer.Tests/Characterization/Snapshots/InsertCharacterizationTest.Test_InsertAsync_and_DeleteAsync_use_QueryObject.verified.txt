@@ -1,0 +1,4 @@
+﻿INSERT INTO [Club]([ClubID], [Name])
+    SELECT {=Id_0}, @Name_0;
+-- @Id_0 = 101 (Int32)
+-- @Name_0 = 'TestClub' (String)

@@ -1,0 +1,5 @@
+﻿INSERT INTO [Club]([ClubID], [Name], [IsActive])
+    SELECT {=Id}, @Name, {=IsActive};
+-- @Id = 101 (Int32)
+-- @Name = 'TestClub' (String)
+-- @IsActive = False (Boolean)

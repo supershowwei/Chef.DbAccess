@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Chef.DbAccess.SqlServer.Tests.Characterization
@@ -18,6 +19,12 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         // SqlConnection 不認得這個關鍵字，沒覆寫到的 Execute 方法一建立連線就會失敗，
         // 不會在 LocalDB 開著的時候默默查詢真正的資料庫
         private const string NeverConnect = ";Capture Only=True";
+
+        // 標出 3.x 自行開啟的交易範圍（BeginTransaction／Commit）
+        private const string BeginTransaction = "-- BEGIN TRANSACTION";
+        private const string CommitTransaction = "-- COMMIT TRANSACTION";
+
+        private static readonly Regex TempTableNameRegex = new Regex("#_[0-9a-f]{32}");
 
         private readonly List<string> commands = new List<string>();
 
@@ -37,7 +44,7 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         /// <summary>
         /// 依執行順序列出攔截到的命令，每個命令是 SQL 加上參數清單（JOIN 另外附上 splitOn）。
         /// </summary>
-        public string CapturedCommands => string.Join("\n\n", this.commands);
+        public string CapturedCommands => ScrubTempTableNames(string.Join("\n\n", this.commands));
 
         protected override Task<List<TResult>> ExecuteQueryAsync<TResult>(string sql, object param)
         {
@@ -51,6 +58,50 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.Capture(sql, param);
 
             return Task.FromResult(default(TResult));
+        }
+
+        protected override Task<int> ExecuteCommandAsync(string sql, object param)
+        {
+            this.Capture(sql, param);
+
+            return Task.FromResult(0);
+        }
+
+        // 交易版本：照 3.x 的執行順序記錄，postSql／retractionSql 是在 Commit 之後、交易之外執行
+
+        protected override Task<int> ExecuteTransactionalCommandAsync(
+            string sql,
+            object param,
+            string declarationSql = null,
+            string retractionSql = null)
+        {
+            this.CaptureIfAny(declarationSql, null);
+            this.commands.Add(BeginTransaction);
+            this.Capture(sql, param);
+            this.commands.Add(CommitTransaction);
+            this.CaptureIfAny(retractionSql, null);
+
+            return Task.FromResult(0);
+        }
+
+        protected override Task<List<TResult>> ExecuteTransactionalQueryAsync<TResult>(
+            string sql,
+            object param,
+            string resultSql,
+            object resultParam,
+            string preSql = null,
+            object preParam = null,
+            string postSql = null,
+            object postParam = null)
+        {
+            this.commands.Add(BeginTransaction);
+            this.CaptureIfAny(preSql, preParam);
+            this.Capture(sql, param);
+            this.Capture(resultSql, resultParam);
+            this.commands.Add(CommitTransaction);
+            this.CaptureIfAny(postSql, postParam);
+
+            return Task.FromResult(new List<TResult>());
         }
 
         // 以下是 JOIN 用的多表版本，setter 只負責組合物件，不影響送出的 SQL
@@ -236,9 +287,9 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
         {
             var builder = new StringBuilder(sql.Replace("\r\n", "\n").Trim());
 
-            foreach (var parameter in GetParameters(param))
+            foreach (var line in FormatParameters(sql, param))
             {
-                builder.Append($"\n-- @{parameter.Key} = {FormatValue(parameter.Value)}");
+                builder.Append($"\n-- {line}");
             }
 
             // Dapper 依 splitOn 的欄位名稱把一列切成多個物件
@@ -250,18 +301,49 @@ namespace Chef.DbAccess.SqlServer.Tests.Characterization
             this.commands.Add(builder.ToString());
         }
 
-        private static IEnumerable<KeyValuePair<string, object>> GetParameters(object param)
+        // 3.x 的暫存資料表名稱是 #_ 加上 Guid，每次執行都不同；依出現順序改成 #_TempTable1、#_TempTable2…
+        private static string ScrubTempTableNames(string text)
+        {
+            var names = new Dictionary<string, string>();
+
+            return TempTableNameRegex.Replace(
+                text,
+                match =>
+                    {
+                        if (!names.TryGetValue(match.Value, out var name))
+                        {
+                            names.Add(match.Value, name = $"#_TempTable{names.Count + 1}");
+                        }
+
+                        return name;
+                    });
+        }
+
+        private void CaptureIfAny(string sql, object param)
+        {
+            if (!string.IsNullOrEmpty(sql)) this.Capture(sql, param);
+        }
+
+        private static IEnumerable<string> FormatParameters(string sql, object param)
         {
             switch (param)
             {
                 case null:
-                    return Enumerable.Empty<KeyValuePair<string, object>>();
+                    return Enumerable.Empty<string>();
 
                 case IDictionary<string, object> dictionary:
-                    return dictionary;
+                    return dictionary.Select(x => $"@{x.Key} = {FormatValue(x.Value)}");
 
+                // 多筆寫入：Dapper 對每個元素各執行一次同一段 SQL
+                case IEnumerable rows:
+                    return rows.Cast<object>().SelectMany((row, index) => FormatParameters(sql, row).Select(line => $"[{index}] {line}"));
+
+                // 實體或匿名物件：Dapper 只送出 SQL 裡有用到的屬性（@Name 或字面值替換的 {=Name}）
                 default:
-                    throw new NotSupportedException($"尚未支援的參數型別：{param.GetType()}");
+                    return param.GetType()
+                        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                        .Where(x => Regex.IsMatch(sql, $@"(@|\{{=){x.Name}(?![\p{{L}}\p{{N}}_])", RegexOptions.IgnoreCase))
+                        .Select(x => $"@{x.Name} = {FormatValue(x.GetValue(param))}");
             }
         }
 
