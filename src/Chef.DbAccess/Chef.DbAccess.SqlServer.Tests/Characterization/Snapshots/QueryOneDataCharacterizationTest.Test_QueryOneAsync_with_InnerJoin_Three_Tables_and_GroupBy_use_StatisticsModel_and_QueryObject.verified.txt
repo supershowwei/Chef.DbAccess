@@ -1,0 +1,16 @@
+﻿{
+  Id: 1,
+  Name: Johnny,
+  DepartmentName: 董事長室,
+  SubordinateCount: 0,
+  MaxSubordinateId: 4,
+  MinSubordinateId: 2,
+  SumSubordinateAge: 109,
+  TotalCount: 3,
+  AvgSubordinateAge: 36.333333,
+  DepartmentId: 0,
+  Department: null,
+  ManagerId: 0,
+  Manager: null,
+  Subordinate: null
+}

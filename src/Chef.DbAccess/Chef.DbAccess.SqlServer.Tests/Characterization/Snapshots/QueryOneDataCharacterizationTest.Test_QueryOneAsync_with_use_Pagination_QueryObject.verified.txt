@@ -1,0 +1,9 @@
+﻿{
+  Id: 12,
+  Name: 黃亮香,
+  IsActive: false,
+  Intro: null,
+  RunningTime: null,
+  Self: null,
+  IgnoreColumn: null
+}

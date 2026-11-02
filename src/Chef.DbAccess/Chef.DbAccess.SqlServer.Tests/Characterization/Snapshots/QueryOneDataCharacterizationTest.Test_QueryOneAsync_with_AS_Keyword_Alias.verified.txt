@@ -1,0 +1,10 @@
+﻿{
+  Type: null,
+  Id: df31efe5-b78f-4b4b-954a-0078328e34d2,
+  Image: null,
+  Link: null,
+  Weight: 0,
+  AdCode: null,
+  OwnerId: null,
+  Owner: null
+}

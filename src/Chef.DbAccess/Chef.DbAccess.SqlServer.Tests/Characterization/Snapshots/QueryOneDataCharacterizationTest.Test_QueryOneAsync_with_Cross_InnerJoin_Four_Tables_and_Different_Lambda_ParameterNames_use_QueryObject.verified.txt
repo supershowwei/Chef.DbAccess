@@ -1,0 +1,43 @@
+﻿{
+  Id: 1,
+  Name: Johnny,
+  Age: 0,
+  Phone: null,
+  Address: null,
+  SubordinateCount: 0,
+  MaxSubordinateId: 0,
+  SubordinateId: 0,
+  NonExistentProp: null,
+  Subordinate: null,
+  Subordinates: null,
+  DepartmentId: 0,
+  Department: {
+    DepId: 3,
+    Name: 董事長室
+  },
+  Departments: null,
+  ManagerId: 0,
+  Manager: {
+    Id: 2,
+    Name: Amy,
+    Age: 0,
+    Phone: null,
+    Address: null,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: {
+      DepId: 2,
+      Name: 業務部
+    },
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  },
+  Self: null
+}

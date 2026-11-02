@@ -1,0 +1,9 @@
+﻿{
+  Id: 0,
+  Name: 鄧偉成,
+  IsActive: false,
+  Intro: null,
+  RunningTime: null,
+  Self: null,
+  IgnoreColumn: null
+}

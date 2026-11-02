@@ -1,0 +1,50 @@
+﻿[
+  {
+    Id: 3,
+    Name: ThreeM,
+    DepartmentName: 行銷部,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    MinSubordinateId: 0,
+    SumSubordinateAge: 0,
+    TotalCount: 0,
+    AvgSubordinateAge: 0.0,
+    DepartmentId: 0,
+    Department: null,
+    ManagerId: 0,
+    Manager: null,
+    Subordinate: null
+  },
+  {
+    Id: 2,
+    Name: Amy,
+    DepartmentName: 業務部,
+    SubordinateCount: 1,
+    MaxSubordinateId: 1,
+    MinSubordinateId: 1,
+    SumSubordinateAge: 18,
+    TotalCount: 0,
+    AvgSubordinateAge: 18.000000,
+    DepartmentId: 0,
+    Department: null,
+    ManagerId: 0,
+    Manager: null,
+    Subordinate: null
+  },
+  {
+    Id: 1,
+    Name: Johnny,
+    DepartmentName: 董事長室,
+    SubordinateCount: 3,
+    MaxSubordinateId: 4,
+    MinSubordinateId: 2,
+    SumSubordinateAge: 109,
+    TotalCount: 0,
+    AvgSubordinateAge: 36.333333,
+    DepartmentId: 0,
+    Department: null,
+    ManagerId: 0,
+    Manager: null,
+    Subordinate: null
+  }
+]

@@ -1,0 +1,40 @@
+﻿[
+  {
+    Id: 1,
+    Name: null,
+    Age: 0,
+    Phone: null,
+    Address: null,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  },
+  {
+    Id: 3,
+    Name: null,
+    Age: 0,
+    Phone: null,
+    Address: null,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  }
+]

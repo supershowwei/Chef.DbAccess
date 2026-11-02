@@ -1,0 +1,28 @@
+﻿{
+  Type: null,
+  Id: df31efe5-b78f-4b4b-954a-0078328e34d2,
+  Image: null,
+  Link: null,
+  Weight: 0,
+  AdCode: null,
+  OwnerId: null,
+  Owner: {
+    Id: 1,
+    Name: Johnny,
+    Age: 0,
+    Phone: null,
+    Address: null,
+    SubordinateCount: 0,
+    MaxSubordinateId: 0,
+    SubordinateId: 0,
+    NonExistentProp: null,
+    Subordinate: null,
+    Subordinates: null,
+    DepartmentId: 0,
+    Department: null,
+    Departments: null,
+    ManagerId: 0,
+    Manager: null,
+    Self: null
+  }
+}
