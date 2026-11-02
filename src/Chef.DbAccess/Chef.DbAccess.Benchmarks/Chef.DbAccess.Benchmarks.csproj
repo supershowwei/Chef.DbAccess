@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net48</TargetFrameworks>
+    <!-- 與測試專案相同：C# 14 在 .NET 10 會把 array.Contains(x) 綁定到 MemoryExtensions.Contains，3.x 無法翻譯。
+         v5 的 Contains 翻譯要支援 C# 14，v5 的基準開始時移除這個設定。 -->
+    <LangVersion>13</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Dapper" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chef.DbAccess.SqlServer\Chef.DbAccess.SqlServer.csproj" />
+  </ItemGroup>
+
+</Project>

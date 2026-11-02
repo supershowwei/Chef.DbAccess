@@ -21,4 +21,8 @@
     <PackageVersion Include="Verify.MSTest" Version="30.20.1" />
   </ItemGroup>
 
+  <ItemGroup Label="Benchmarks">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
 </Project>
